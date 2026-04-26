@@ -30,13 +30,13 @@ export default function MoreSubUsers() {
                   <span className="ml-1.5 pill bg-brand-100 text-brand-700">You</span>
                 )}
               </p>
-              <p className="text-xs text-steel truncate flex items-center gap-1">
+              <p className="text-xs text-graphite truncate flex items-center gap-1">
                 <Mail className="w-3 h-3" /> {u.email}
               </p>
             </div>
             <span
               className={`pill ${
-                u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-iron text-steel'
+                u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-iron text-graphite'
               }`}
             >
               <Shield className="w-3 h-3 mr-1" /> {u.role}
@@ -45,7 +45,7 @@ export default function MoreSubUsers() {
         ))}
       </ul>
 
-      <div className="card text-center py-6 text-steel">
+      <div className="card text-center py-6 text-graphite">
         <Users className="w-8 h-8 mx-auto mb-2 text-graphite" />
         <p className="text-xs md:text-sm">
           Role-based access and invitations are still being built.

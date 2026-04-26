@@ -4,7 +4,7 @@ export default function MoreTCs() {
       <article className="card prose prose-sm max-w-none space-y-3">
         <header>
           <h2 className="text-base md:text-lg font-bold">Terms &amp; Conditions</h2>
-          <p className="text-[11px] md:text-xs text-steel">Last updated: April 2026</p>
+          <p className="text-[11px] md:text-xs text-graphite">Last updated: April 2026</p>
         </header>
 
         <Section title="1. Acceptance of terms">
@@ -46,8 +46,8 @@ export default function MoreTCs() {
 function Section({ title, children }) {
   return (
     <section>
-      <h3 className="text-sm md:text-base font-semibold text-white">{title}</h3>
-      <p className="text-xs md:text-sm text-white/75 leading-relaxed mt-1">
+      <h3 className="text-sm md:text-base font-semibold text-near-black">{title}</h3>
+      <p className="text-xs md:text-sm text-graphite leading-relaxed mt-1">
         {children}
       </p>
     </section>

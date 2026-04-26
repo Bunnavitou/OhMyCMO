@@ -20,13 +20,13 @@ const FILE_LIMIT_BYTES = 1024 * 1024 // 1 MB
 const channelStyle = (c) =>
     c === 'Facebook'    ? 'bg-blue-100 text-blue-700'
   : c === 'Instagram'   ? 'bg-pink-100 text-pink-700'
-  : c === 'TikTok'      ? 'bg-shadow text-white'
+  : c === 'TikTok'      ? 'bg-near-black text-white'
   : c === 'YouTube'     ? 'bg-red-100 text-red-700'
   : c === 'LinkedIn'    ? 'bg-sky-100 text-sky-700'
-  : c === 'X (Twitter)' ? 'bg-iron text-white'
+  : c === 'X (Twitter)' ? 'bg-near-black text-white'
   : c === 'Threads'     ? 'bg-violet-100 text-violet-700'
   : c === 'Telegram'    ? 'bg-cyan-100 text-cyan-700'
-  : 'bg-iron text-white/75'
+  : 'bg-iron text-graphite'
 
 const postTypeIcon = (type) => {
   if (type === 'Video' || type === 'Reel') return Video
@@ -39,7 +39,7 @@ const postTypePill = (type) =>
   : type === 'Video'     ? 'bg-violet-100 text-violet-700'
   : type === 'Carousel'  ? 'bg-amber-100 text-amber-700'
   : type === 'Story'     ? 'bg-sky-100 text-sky-700'
-  : type === 'Article'   ? 'bg-iron text-white/85'
+  : type === 'Article'   ? 'bg-iron text-near-black'
   : 'bg-emerald-100 text-emerald-700'
 
 export default function MarketingCampaignDetail() {
@@ -149,14 +149,14 @@ export default function MarketingCampaignDetail() {
             <div className="min-w-0 flex-1">
               <p className="text-base md:text-lg font-bold leading-tight">{campaign.name}</p>
               {campaign.description && (
-                <p className="text-xs md:text-sm text-white/75 mt-1 whitespace-pre-wrap">
+                <p className="text-xs md:text-sm text-graphite mt-1 whitespace-pre-wrap">
                   {campaign.description}
                 </p>
               )}
             </div>
             <button
               onClick={() => setEditingCampaign(true)}
-              className="p-2 rounded-full hover:bg-iron text-steel shrink-0"
+              className="p-2 rounded-full hover:bg-iron text-graphite shrink-0"
               aria-label="Edit campaign"
             >
               <Pencil className="w-4 h-4" />
@@ -164,7 +164,7 @@ export default function MarketingCampaignDetail() {
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
             <span className={`pill ${statusStyle(campaign.status)}`}>{campaign.status}</span>
-            <span className="pill bg-iron text-white/75">
+            <span className="pill bg-iron text-graphite">
               <Calendar className="w-3 h-3 mr-1" />
               {formatDateRange(campaign.startDate, campaign.endDate)}
             </span>
@@ -181,10 +181,10 @@ export default function MarketingCampaignDetail() {
 
         <section className="space-y-2">
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-sm md:text-base font-semibold text-white">
+            <h2 className="text-sm md:text-base font-semibold text-near-black">
               To-do list
             </h2>
-            <span className="text-xs text-steel">
+            <span className="text-xs text-graphite">
               {sortedTodos.length} post{sortedTodos.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -199,7 +199,7 @@ export default function MarketingCampaignDetail() {
             <button
               onClick={onImportClick}
               disabled={importing}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-shadow bg-charcoal text-white/85 hover:bg-iron disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-shadow bg-charcoal text-near-black hover:bg-iron disabled:opacity-60"
             >
               {importing ? (
                 <>
@@ -243,7 +243,7 @@ export default function MarketingCampaignDetail() {
           />
 
           {sortedTodos.length === 0 ? (
-            <p className="text-center text-sm text-steel py-6">
+            <p className="text-center text-sm text-graphite py-6">
               No posts scheduled yet.
             </p>
           ) : (
@@ -258,7 +258,7 @@ export default function MarketingCampaignDetail() {
                       className="card w-full text-left space-y-2 active:bg-iron"
                     >
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[11px] font-semibold text-steel">
+                        <span className="text-[11px] font-semibold text-graphite">
                           {t.postDate || 'No date'}
                         </span>
                         <span className={`pill ml-auto ${postTypePill(t.type)}`}>
@@ -276,12 +276,12 @@ export default function MarketingCampaignDetail() {
                         </p>
                       )}
                       {t.keyFeature && (
-                        <p className="text-[11px] md:text-xs text-steel flex items-center gap-1">
+                        <p className="text-[11px] md:text-xs text-graphite flex items-center gap-1">
                           <Star className="w-3 h-3" /> {t.keyFeature}
                         </p>
                       )}
                       {t.caption && (
-                        <p className="text-xs md:text-sm text-white/75 line-clamp-3 whitespace-pre-wrap">
+                        <p className="text-xs md:text-sm text-graphite line-clamp-3 whitespace-pre-wrap">
                           {t.caption}
                         </p>
                       )}
@@ -294,7 +294,7 @@ export default function MarketingCampaignDetail() {
                           />
                         ) : (
                           <div className="flex items-center gap-2 p-2 rounded-lg bg-iron border border-shadow">
-                            <Paperclip className="w-3.5 h-3.5 text-steel" />
+                            <Paperclip className="w-3.5 h-3.5 text-graphite" />
                             <span className="text-xs truncate">{t.artwork.name}</span>
                           </div>
                         )
@@ -530,12 +530,12 @@ function TodoForm({ initial, onSubmit, onDelete }) {
               />
             )}
             <div className="flex items-center gap-2 p-2.5 rounded-xl border border-shadow bg-iron">
-              <Paperclip className="w-4 h-4 text-steel shrink-0" />
+              <Paperclip className="w-4 h-4 text-graphite shrink-0" />
               <span className="text-sm flex-1 min-w-0 truncate">{form.artwork.name}</span>
               <a
                 href={form.artwork.dataUrl}
                 download={form.artwork.name}
-                className="p-1.5 text-steel hover:bg-iron rounded"
+                className="p-1.5 text-graphite hover:bg-iron rounded"
               >
                 <Download className="w-4 h-4" />
               </a>
@@ -549,7 +549,7 @@ function TodoForm({ initial, onSubmit, onDelete }) {
             </div>
           </div>
         ) : (
-          <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-steel cursor-pointer hover:bg-iron">
+          <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite cursor-pointer hover:bg-iron">
             <Paperclip className="w-4 h-4" />
             Attach artwork (max 1 MB)
             <input type="file" className="hidden" onChange={onFile} />

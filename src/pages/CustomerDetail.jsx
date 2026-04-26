@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useParams, Navigate, Link as RouterLink } from 'react-router-dom'
 import {
-  Plus, Trash2, Package, Link2Off, TrendingUp, TrendingDown, ChevronRight,
+  Plus, Trash2, Package, Link2Off, ChevronRight,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
-import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 
 import CustomerDetailOrg from './CustomerDetailOrg.jsx'
@@ -18,7 +17,6 @@ export default function CustomerDetail() {
   const { id } = useParams()
   const {
     state,
-    removeCustomer,
     addCustomerProductLink,
     removeCustomerProductLink,
   } = useStore()
@@ -30,24 +28,6 @@ export default function CustomerDetail() {
 
   return (
     <>
-      <PageHeader
-        subtitle={`${customer.industry || '—'} · ${customer.stage}`}
-        action={
-          <button
-            onClick={() => {
-              if (confirm(`Delete ${customer.name}?`)) {
-                removeCustomer(customer.id)
-                history.back()
-              }
-            }}
-            className="p-2 rounded-full hover:bg-rose-50 text-rose-500"
-            aria-label="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        }
-      />
-
       <div className="space-y-4">
         <CustomerDetailOrg customer={customer} />
 
@@ -57,7 +37,7 @@ export default function CustomerDetail() {
               key={t}
               onClick={() => setTab(t)}
               className={`flex-1 text-xs md:text-sm py-2 font-bold uppercase tracking-wider transition-colors ${
-                tab === t ? 'bg-charcoal text-brand-500 border-b-2 border-brand-500' : 'text-steel'
+                tab === t ? 'bg-charcoal text-brand-500 border-b-2 border-brand-500' : 'text-graphite'
               }`}
             >
               {t}
@@ -107,12 +87,12 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
       <button onClick={onLink} className="btn-primary w-full">
         <Plus className="w-4 h-4" /> Link product / service
       </button>
-      <p className="text-[11px] text-steel px-1">
-        Income and expenses recorded here also flow into the global product page.
+      <p className="text-[11px] text-graphite px-1">
+        Tap a linked product to open its activity thread.
       </p>
       {linked.length === 0 ? (
-        <p className="text-center text-sm text-steel py-6">
-          No products linked yet. Link a product to track income from this customer.
+        <p className="text-center text-sm text-graphite py-6">
+          No products linked yet.
         </p>
       ) : (
         <ul className="space-y-2">
@@ -121,7 +101,7 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
             if (!product) {
               return (
                 <li key={link.id} className="card flex items-center justify-between">
-                  <span className="text-sm text-steel">Missing product</span>
+                  <span className="text-sm text-graphite">Missing product</span>
                   <button
                     onClick={() => onUnlink(link.id)}
                     className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"
@@ -131,57 +111,27 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
                 </li>
               )
             }
-            const income = product.income
-              .filter((i) => i.customerId === customer.id)
-              .reduce((s, i) => s + Number(i.amount || 0), 0)
-            const expense = product.expenses
-              .filter((e) => e.customerId === customer.id)
-              .reduce((s, e) => s + Number(e.amount || 0), 0)
-            const net = income - expense
+            const activityCount = (link.activities || []).length
             return (
               <li key={link.id} className="card !p-0 overflow-hidden">
                 <RouterLink
                   to={`/customers/${customer.id}/products/${link.id}`}
-                  className="flex items-center gap-3 p-4 active:bg-iron"
+                  className="flex items-center gap-3 p-4 hover:bg-iron transition-colors"
                 >
-                  <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center shrink-0">
                     <Package className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold truncate">{product.name}</p>
-                      <span className="pill bg-iron text-white/75">{product.type}</span>
+                      <p className="font-semibold truncate text-near-black">{product.name}</p>
+                      <span className="pill bg-iron text-graphite">{product.type}</span>
                     </div>
-                    <p className="text-[11px] text-steel mt-0.5">
-                      List ${Number(product.price || 0).toLocaleString()}
+                    <p className="text-[11px] text-graphite mt-0.5">
+                      {activityCount} activit{activityCount === 1 ? 'y' : 'ies'} recorded
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-ash" />
+                  <ChevronRight className="w-4 h-4 text-graphite" />
                 </RouterLink>
-                <div className="grid grid-cols-3 gap-px bg-iron">
-                  <div className="bg-charcoal p-2 text-center">
-                    <p className="text-[10px] text-steel flex items-center justify-center gap-1">
-                      <TrendingUp className="w-3 h-3" /> Income
-                    </p>
-                    <p className="text-sm font-semibold text-emerald-700 mt-0.5">
-                      ${income.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="bg-charcoal p-2 text-center">
-                    <p className="text-[10px] text-steel flex items-center justify-center gap-1">
-                      <TrendingDown className="w-3 h-3" /> Expense
-                    </p>
-                    <p className="text-sm font-semibold text-rose-700 mt-0.5">
-                      ${expense.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="bg-charcoal p-2 text-center">
-                    <p className="text-[10px] text-steel">Net</p>
-                    <p className={`text-sm font-semibold mt-0.5 ${net >= 0 ? 'text-brand-700' : 'text-amber-700'}`}>
-                      ${net.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
                 <button
                   onClick={() => onUnlink(link.id)}
                   className="w-full text-xs text-rose-600 py-2 border-t border-shadow hover:bg-rose-50 flex items-center justify-center gap-1"
@@ -214,11 +164,11 @@ function ProductPicker({ products, alreadyLinkedIds, onPick }) {
         placeholder="Search products"
       />
       {products.length === 0 ? (
-        <p className="text-center text-sm text-steel py-4">
+        <p className="text-center text-sm text-graphite py-4">
           No products yet. Add one in the Products workspace first.
         </p>
       ) : available.length === 0 ? (
-        <p className="text-center text-sm text-steel py-4">
+        <p className="text-center text-sm text-graphite py-4">
           {alreadyLinkedIds.length > 0 && q === ''
             ? 'All your products are already linked.'
             : 'No matching products.'}
@@ -236,7 +186,7 @@ function ProductPicker({ products, alreadyLinkedIds, onPick }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate">{p.name}</p>
-                  <p className="text-[11px] text-steel">
+                  <p className="text-[11px] text-graphite">
                     {p.type} · ${Number(p.price || 0).toLocaleString()}
                   </p>
                 </div>

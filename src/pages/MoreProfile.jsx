@@ -17,9 +17,9 @@ export default function MoreProfile() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-base md:text-lg font-bold truncate">{ME.name}</p>
-          <p className="text-xs md:text-sm text-steel truncate">{ME.role}</p>
+          <p className="text-xs md:text-sm text-graphite truncate">{ME.role}</p>
         </div>
-        <button className="p-2 rounded-full hover:bg-iron text-steel" aria-label="Edit profile">
+        <button className="p-2 rounded-full hover:bg-iron text-graphite" aria-label="Edit profile">
           <Pencil className="w-4 h-4" />
         </button>
       </section>
@@ -30,7 +30,7 @@ export default function MoreProfile() {
         <Row icon={Briefcase} label="Role" value={ME.role} />
       </section>
 
-      <p className="text-[11px] text-ash text-center">
+      <p className="text-[11px] text-graphite text-center">
         Profile editing is coming soon. These details are stored locally on this device.
       </p>
     </div>
@@ -40,12 +40,12 @@ export default function MoreProfile() {
 function Row({ icon: Icon, label, value }) {
   return (
     <div className="flex items-center gap-3 p-3 md:p-4">
-      <Icon className="w-4 h-4 text-ash shrink-0" />
+      <Icon className="w-4 h-4 text-graphite shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] md:text-xs uppercase tracking-wider text-ash font-semibold">
+        <p className="text-[10px] md:text-xs uppercase tracking-wider text-graphite font-semibold">
           {label}
         </p>
-        <p className="text-sm md:text-base text-white truncate">{value}</p>
+        <p className="text-sm md:text-base text-near-black truncate">{value}</p>
       </div>
     </div>
   )

@@ -84,7 +84,10 @@ function migrateCustomer(c) {
     }))
   }
   if (!files) files = []
-  const productLinks = c.productLinks || []
+  const productLinks = (c.productLinks || []).map((pl) => ({
+    ...pl,
+    activities: Array.isArray(pl.activities) ? pl.activities : [],
+  }))
   const staff = c.staff || []
   const out = {
     address: '',
@@ -276,6 +279,44 @@ export function StoreProvider({ children }) {
             )
           }),
         })),
+
+      // Customer ↔ Product activity thread (chat: text / file / task entries)
+      addCustomerProductActivity: (customerId, linkId, entry) =>
+        mutateCustomer(customerId, (c) => {
+          const productLinks = (c.productLinks || []).map((l) => {
+            if (l.id !== linkId) return l
+            const newEntry = {
+              id: uid('act'),
+              ts: new Date().toISOString(),
+              side: 'mine',
+              type: 'text',
+              ...entry,
+            }
+            return { ...l, activities: [...(l.activities || []), newEntry] }
+          })
+          return { ...c, productLinks }
+        }),
+      updateCustomerProductActivity: (customerId, linkId, entryId, patch) =>
+        mutateCustomer(customerId, (c) => {
+          const productLinks = (c.productLinks || []).map((l) => {
+            if (l.id !== linkId) return l
+            return {
+              ...l,
+              activities: (l.activities || []).map((a) =>
+                a.id === entryId ? { ...a, ...patch } : a,
+              ),
+            }
+          })
+          return { ...c, productLinks }
+        }),
+      removeCustomerProductActivity: (customerId, linkId, entryId) =>
+        mutateCustomer(customerId, (c) => {
+          const productLinks = (c.productLinks || []).map((l) => {
+            if (l.id !== linkId) return l
+            return { ...l, activities: (l.activities || []).filter((a) => a.id !== entryId) }
+          })
+          return { ...c, productLinks }
+        }),
 
       // Customer income / expense on a linked product (writes to global product, tagged with customerId)
       addCustomerProductIncome: (customerId, productId, entry) =>

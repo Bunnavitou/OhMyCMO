@@ -44,11 +44,11 @@ export default function CustomerDetailLog({ logs = [] }) {
   const sorted = [...logs].sort((a, b) => (b.ts || '').localeCompare(a.ts || ''))
   return (
     <div className="space-y-3">
-      <p className="text-xs text-steel px-1">
+      <p className="text-xs text-graphite px-1">
         Every change to this customer is recorded here automatically.
       </p>
       {sorted.length === 0 ? (
-        <p className="text-center text-sm text-steel py-6">No events recorded yet.</p>
+        <p className="text-center text-sm text-graphite py-6">No events recorded yet.</p>
       ) : (
         <ol className="relative ml-3 border-l-2 border-shadow space-y-3">
           {sorted.map((l) => {
@@ -64,27 +64,27 @@ export default function CustomerDetailLog({ logs = [] }) {
                 <div className="card !p-3">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium leading-snug">{l.message}</p>
-                    <span className="text-[10px] text-ash shrink-0 mt-0.5">
+                    <span className="text-[10px] text-graphite shrink-0 mt-0.5">
                       {formatLogTime(l.ts)}
                     </span>
                   </div>
                   {l.type === 'activity' && l.meta?.note && (
-                    <p className="text-xs text-steel mt-1 whitespace-pre-wrap">{l.meta.note}</p>
+                    <p className="text-xs text-graphite mt-1 whitespace-pre-wrap">{l.meta.note}</p>
                   )}
                   {l.type === 'customer.update' && l.meta?.before && (
-                    <ul className="text-[11px] text-steel mt-1.5 space-y-0.5">
+                    <ul className="text-[11px] text-graphite mt-1.5 space-y-0.5">
                       {Object.keys(l.meta.before).map((k) => (
                         <li key={k}>
-                          <span className="font-medium text-white/75">{k}:</span>{' '}
-                          <span className="line-through text-ash">{String(l.meta.before[k] || '—')}</span>
+                          <span className="font-medium text-graphite">{k}:</span>{' '}
+                          <span className="line-through text-graphite">{String(l.meta.before[k] || '—')}</span>
                           {' → '}
-                          <span className="text-white/85">{String(l.meta.after?.[k] || '—')}</span>
+                          <span className="text-near-black">{String(l.meta.after?.[k] || '—')}</span>
                         </li>
                       ))}
                     </ul>
                   )}
                   {l.type === 'task.update' && l.meta?.changed?.length > 0 && (
-                    <p className="text-[11px] text-steel mt-1">
+                    <p className="text-[11px] text-graphite mt-1">
                       Fields: {l.meta.changed.join(', ')}
                     </p>
                   )}

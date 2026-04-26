@@ -31,10 +31,10 @@ const CAMPAIGN_STATUS = ['Planning', 'Active', 'Paused', 'Completed']
 
 const statusStyle = (s) =>
   s === 'Active'    ? 'bg-emerald-100 text-emerald-700'
-  : s === 'Planning'  ? 'bg-iron text-white/75'
+  : s === 'Planning'  ? 'bg-iron text-graphite'
   : s === 'Paused'    ? 'bg-amber-100 text-amber-700'
   : s === 'Completed' ? 'bg-brand-100 text-brand-700'
-  : 'bg-iron text-white/75'
+  : 'bg-iron text-graphite'
 
 const formatDateRange = (start, end) => {
   const fmt = (d) =>
@@ -63,19 +63,11 @@ export default function Marketing() {
 
   return (
     <>
-      <PageHeader
-        subtitle={`${campaigns.length} campaign${campaigns.length !== 1 ? 's' : ''}`}
-        action={
-          <button onClick={() => setOpen(true)} className="btn-primary !px-3 !py-2">
-            <Plus className="w-4 h-4" /> New
-          </button>
-        }
-      />
 
       <div className="space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ash" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -102,7 +94,7 @@ export default function Marketing() {
             }
           />
         ) : filtered.length === 0 ? (
-          <p className="text-center text-sm text-steel py-6">No matches.</p>
+          <p className="text-center text-sm text-graphite py-6">No matches.</p>
         ) : (
           <ul className="space-y-3">
             {filtered.map((c) => {
@@ -122,13 +114,13 @@ export default function Marketing() {
                           </span>
                         </div>
                         {c.description && (
-                          <p className="text-xs text-steel line-clamp-2 mt-0.5">
+                          <p className="text-xs text-graphite line-clamp-2 mt-0.5">
                             {c.description}
                           </p>
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-steel pt-1">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-graphite pt-1">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" /> {formatDateRange(c.startDate, c.endDate)}
                       </span>
@@ -159,6 +151,14 @@ export default function Marketing() {
           setOpen(false)
         }}
       />
+
+      <button
+        onClick={() => setOpen(true)}
+        className="btn-primary fixed z-40 right-4 md:right-8 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-8 shadow-xl"
+        aria-label="New campaign"
+      >
+        <Plus className="w-5 h-5" /> New
+      </button>
     </>
   )
 }

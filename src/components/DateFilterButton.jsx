@@ -90,7 +90,7 @@ export default function DateFilterButton({ value, onChange, storageKey, label = 
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-shadow bg-charcoal text-white/85 hover:bg-iron"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-shadow bg-charcoal text-near-black hover:bg-iron"
         >
           <Calendar className="w-4 h-4" /> {label}
         </button>

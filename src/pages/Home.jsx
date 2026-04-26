@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom'
 import {
   Users, Package, Handshake, Megaphone, Boxes,
-  TrendingUp, TrendingDown, ArrowRight, CheckCircle2, Circle,
+  TrendingUp, TrendingDown, ArrowRight, CheckCircle2, Circle, ArrowUpRight,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 
 const fmtMoney = (n) => `$${Number(n || 0).toLocaleString()}`
-const monoCaps = 'font-mono uppercase tracking-[0.18em]'
 
 export default function Home() {
   const { state } = useStore()
@@ -48,132 +47,117 @@ export default function Home() {
     .sort((a, b) => (a.due || '').localeCompare(b.due || ''))
     .slice(0, 5)
 
-  // Saturated story-tile color blocks — Verge's hazard-tape rotation.
+  // Workspace tiles — Wise mixes light mint backgrounds with the bright signature green.
   const tiles = [
-    {
-      to: '/customers',
-      icon: Users,
-      label: 'Customers',
-      count: state.customers.length,
-      bg: '#3CFFD0', // mint
-      fg: '#000',
-      kicker: 'Relationships',
-    },
-    {
-      to: '/products',
-      icon: Package,
-      label: 'Products',
-      count: state.products.length,
-      bg: '#5200FF', // ultraviolet
-      fg: '#fff',
-      kicker: 'Catalogue',
-    },
-    {
-      to: '/partners',
-      icon: Handshake,
-      label: 'Partners',
-      count: state.partners.length,
-      bg: '#FFE500', // yellow
-      fg: '#000',
-      kicker: 'Vendors',
-    },
-    {
-      to: '/marketing',
-      icon: Megaphone,
-      label: 'Marketing',
-      count: (state.campaigns || []).length,
-      bg: '#FF8AD8', // pink
-      fg: '#000',
-      kicker: 'Campaigns',
-    },
-    {
-      to: '/assets',
-      icon: Boxes,
-      label: 'Assets',
-      count: state.assets.length,
-      bg: '#FFFFFF', // white spotlight
-      fg: '#131313',
-      kicker: 'Inventory',
-    },
+    { to: '/customers',  icon: Users,     label: 'Customers',  count: state.customers.length,         bg: '#9FE870', fg: '#163300', kicker: 'Relationships' },
+    { to: '/products',   icon: Package,   label: 'Products',   count: state.products.length,           bg: '#E2F6D5', fg: '#0E0F0C', kicker: 'Catalogue' },
+    { to: '/partners',   icon: Handshake, label: 'Partners',   count: state.partners.length,           bg: '#CDFFAD', fg: '#0E0F0C', kicker: 'Vendors' },
+    { to: '/marketing',  icon: Megaphone, label: 'Marketing',  count: (state.campaigns || []).length, bg: '#163300', fg: '#FFFFFF', kicker: 'Campaigns' },
+    { to: '/assets',     icon: Boxes,     label: 'Assets',     count: state.assets.length,             bg: '#FFFFFF', fg: '#0E0F0C', kicker: 'Inventory', ring: true },
   ]
 
   return (
-    <div className="space-y-8 md:space-y-10">
-      {/* Hero — wordmark moment */}
-      <section>
-        <p className={`text-[10px] md:text-xs ${monoCaps} text-mint`}>
-          Cmo Cockpit · Today
+    <div className="space-y-10 md:space-y-14">
+      {/* Hero — bold black wordmark on white canvas */}
+      <section className="pt-2 md:pt-6">
+        <p className="text-sm font-semibold text-graphite mb-3">
+          CMO cockpit · Today
         </p>
         <h1
-          className="font-display text-white mt-2 leading-[0.92]"
-          style={{ fontSize: 'clamp(48px, 12vw, 107px)', letterSpacing: '0.01em' }}
+          className="display text-near-black"
+          style={{ fontSize: 'clamp(56px, 13vw, 126px)' }}
         >
-          OHMYCMO
+          OhMyCMO.
         </h1>
+        <p className="text-base md:text-lg text-graphite mt-4 max-w-2xl">
+          Run customer relationships, marketing campaigns, partners and product P&amp;L from one quiet console — built for the way a CMO actually works.
+        </p>
       </section>
 
-      {/* Net P&L panel — full mint hazard tile */}
+      {/* Net P&L — Wise Green hero tile, the loudest moment on the page */}
       <section
-        className="p-5 md:p-8 border border-mint-edge"
-        style={{ backgroundColor: '#3CFFD0', color: '#000', borderRadius: '24px' }}
+        className="p-6 md:p-10"
+        style={{
+          backgroundColor: '#9FE870',
+          color: '#163300',
+          borderRadius: '40px',
+        }}
       >
-        <p className={`text-[10px] md:text-xs ${monoCaps}`}>
-          Net P&amp;L · This period
-        </p>
+        <p className="text-sm font-semibold opacity-80">Net P&amp;L · This period</p>
         <p
-          className="font-display leading-[0.92] mt-2 md:mt-3"
-          style={{ fontSize: 'clamp(56px, 14vw, 120px)', letterSpacing: '0.01em' }}
+          className="display mt-2 md:mt-3"
+          style={{
+            fontSize: 'clamp(64px, 16vw, 140px)',
+            color: '#163300',
+          }}
         >
           {fmtMoney(net)}
         </p>
-        <div className="mt-5 grid grid-cols-2 gap-3 max-w-md">
-          <div className="bg-black/10 p-3 rounded-2xl">
-            <p className={`text-[10px] ${monoCaps} flex items-center gap-1.5`}>
-              <TrendingUp className="w-3 h-3" /> Income
+        <div className="mt-6 grid grid-cols-2 gap-3 max-w-md">
+          <div
+            className="p-4"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '20px',
+            }}
+          >
+            <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: '#163300' }}>
+              <TrendingUp className="w-3.5 h-3.5" /> Income
             </p>
-            <p className="font-display text-2xl md:text-3xl mt-1.5">
+            <p className="display text-2xl md:text-3xl mt-1.5" style={{ color: '#163300' }}>
               {fmtMoney(totalIncome)}
             </p>
           </div>
-          <div className="bg-black/10 p-3 rounded-2xl">
-            <p className={`text-[10px] ${monoCaps} flex items-center gap-1.5`}>
-              <TrendingDown className="w-3 h-3" /> Expense
+          <div
+            className="p-4"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              borderRadius: '20px',
+            }}
+          >
+            <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: '#163300' }}>
+              <TrendingDown className="w-3.5 h-3.5" /> Expense
             </p>
-            <p className="font-display text-2xl md:text-3xl mt-1.5">
+            <p className="display text-2xl md:text-3xl mt-1.5" style={{ color: '#163300' }}>
               {fmtMoney(totalExpense)}
             </p>
           </div>
         </div>
       </section>
 
-      {/* Workspaces — saturated color-block tile rotation */}
+      {/* Workspaces — large rounded color-block tiles */}
       <section>
-        <h2 className={`text-[11px] md:text-xs ${monoCaps} text-steel font-bold mb-3`}>
-          Workspaces
-        </h2>
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-graphite">
+              Workspaces
+            </p>
+            <h2 className="display text-3xl md:text-5xl text-near-black mt-1">
+              Where to start.
+            </h2>
+          </div>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           {tiles.map((t) => (
             <Link
               key={t.to}
               to={t.to}
-              className="group block p-4 md:p-5 transition-transform hover:scale-[1.02]"
+              className="group block p-5 md:p-6 transition-transform hover:scale-[1.02]"
               style={{
                 backgroundColor: t.bg,
                 color: t.fg,
-                borderRadius: '20px',
+                borderRadius: '30px',
+                border: t.ring ? '1px solid rgba(14, 15, 12, 0.12)' : 'none',
               }}
             >
-              <t.icon className="w-5 h-5" strokeWidth={2.4} />
-              <p
-                className={`text-[10px] ${monoCaps} font-bold mt-3`}
-                style={{ opacity: 0.7 }}
-              >
+              <div className="flex items-start justify-between">
+                <t.icon className="w-6 h-6" strokeWidth={2.2} />
+                <ArrowUpRight className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <p className="text-xs font-bold mt-6" style={{ opacity: 0.7 }}>
                 {t.kicker} · {t.count}
               </p>
-              <p
-                className="font-display text-2xl md:text-3xl leading-[0.95] mt-1"
-                style={{ letterSpacing: '0.01em' }}
-              >
+              <p className="display text-2xl md:text-3xl mt-1" style={{ color: t.fg }}>
                 {t.label}
               </p>
             </Link>
@@ -181,56 +165,55 @@ export default function Home() {
         </div>
       </section>
 
-      {/* StoryStream — upcoming tasks as pill cards on a purple rail */}
+      {/* Upcoming tasks — clean white cards with mint pip */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className={`text-[11px] md:text-xs ${monoCaps} text-steel font-bold`}>
-            Upcoming · Live feed
-          </h2>
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-graphite">
+              Upcoming
+            </p>
+            <h2 className="display text-3xl md:text-5xl text-near-black mt-1">
+              Open tasks.
+            </h2>
+          </div>
           <Link
             to="/customers"
-            className={`text-[10px] ${monoCaps} text-mint font-bold flex items-center gap-1 hover:underline`}
+            className="text-sm font-semibold text-wise-dark hover:underline flex items-center gap-1"
           >
-            View all <ArrowRight className="w-3 h-3" />
+            View all <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         {allTasks.length === 0 ? (
-          <div
-            className="p-6 text-center border border-white/15"
-            style={{ borderRadius: '20px' }}
-          >
-            <p className={`text-[10px] ${monoCaps} text-steel`}>No open tasks</p>
+          <div className="card text-center py-10">
+            <p className="text-sm text-graphite">All clear. Nothing on the boil.</p>
           </div>
         ) : (
-          <ol className="relative pl-5 space-y-3">
-            <span
-              className="absolute left-0 top-2 bottom-2 w-px"
-              style={{ background: '#3D00BF' }}
-              aria-hidden
-            />
+          <ul className="space-y-3">
             {allTasks.map((t, i) => (
-              <li key={i} className="relative">
-                <span
-                  className="absolute -left-[22px] top-4 w-3 h-3 rounded-full bg-mint border-2 border-abyss"
-                  aria-hidden
-                />
+              <li key={i}>
                 <Link
                   to={t.link}
-                  className="block bg-charcoal border border-white/15 p-4 transition-colors hover:border-mint"
-                  style={{ borderRadius: '20px' }}
+                  className="card flex items-center gap-3 transition-transform hover:scale-[1.01]"
                 >
-                  <p className={`text-[10px] ${monoCaps} text-mint font-bold mb-1`}>
-                    {t.owner}
-                    {t.due ? ` · DUE ${t.due}` : ''}
-                  </p>
-                  <p className="text-sm md:text-base font-bold text-white leading-snug">
-                    {t.title}
-                  </p>
+                  {t.done ? (
+                    <CheckCircle2 className="w-5 h-5 text-wise-dark shrink-0" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-ash shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm md:text-base font-semibold text-near-black truncate">
+                      {t.title}
+                    </p>
+                    <p className="text-xs text-graphite truncate mt-0.5">
+                      {t.owner}{t.due ? ` · due ${t.due}` : ''}
+                    </p>
+                  </div>
+                  <ArrowUpRight className="w-4 h-4 text-graphite shrink-0" />
                 </Link>
               </li>
             ))}
-          </ol>
+          </ul>
         )}
       </section>
     </div>

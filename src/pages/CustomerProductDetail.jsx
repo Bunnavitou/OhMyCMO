@@ -1,23 +1,73 @@
-import { useState } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useParams, Navigate, Link } from 'react-router-dom'
 import {
-  Plus, TrendingUp, TrendingDown, Package, User, Trash2, Link2Off, Receipt,
+  Package, Send, Paperclip, ListChecks, Type, Image as ImageIcon, Video,
+  FileText, FileSpreadsheet, FileArchive, Download, Trash2, Share2,
+  Link2Off, Check, Clock, Circle as CircleIcon, ArrowUp, User as UserIcon,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import PageHeader from '../components/PageHeader.jsx'
-import Modal from '../components/Modal.jsx'
-import { InvoiceForm, MonthlyIncomeList, InvoiceDetail } from '../components/Invoice.jsx'
 
-const sections = ['Income', 'Expenses']
+const FILE_LIMIT_BYTES = 1024 * 1024 // 1 MB
+
+const TASK_STATUSES = [
+  { value: 'todo',         label: 'Todo',        icon: CircleIcon },
+  { value: 'in_progress',  label: 'In progress', icon: Clock },
+  { value: 'done',         label: 'Done',        icon: Check },
+]
+
+const cycleStatus = (s) => {
+  const idx = TASK_STATUSES.findIndex((t) => t.value === s)
+  return TASK_STATUSES[(idx + 1) % TASK_STATUSES.length].value
+}
+
+const statusStyle = (s) =>
+  s === 'done'
+    ? 'bg-wise-green text-wise-dark'
+    : s === 'in_progress'
+    ? 'bg-warning text-near-black'
+    : 'bg-iron text-graphite'
+
+const formatBytes = (b) => {
+  if (!b) return ''
+  if (b < 1024) return `${b} B`
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`
+  return `${(b / 1024 / 1024).toFixed(1)} MB`
+}
+
+const fileIconFor = (mime = '') => {
+  if (mime.startsWith('image/')) return ImageIcon
+  if (mime.startsWith('video/')) return Video
+  if (mime.includes('zip') || mime.includes('compressed')) return FileArchive
+  if (mime.includes('sheet') || mime.includes('csv')) return FileSpreadsheet
+  return FileText
+}
+
+const formatTimestamp = (ts) => {
+  const d = new Date(ts)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+const formatDayHeader = (ts) => {
+  const d = new Date(ts)
+  const today = new Date()
+  const yest = new Date(); yest.setDate(yest.getDate() - 1)
+  if (d.toDateString() === today.toDateString()) return 'Today'
+  if (d.toDateString() === yest.toDateString()) return 'Yesterday'
+  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
 
 export default function CustomerProductDetail() {
   const { id, linkId } = useParams()
   const {
     state,
-    addCustomerProductIncome,
-    removeCustomerProductIncome,
-    addCustomerProductExpense,
-    removeCustomerProductExpense,
+    addCustomerProductActivity,
+    updateCustomerProductActivity,
+    removeCustomerProductActivity,
     removeCustomerProductLink,
   } = useStore()
 
@@ -25,254 +75,460 @@ export default function CustomerProductDetail() {
   const link = customer?.productLinks?.find((l) => l.id === linkId)
   const product = link ? state.products.find((p) => p.id === link.productId) : null
 
-  const [section, setSection] = useState('Income')
-  const [openModal, setOpenModal] = useState(null)
-  const [viewingInvoice, setViewingInvoice] = useState(null)
+  const threadRef = useRef(null)
+  const fileInputRef = useRef(null)
+
+  const [side, setSide] = useState('mine')
+  const [type, setType] = useState('text')
+  const [draftText, setDraftText] = useState('')
+  const [draftTaskTitle, setDraftTaskTitle] = useState('')
+
+  const activities = useMemo(
+    () => [...(link?.activities || [])].sort((a, b) => (a.ts || '').localeCompare(b.ts || '')),
+    [link?.activities],
+  )
+
+  // Auto-scroll thread to bottom whenever activity count changes.
+  useEffect(() => {
+    if (!threadRef.current) return
+    threadRef.current.scrollTop = threadRef.current.scrollHeight
+  }, [activities.length])
 
   if (!customer) return <Navigate to="/customers" replace />
   if (!link || !product) return <Navigate to={`/customers/${id}`} replace />
 
-  const incomeEntries = product.income.filter((i) => i.customerId === customer.id)
-  const expenseEntries = product.expenses.filter((e) => e.customerId === customer.id)
-  const incomeTotal = incomeEntries.reduce((s, i) => s + Number(i.amount || 0), 0)
-  const expenseTotal = expenseEntries.reduce((s, e) => s + Number(e.amount || 0), 0)
-  const net = incomeTotal - expenseTotal
+  // ----- Handlers -----
+
+  const sendText = () => {
+    const text = draftText.trim()
+    if (!text) return
+    addCustomerProductActivity(customer.id, link.id, { side, type: 'text', text })
+    setDraftText('')
+  }
+
+  const sendTask = () => {
+    const title = draftTaskTitle.trim()
+    if (!title) return
+    addCustomerProductActivity(customer.id, link.id, {
+      side,
+      type: 'task',
+      taskTitle: title,
+      taskStatus: 'todo',
+    })
+    setDraftTaskTitle('')
+  }
+
+  const onFilePicked = (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    if (f.size > FILE_LIMIT_BYTES) {
+      alert(`"${f.name}" is ${(f.size / 1024 / 1024).toFixed(1)} MB — max 1 MB per file.`)
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      addCustomerProductActivity(customer.id, link.id, {
+        side,
+        type: 'file',
+        file: { name: f.name, type: f.type, size: f.size, dataUrl: reader.result },
+        text: draftText.trim() || '',
+      })
+      setDraftText('')
+    }
+    reader.readAsDataURL(f)
+  }
+
+  const cycleTask = (entry) =>
+    updateCustomerProductActivity(customer.id, link.id, entry.id, {
+      taskStatus: cycleStatus(entry.taskStatus),
+    })
+
+  const removeEntry = (entry) => {
+    if (!confirm('Remove this entry from the thread?')) return
+    removeCustomerProductActivity(customer.id, link.id, entry.id)
+  }
+
+  // ----- Export thread to Markdown -----
+
+  const exportMarkdown = () => {
+    const lines = []
+    lines.push(`# Activity log — ${product.name} × ${customer.name}`)
+    lines.push(`Exported ${new Date().toLocaleString()}`)
+    lines.push('')
+    let lastDay = ''
+    for (const a of activities) {
+      const day = formatDayHeader(a.ts)
+      if (day !== lastDay) {
+        lines.push(`## ${day}`)
+        lines.push('')
+        lastDay = day
+      }
+      const time = formatTimestamp(a.ts)
+      const who = a.side === 'mine' ? 'My team' : customer.name
+      if (a.type === 'text') {
+        lines.push(`- **${time} · ${who}**: ${a.text}`)
+      } else if (a.type === 'file') {
+        const f = a.file || {}
+        lines.push(`- **${time} · ${who}** uploaded \`${f.name}\` (${formatBytes(f.size)})${a.text ? ` — ${a.text}` : ''}`)
+      } else if (a.type === 'task') {
+        lines.push(`- **${time} · ${who}** task: \`${a.taskTitle}\` — _${a.taskStatus}_`)
+      }
+    }
+    if (activities.length === 0) lines.push('_(empty)_')
+    const md = lines.join('\n')
+    const safeName = (product.name + '-' + customer.name).replace(/[^A-Za-z0-9-_]+/g, '_')
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `activity-${safeName}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  // ----- Day grouping for the thread -----
+
+  const grouped = useMemo(() => {
+    const out = []
+    let lastDay = ''
+    for (const a of activities) {
+      const day = formatDayHeader(a.ts)
+      if (day !== lastDay) {
+        out.push({ kind: 'day', label: day, key: `day-${out.length}` })
+        lastDay = day
+      }
+      out.push({ kind: 'entry', entry: a, key: a.id })
+    }
+    return out
+  }, [activities])
+
+  // ----- Render -----
 
   return (
-    <>
-      <PageHeader
-        title={product.name}
-        subtitle={
-          <span className="inline-flex items-center gap-1">
-            <User className="w-3 h-3" /> {customer.name}
-          </span>
-        }
-        back
-        action={
-          <button
-            onClick={() => {
-              if (confirm('Unlink this product from this customer?')) {
-                removeCustomerProductLink(customer.id, link.id)
-                history.back()
-              }
-            }}
-            className="p-2 rounded-full hover:bg-rose-50 text-rose-500"
-            aria-label="Unlink"
-          >
-            <Link2Off className="w-4 h-4" />
-          </button>
-        }
-      />
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] -mt-4 md:-mt-6 -mx-3 md:-mx-6">
+      <div className="px-3 md:px-6 pt-4 md:pt-6">
+        <PageHeader
+          subtitle={
+            <span className="inline-flex items-center gap-1.5">
+              <UserIcon className="w-3 h-3" /> {customer.name}
+            </span>
+          }
+          action={
+            <div className="flex items-center gap-1">
+              <button
+                onClick={exportMarkdown}
+                className="btn-ghost !px-3 !py-1.5 text-xs"
+                title="Download markdown"
+              >
+                <Share2 className="w-4 h-4" /> Share
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm('Unlink this product from this customer? The thread is kept.')) {
+                    removeCustomerProductLink(customer.id, link.id)
+                    history.back()
+                  }
+                }}
+                className="p-2 rounded-full hover:bg-rose-50 text-rose-500"
+                aria-label="Unlink"
+              >
+                <Link2Off className="w-4 h-4" />
+              </button>
+            </div>
+          }
+        />
 
-      <div className="space-y-4">
-        <Link to={`/products/${product.id}`} className="card flex items-center gap-3 active:scale-[0.99]">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+        <Link
+          to={`/products/${product.id}`}
+          className="card flex items-center gap-3 mb-4 hover:bg-iron transition-colors"
+        >
+          <div className="w-10 h-10 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center shrink-0">
             <Package className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">Open product workspace</p>
-            <p className="text-xs text-steel">
-              {product.type} · List ${Number(product.price || 0).toLocaleString()}
+            <p className="display text-2xl text-near-black leading-none">{product.name}</p>
+            <p className="text-xs text-graphite mt-1">
+              {product.type} · Tap to open product workspace
             </p>
           </div>
         </Link>
+      </div>
 
-        <section className="grid grid-cols-3 gap-2">
-          <div className="card !p-3">
-            <div className="text-xs text-steel flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> Income
-            </div>
-            <p className="text-lg font-bold text-emerald-700 mt-1">${incomeTotal.toLocaleString()}</p>
-          </div>
-          <div className="card !p-3">
-            <div className="text-xs text-steel flex items-center gap-1">
-              <TrendingDown className="w-3 h-3" /> Expense
-            </div>
-            <p className="text-lg font-bold text-rose-700 mt-1">${expenseTotal.toLocaleString()}</p>
-          </div>
-          <div className="card !p-3">
-            <div className="text-xs text-steel">Net</div>
-            <p className={`text-lg font-bold mt-1 ${net >= 0 ? 'text-brand-700' : 'text-amber-700'}`}>
-              ${net.toLocaleString()}
+      {/* Thread (scrollable) */}
+      <div
+        ref={threadRef}
+        className="flex-1 overflow-y-auto px-3 md:px-6 space-y-3"
+        style={{ scrollBehavior: 'smooth' }}
+      >
+        {activities.length === 0 ? (
+          <div className="card text-center py-10 mb-3">
+            <p className="display text-2xl text-near-black">Start the thread.</p>
+            <p className="text-sm text-graphite mt-2 max-w-sm mx-auto">
+              Capture every conversation, file and task linking your team to {customer.name} on{' '}
+              {product.name}.
             </p>
           </div>
-        </section>
-
-        <div className="flex bg-iron border border-shadow">
-          {sections.map((s) => (
-            <button
-              key={s}
-              onClick={() => setSection(s)}
-              className={`flex-1 text-xs md:text-sm py-2 font-bold uppercase tracking-wider transition-colors ${
-                section === s ? 'bg-charcoal text-brand-500 border-b-2 border-brand-500' : 'text-steel'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-
-        {section === 'Income' && (
-          <div className="space-y-3">
-            <button onClick={() => setOpenModal('income')} className="btn-primary w-full">
-              <Receipt className="w-4 h-4" /> New invoice
-            </button>
-            <MonthlyIncomeList items={incomeEntries} onTap={(x) => setViewingInvoice(x)} />
-          </div>
-        )}
-        {section === 'Expenses' && (
-          <Lines
-            items={expenseEntries}
-            onAdd={() => setOpenModal('expense')}
-            onDelete={(entryId) => {
-              if (confirm('Delete this expense entry?')) {
-                removeCustomerProductExpense(customer.id, product.id, entryId)
-              }
-            }}
-          />
+        ) : (
+          grouped.map((row) =>
+            row.kind === 'day' ? (
+              <div key={row.key} className="flex items-center gap-3 py-2">
+                <span className="flex-1 h-px bg-shadow" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-graphite">
+                  {row.label}
+                </span>
+                <span className="flex-1 h-px bg-shadow" />
+              </div>
+            ) : (
+              <ChatBubble
+                key={row.key}
+                entry={row.entry}
+                customer={customer}
+                onCycleTask={cycleTask}
+                onRemove={removeEntry}
+              />
+            ),
+          )
         )}
       </div>
 
-      <Modal open={openModal === 'income'} onClose={() => setOpenModal(null)} title="New invoice">
-        <InvoiceForm
-          defaultCustomer={{ customerName: customer.name }}
-          lockCustomer
-          onSubmit={(d) => {
-            addCustomerProductIncome(customer.id, product.id, d)
-            setOpenModal(null)
-          }}
-        />
-      </Modal>
-      <Modal open={openModal === 'expense'} onClose={() => setOpenModal(null)} title="Record expense">
-        <ExpenseForm
-          onSubmit={(d) => {
-            addCustomerProductExpense(customer.id, product.id, d)
-            setOpenModal(null)
-          }}
-        />
-      </Modal>
-      <Modal
-        open={!!viewingInvoice}
-        onClose={() => setViewingInvoice(null)}
-        title={
-          viewingInvoice && Array.isArray(viewingInvoice.items) && viewingInvoice.items.length > 0
-            ? 'Invoice'
-            : 'Income entry'
-        }
-      >
-        <InvoiceDetail
-          invoice={viewingInvoice}
-          onDelete={() => {
-            if (viewingInvoice && confirm('Delete this entry?')) {
-              removeCustomerProductIncome(customer.id, product.id, viewingInvoice.id)
-              setViewingInvoice(null)
-            }
-          }}
-        />
-      </Modal>
-    </>
+      {/* Composer (sticky bottom) */}
+      <div className="border-t border-shadow bg-white px-3 md:px-6 py-3 md:py-4">
+        <div className="flex items-center gap-2 mb-2.5">
+          <SideToggle value={side} onChange={setSide} customerName={customer.name} />
+          <TypeToggle value={type} onChange={setType} />
+        </div>
+
+        {type === 'text' && (
+          <div className="flex items-end gap-2">
+            <textarea
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault()
+                  sendText()
+                }
+              }}
+              placeholder={
+                side === 'mine'
+                  ? 'Note from your team…'
+                  : `What did ${customer.name} say or do?`
+              }
+              rows={1}
+              className="input flex-1 min-h-[42px] max-h-32 resize-none"
+            />
+            <button
+              type="button"
+              onClick={sendText}
+              disabled={!draftText.trim()}
+              className="btn-primary !px-4 !py-2.5"
+              aria-label="Send"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {type === 'file' && (
+          <div className="space-y-2">
+            <input type="file" ref={fileInputRef} onChange={onFilePicked} className="hidden" />
+            <input
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              placeholder="Optional caption"
+              className="input"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="btn-primary flex-1"
+              >
+                <Paperclip className="w-4 h-4" /> Attach &amp; send
+              </button>
+              <p className="text-[11px] text-graphite self-center px-1">1 MB max</p>
+            </div>
+          </div>
+        )}
+
+        {type === 'task' && (
+          <div className="flex items-end gap-2">
+            <input
+              value={draftTaskTitle}
+              onChange={(e) => setDraftTaskTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  sendTask()
+                }
+              }}
+              placeholder="Task title…"
+              className="input flex-1"
+            />
+            <button
+              type="button"
+              onClick={sendTask}
+              disabled={!draftTaskTitle.trim()}
+              className="btn-primary !px-4 !py-2.5"
+              aria-label="Add task"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
-function Lines({ items, onAdd, onDelete }) {
-  const sorted = [...items].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+function SideToggle({ value, onChange, customerName }) {
+  const customerLabel = customerName.length > 12 ? customerName.slice(0, 11) + '…' : customerName
   return (
-    <div className="space-y-3">
-      <button onClick={onAdd} className="btn-primary w-full">
-        <Plus className="w-4 h-4" /> Add expense
+    <div className="inline-flex bg-iron p-1 rounded-full text-xs font-bold">
+      <button
+        type="button"
+        onClick={() => onChange('customer')}
+        className={`px-3 py-1.5 rounded-full transition-colors ${
+          value === 'customer' ? 'bg-white text-near-black shadow-ring-soft' : 'text-graphite'
+        }`}
+      >
+        {customerLabel}
       </button>
-      {sorted.length === 0 ? (
-        <p className="text-center text-sm text-steel py-6">Nothing recorded yet.</p>
+      <button
+        type="button"
+        onClick={() => onChange('mine')}
+        className={`px-3 py-1.5 rounded-full transition-colors ${
+          value === 'mine' ? 'bg-wise-green text-wise-dark' : 'text-graphite'
+        }`}
+      >
+        My team
+      </button>
+    </div>
+  )
+}
+
+function TypeToggle({ value, onChange }) {
+  const items = [
+    { v: 'text', icon: Type,        label: 'Text' },
+    { v: 'file', icon: Paperclip,   label: 'File' },
+    { v: 'task', icon: ListChecks,  label: 'Task' },
+  ]
+  return (
+    <div className="inline-flex bg-iron p-1 rounded-full text-xs font-bold ml-auto">
+      {items.map((it) => {
+        const active = value === it.v
+        return (
+          <button
+            key={it.v}
+            type="button"
+            onClick={() => onChange(it.v)}
+            className={`px-2.5 py-1.5 rounded-full transition-colors flex items-center gap-1 ${
+              active ? 'bg-white text-near-black shadow-ring-soft' : 'text-graphite'
+            }`}
+          >
+            <it.icon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{it.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function ChatBubble({ entry, customer, onCycleTask, onRemove }) {
+  const isMine = entry.side === 'mine'
+  const align = isMine ? 'items-end' : 'items-start'
+  const bubbleColor = isMine
+    ? 'bg-wise-green text-wise-dark border-wise-dark/15'
+    : 'bg-iron text-near-black border-shadow'
+  const author = isMine ? 'My team' : customer.name
+
+  return (
+    <div className={`flex flex-col ${align} group`}>
+      <div className="flex items-center gap-2 mb-1 px-1 max-w-[85%]">
+        <span className={`text-[10px] font-bold uppercase tracking-wider ${isMine ? 'text-wise-dark' : 'text-graphite'}`}>
+          {author}
+        </span>
+        <span className="text-[10px] text-graphite">{formatTimestamp(entry.ts)}</span>
+      </div>
+      <div className={`relative max-w-[85%] md:max-w-[70%] border ${bubbleColor}`} style={{ borderRadius: '20px' }}>
+        {entry.type === 'text' && <TextBody entry={entry} />}
+        {entry.type === 'file' && <FileBody entry={entry} />}
+        {entry.type === 'task' && (
+          <TaskBody entry={entry} onCycle={() => onCycleTask(entry)} />
+        )}
+        <button
+          onClick={() => onRemove(entry)}
+          className="absolute -top-2 -right-2 p-1 bg-white border border-shadow rounded-full text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label="Remove entry"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function TextBody({ entry }) {
+  return (
+    <p className="whitespace-pre-wrap text-sm leading-relaxed px-4 py-2.5">
+      {entry.text}
+    </p>
+  )
+}
+
+function FileBody({ entry }) {
+  const f = entry.file || {}
+  const Icon = fileIconFor(f.type)
+  const isImage = f.type?.startsWith('image/')
+  return (
+    <div className="px-3 py-2.5 space-y-2">
+      {isImage && f.dataUrl ? (
+        <img
+          src={f.dataUrl}
+          alt={f.name}
+          className="max-w-full max-h-64 object-contain rounded-lg border border-white/40"
+        />
       ) : (
-        <ul className="card divide-y divide-shadow p-0">
-          {sorted.map((x) => (
-            <li key={x.id} className="flex items-center gap-3 p-4">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-rose-50 text-rose-600">
-                <TrendingDown className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{x.note || x.category}</p>
-                <p className="text-xs text-steel">
-                  {x.date}{x.category ? ` · ${x.category}` : ''}
-                </p>
-              </div>
-              <p className="font-semibold text-sm text-rose-700">
-                -${Number(x.amount || 0).toLocaleString()}
-              </p>
-              <button
-                onClick={() => onDelete(x.id)}
-                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"
-                aria-label="Delete"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="flex items-center gap-2 p-2 bg-white/40 rounded-lg">
+          <Icon className="w-4 h-4 shrink-0" />
+          <span className="text-sm flex-1 min-w-0 truncate">{f.name}</span>
+          <span className="text-[10px] text-graphite shrink-0">{formatBytes(f.size)}</span>
+        </div>
+      )}
+      {entry.text && (
+        <p className="text-sm whitespace-pre-wrap">{entry.text}</p>
+      )}
+      {f.dataUrl && (
+        <a
+          href={f.dataUrl}
+          download={f.name}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-wise-dark hover:underline"
+        >
+          <Download className="w-3 h-3" /> Download
+        </a>
       )}
     </div>
   )
 }
 
-function ExpenseForm({ onSubmit }) {
-  const [form, setForm] = useState({
-    amount: '',
-    category: 'Ads',
-    date: new Date().toISOString().slice(0, 10),
-    note: '',
-  })
+function TaskBody({ entry, onCycle }) {
+  const status = TASK_STATUSES.find((t) => t.value === entry.taskStatus) || TASK_STATUSES[0]
+  const StatusIcon = status.icon
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (!form.amount) return
-        onSubmit({ ...form, amount: Number(form.amount) })
-      }}
-      className="space-y-3"
-    >
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Amount (USD) *</label>
-          <input
-            className="input"
-            type="number"
-            autoFocus
-            value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-            placeholder="320"
-          />
-        </div>
-        <div>
-          <label className="label">Date</label>
-          <input
-            className="input"
-            type="date"
-            value={form.date}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
-          />
-        </div>
-      </div>
-      <div>
-        <label className="label">Category</label>
-        <select
-          className="input"
-          value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value })}
-        >
-          {['Ads', 'Tools', 'Production', 'Events', 'Content', 'Other'].map((t) => (
-            <option key={t}>{t}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="label">Note</label>
-        <input
-          className="input"
-          value={form.note}
-          onChange={(e) => setForm({ ...form, note: e.target.value })}
-        />
-      </div>
-      <button className="btn-primary w-full">Save expense</button>
-    </form>
+    <div className="px-4 py-2.5 space-y-1.5">
+      <p className="text-sm font-semibold leading-snug">{entry.taskTitle}</p>
+      <button
+        type="button"
+        onClick={onCycle}
+        className={`pill ${statusStyle(entry.taskStatus)} text-[10px] font-bold`}
+      >
+        <StatusIcon className="w-3 h-3 mr-1" />
+        {status.label}
+      </button>
+    </div>
   )
 }

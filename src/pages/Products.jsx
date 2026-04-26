@@ -24,13 +24,10 @@ export default function Products() {
 
   return (
     <>
-      <PageHeader
-        title="Products & Services"
-        subtitle={`${state.products.length} fixed offerings`}
-      />
+      <PageHeader title="Products & Services" />
       <div className="space-y-3">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ash" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -40,12 +37,12 @@ export default function Products() {
         </div>
 
         {filtered.length === 0 ? (
-          <p className="text-center text-sm text-steel py-6">No matches.</p>
+          <p className="text-center text-sm text-graphite py-6">No matches.</p>
         ) : (
           (['Product', 'Service']).map((bucket) =>
             grouped[bucket].length === 0 ? null : (
               <section key={bucket} className="space-y-2">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-steel mt-3 px-1">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-graphite mt-3 px-1">
                   {bucket === 'Product' ? 'Products' : 'Services'}
                 </h2>
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -63,7 +60,7 @@ export default function Products() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <p className="font-semibold truncate">{p.name}</p>
-                                <span className="pill bg-iron text-white/75">{p.type}</span>
+                                <span className="pill bg-iron text-graphite">{p.type}</span>
                               </div>
                             </div>
                           </div>

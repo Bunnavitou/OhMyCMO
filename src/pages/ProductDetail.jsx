@@ -29,19 +29,19 @@ export default function ProductDetail() {
       <div className="space-y-4">
         <section className="grid grid-cols-3 gap-2">
           <div className="card !p-3">
-            <div className="text-xs text-steel flex items-center gap-1">
+            <div className="text-xs text-graphite flex items-center gap-1">
               <TrendingUp className="w-3 h-3" /> Income
             </div>
             <p className="text-lg font-bold text-emerald-700 mt-1">${income.toLocaleString()}</p>
           </div>
           <div className="card !p-3">
-            <div className="text-xs text-steel flex items-center gap-1">
+            <div className="text-xs text-graphite flex items-center gap-1">
               <TrendingDown className="w-3 h-3" /> Expense
             </div>
             <p className="text-lg font-bold text-rose-700 mt-1">${expense.toLocaleString()}</p>
           </div>
           <div className="card !p-3">
-            <div className="text-xs text-steel">Net</div>
+            <div className="text-xs text-graphite">Net</div>
             <p className={`text-lg font-bold mt-1 ${net >= 0 ? 'text-brand-700' : 'text-amber-700'}`}>
               ${net.toLocaleString()}
             </p>
@@ -54,7 +54,7 @@ export default function ProductDetail() {
               key={t}
               onClick={() => setTab(t)}
               className={`flex-1 text-xs md:text-sm py-2 font-bold uppercase tracking-wider transition-colors ${
-                tab === t ? 'bg-charcoal text-brand-500 border-b-2 border-brand-500' : 'text-steel'
+                tab === t ? 'bg-charcoal text-brand-500 border-b-2 border-brand-500' : 'text-graphite'
               }`}
             >
               {t}
@@ -128,7 +128,7 @@ function ExpenseLines({ items, onAdd, onDelete }) {
         <Plus className="w-4 h-4" /> Add expense
       </button>
       {sorted.length === 0 ? (
-        <p className="text-center text-sm text-steel py-6">Nothing recorded yet.</p>
+        <p className="text-center text-sm text-graphite py-6">Nothing recorded yet.</p>
       ) : (
         <ul className="card divide-y divide-shadow p-0">
           {sorted.map((x) => (
@@ -138,7 +138,7 @@ function ExpenseLines({ items, onAdd, onDelete }) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{x.note || x.category}</p>
-                <p className="text-xs text-steel">
+                <p className="text-xs text-graphite">
                   {x.date}{x.category ? ` · ${x.category}` : ''}
                 </p>
               </div>

@@ -74,7 +74,7 @@ export default function CustomerStaff() {
           <>
             {departments.length > 0 && (
               <section className="card !p-3">
-                <p className="text-xs font-semibold text-steel uppercase tracking-wider mb-2">
+                <p className="text-xs font-semibold text-graphite uppercase tracking-wider mb-2">
                   Departments
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -88,7 +88,7 @@ export default function CustomerStaff() {
             )}
 
             <section>
-              <p className="text-xs font-semibold text-steel uppercase tracking-wider mb-2 px-1">
+              <p className="text-xs font-semibold text-graphite uppercase tracking-wider mb-2 px-1">
                 Org chart
               </p>
               <ul className="card divide-y divide-shadow p-0">
@@ -173,7 +173,7 @@ function StaffRow({ staff, depth, hasChildren, onEdit, onDelete, children }) {
         )}
         <div
           className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
-            depth === 0 ? 'bg-brand-100 text-brand-700' : 'bg-iron text-white/75'
+            depth === 0 ? 'bg-brand-100 text-brand-700' : 'bg-iron text-graphite'
           }`}
         >
           {depth === 0 && hasChildren ? <Crown className="w-4 h-4" /> : (staff.name?.charAt(0) || '?')}
@@ -182,14 +182,14 @@ function StaffRow({ staff, depth, hasChildren, onEdit, onDelete, children }) {
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold truncate">{staff.name || 'Unnamed'}</p>
             {staff.department && (
-              <span className="pill bg-iron text-white/75">{staff.department}</span>
+              <span className="pill bg-iron text-graphite">{staff.department}</span>
             )}
           </div>
           {staff.role && (
-            <p className="text-xs text-steel truncate">{staff.role}</p>
+            <p className="text-xs text-graphite truncate">{staff.role}</p>
           )}
           {(staff.email || staff.phone) && (
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-steel">
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-graphite">
               {staff.email && (
                 <a href={`mailto:${staff.email}`} className="flex items-center gap-1">
                   <Mail className="w-3 h-3" /> {staff.email}
@@ -205,7 +205,7 @@ function StaffRow({ staff, depth, hasChildren, onEdit, onDelete, children }) {
         </div>
         <button
           onClick={() => onEdit(staff)}
-          className="p-1.5 rounded-full hover:bg-iron text-steel"
+          className="p-1.5 rounded-full hover:bg-iron text-graphite"
           aria-label="Edit"
         >
           <Pencil className="w-4 h-4" />

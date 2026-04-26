@@ -5,7 +5,7 @@ export default function PageHeader({ subtitle, action }) {
   return (
     <div className="flex items-center justify-between gap-3 mb-3 md:mb-4">
       {subtitle ? (
-        <div className="text-xs md:text-sm text-steel min-w-0 truncate">{subtitle}</div>
+        <div className="text-xs md:text-sm text-graphite min-w-0 truncate">{subtitle}</div>
       ) : (
         <span />
       )}

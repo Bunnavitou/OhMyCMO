@@ -23,22 +23,23 @@ export default function Modal({ open, onClose, title, size = 'md', children }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-near-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
-        className={`relative w-full ${sizeClass} bg-charcoal text-white border border-white/15 rounded-t-3xl sm:rounded-3xl shadow-xl mx-auto p-5 max-h-[92vh] overflow-y-auto animate-[slideUp_0.18s_ease-out]`}
+        className={`relative w-full ${sizeClass} bg-white text-near-black border border-shadow mx-auto p-5 max-h-[92vh] overflow-y-auto animate-[slideUp_0.18s_ease-out]`}
+        style={{
+          borderRadius: '30px',
+          boxShadow: '0 0 0 1px rgba(14, 15, 12, 0.12)',
+        }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2
-            className="font-display text-xl md:text-2xl text-white"
-            style={{ letterSpacing: '0.01em' }}
-          >
+          <h2 className="display text-xl md:text-2xl text-near-black">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-white/10 text-white rounded-full"
+            className="p-1.5 hover:bg-iron text-near-black rounded-full transition-transform hover:scale-105 active:scale-95"
             aria-label="Close"
           >
             <X className="w-5 h-5" />

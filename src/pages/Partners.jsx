@@ -1,8 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Handshake, Mail, Phone, Camera, Loader2, Sparkles } from 'lucide-react'
+import { Plus, Search, Handshake, Mail, Phone, Camera, Pencil, Loader2, Sparkles } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
-import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
@@ -33,6 +32,7 @@ export default function Partners() {
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState('')
   const [dateRange, setDateRange] = useState(null)
+  const [chooserOpen, setChooserOpen] = useState(false)
   const fileInputRef = useRef(null)
 
   const filtered = useMemo(
@@ -47,6 +47,7 @@ export default function Partners() {
 
   const onScanClick = () => {
     setScanError('')
+    setChooserOpen(false)
     fileInputRef.current?.click()
   }
 
@@ -81,6 +82,7 @@ export default function Partners() {
   }
 
   const openManual = () => {
+    setChooserOpen(false)
     setInitial(EMPTY_PARTNER)
     setFromScan(false)
     setOpen(true)
@@ -94,23 +96,6 @@ export default function Partners() {
 
   return (
     <>
-      <PageHeader
-        subtitle={`${state.partners.length} contacts`}
-        action={
-          <>
-            <button
-              onClick={onScanClick}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-shadow bg-charcoal text-white/85 hover:bg-iron active:scale-[0.98] transition"
-            >
-              <Camera className="w-4 h-4" /> Scan
-            </button>
-            <button onClick={openManual} className="btn-primary !px-3 !py-2">
-              <Plus className="w-4 h-4" /> New
-            </button>
-          </>
-        }
-      />
-
       <input
         ref={fileInputRef}
         type="file"
@@ -129,7 +114,7 @@ export default function Partners() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ash" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -150,18 +135,13 @@ export default function Partners() {
             title="No partners yet"
             description="Capture name cards, log meetings and follow-ups in one place."
             action={
-              <div className="flex flex-col gap-2">
-                <button onClick={onScanClick} className="btn-primary">
-                  <Camera className="w-4 h-4" /> Scan a name card
-                </button>
-                <button onClick={openManual} className="btn-ghost border border-shadow bg-charcoal">
-                  <Plus className="w-4 h-4" /> Add manually
-                </button>
-              </div>
+              <button onClick={() => setChooserOpen(true)} className="btn-primary">
+                <Plus className="w-4 h-4" /> Add a partner
+              </button>
             }
           />
         ) : filtered.length === 0 ? (
-          <p className="text-center text-sm text-steel py-6">
+          <p className="text-center text-sm text-graphite py-6">
             No partners match your filters.
           </p>
         ) : (
@@ -176,10 +156,10 @@ export default function Partners() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{p.name}</p>
-                      <p className="text-xs text-steel truncate">
+                      <p className="text-xs text-graphite truncate">
                         {p.role || '—'} · {p.company || '—'}
                       </p>
-                      <div className="flex gap-3 mt-2 text-xs text-steel">
+                      <div className="flex gap-3 mt-2 text-xs text-graphite">
                         {p.email && (
                           <span className="flex items-center gap-1">
                             <Mail className="w-3 h-3" /> {p.email}
@@ -191,7 +171,7 @@ export default function Partners() {
                           </span>
                         )}
                       </div>
-                      <div className="flex gap-3 mt-1 text-xs text-steel">
+                      <div className="flex gap-3 mt-1 text-xs text-graphite">
                         <span>{openTasks} open task{openTasks !== 1 ? 's' : ''}</span>
                       </div>
                     </div>
@@ -216,6 +196,52 @@ export default function Partners() {
           closeModal()
         }}
       />
+
+      <button
+        onClick={() => setChooserOpen(true)}
+        className="btn-primary fixed z-40 right-4 md:right-8 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-8 shadow-xl"
+        aria-label="New partner"
+      >
+        <Plus className="w-5 h-5" /> New
+      </button>
+
+      <Modal open={chooserOpen} onClose={() => setChooserOpen(false)} title="Add a new partner">
+        <p className="text-sm text-graphite mb-4">
+          Choose how you'd like to capture this partner.
+        </p>
+        <div className="space-y-2.5">
+          <button
+            type="button"
+            onClick={onScanClick}
+            className="w-full text-left card flex items-center gap-3 hover:bg-iron transition-transform hover:scale-[1.01] active:scale-[0.99]"
+          >
+            <div className="w-11 h-11 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center shrink-0">
+              <Camera className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-bold text-near-black">Scan a name card</p>
+              <p className="text-xs text-graphite mt-0.5">
+                Snap a photo and we'll fill the form for you using OCR.
+              </p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={openManual}
+            className="w-full text-left card flex items-center gap-3 hover:bg-iron transition-transform hover:scale-[1.01] active:scale-[0.99]"
+          >
+            <div className="w-11 h-11 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center shrink-0">
+              <Pencil className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-bold text-near-black">Enter manually</p>
+              <p className="text-xs text-graphite mt-0.5">
+                Type in the partner's details from scratch.
+              </p>
+            </div>
+          </button>
+        </div>
+      </Modal>
     </>
   )
 }
@@ -226,7 +252,7 @@ function ScanningOverlay() {
       <div className="bg-charcoal rounded-2xl p-6 shadow-xl flex flex-col items-center gap-3 max-w-xs mx-4">
         <Loader2 className="w-8 h-8 text-brand-600 animate-spin" />
         <p className="text-sm font-semibold">Reading name card…</p>
-        <p className="text-xs text-steel text-center">
+        <p className="text-xs text-graphite text-center">
           First scan downloads the OCR language pack — please wait a few seconds.
         </p>
       </div>

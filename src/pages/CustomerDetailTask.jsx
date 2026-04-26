@@ -12,7 +12,7 @@ const statusStyle = (s) =>
   s === 'Done' ? 'bg-emerald-100 text-emerald-700'
   : s === 'In Progress' ? 'bg-brand-100 text-brand-700'
   : s === 'Blocked' ? 'bg-rose-100 text-rose-700'
-  : 'bg-iron text-white/75'
+  : 'bg-iron text-graphite'
 
 export default function CustomerDetailTask({ customer }) {
   const {
@@ -69,7 +69,7 @@ export default function CustomerDetailTask({ customer }) {
         </div>
 
         {customer.tasks.length === 0 && customer.taskGroups.length === 0 ? (
-          <p className="text-center text-sm text-steel py-6">No tasks yet.</p>
+          <p className="text-center text-sm text-graphite py-6">No tasks yet.</p>
         ) : (
           grouped.map(({ group, items }) => {
             const collapsed = collapsedGroups[group.id]
@@ -79,13 +79,13 @@ export default function CustomerDetailTask({ customer }) {
                 <div className="flex items-center gap-2 px-1">
                   <button
                     onClick={() => toggleCollapse(group.id)}
-                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-steel"
+                    className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-graphite"
                   >
                     <ChevronDown
                       className={`w-3.5 h-3.5 transition ${collapsed ? '-rotate-90' : ''}`}
                     />
                     {group.name}
-                    <span className="text-ash font-medium normal-case tracking-normal">
+                    <span className="text-graphite font-medium normal-case tracking-normal">
                       ({items.length})
                     </span>
                   </button>
@@ -93,7 +93,7 @@ export default function CustomerDetailTask({ customer }) {
                     <div className="ml-auto flex items-center gap-1">
                       <button
                         onClick={() => { setEditingGroup(group); setOpenModal('group') }}
-                        className="p-1 rounded hover:bg-iron text-steel"
+                        className="p-1 rounded hover:bg-iron text-graphite"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
@@ -112,7 +112,7 @@ export default function CustomerDetailTask({ customer }) {
                 </div>
                 {!collapsed && (
                   items.length === 0 ? (
-                    <p className="text-xs text-ash px-1">No tasks in this group.</p>
+                    <p className="text-xs text-graphite px-1">No tasks in this group.</p>
                   ) : (
                     <ul className="card divide-y divide-shadow p-0">
                       {items.map((t) => (
@@ -125,7 +125,7 @@ export default function CustomerDetailTask({ customer }) {
                               <div className="flex items-start gap-2">
                                 <p
                                   className={`text-sm font-semibold flex-1 min-w-0 ${
-                                    t.status === 'Done' ? 'line-through text-ash' : ''
+                                    t.status === 'Done' ? 'line-through text-graphite' : ''
                                   }`}
                                 >
                                   {t.name}
@@ -135,9 +135,9 @@ export default function CustomerDetailTask({ customer }) {
                                 </span>
                               </div>
                               {t.description && (
-                                <p className="text-xs text-steel line-clamp-2">{t.description}</p>
+                                <p className="text-xs text-graphite line-clamp-2">{t.description}</p>
                               )}
-                              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-steel pt-0.5">
+                              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-graphite pt-0.5">
                                 {t.due && (
                                   <span className="flex items-center gap-1">
                                     <Calendar className="w-3 h-3" /> {t.due}
@@ -167,7 +167,7 @@ export default function CustomerDetailTask({ customer }) {
                                 className={`px-2 py-0.5 rounded-md text-[10px] font-medium border transition ${
                                   t.status === s
                                     ? `${statusStyle(s)} border-transparent`
-                                    : 'border-shadow text-ash hover:bg-iron'
+                                    : 'border-shadow text-graphite hover:bg-iron'
                                 }`}
                               >
                                 {s}
@@ -356,13 +356,13 @@ function TaskForm({ initial, groups, onSubmit, onDelete }) {
         <label className="label">File attachment</label>
         {form.file ? (
           <div className="flex items-center gap-2 p-2.5 rounded-xl border border-shadow bg-iron">
-            <Paperclip className="w-4 h-4 text-steel" />
+            <Paperclip className="w-4 h-4 text-graphite" />
             <span className="text-sm flex-1 min-w-0 truncate">{form.file.name}</span>
             {form.file.dataUrl && (
               <a
                 href={form.file.dataUrl}
                 download={form.file.name}
-                className="p-1.5 text-steel hover:bg-iron rounded"
+                className="p-1.5 text-graphite hover:bg-iron rounded"
               >
                 <Download className="w-4 h-4" />
               </a>
@@ -376,7 +376,7 @@ function TaskForm({ initial, groups, onSubmit, onDelete }) {
             </button>
           </div>
         ) : (
-          <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-steel cursor-pointer hover:bg-iron">
+          <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite cursor-pointer hover:bg-iron">
             <Paperclip className="w-4 h-4" />
             Attach file (max 1 MB)
             <input type="file" className="hidden" onChange={onFile} />

@@ -75,11 +75,9 @@ function useNavMeta() {
   return {
     crumbs,
     level: crumbs.length,
-    title: crumbs[crumbs.length - 1]?.label || 'OHMYCMO',
+    title: crumbs[crumbs.length - 1]?.label || 'OhMyCMO',
   }
 }
-
-const monoCapsClass = 'font-mono uppercase tracking-[0.15em]'
 
 export default function AppShell() {
   const { crumbs, level, title } = useNavMeta()
@@ -88,16 +86,15 @@ export default function AppShell() {
   const isDetail = level >= 2
 
   return (
-    <div className="min-h-screen bg-abyss text-white md:flex">
-      {/* Sidebar — web only, fixed left, canvas with mint hazard accents */}
-      <aside className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-60 md:flex-col bg-abyss border-r border-white/10 z-30">
-        <div className="h-14 flex items-center px-5 border-b border-white/10">
+    <div className="min-h-screen bg-white text-near-black md:flex">
+      {/* Sidebar — web only, soft white with hairline border, mint hover/active */}
+      <aside className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:w-60 md:flex-col bg-white border-r border-shadow z-30">
+        <div className="h-16 flex items-center px-5 border-b border-shadow">
           <Link
             to="/"
-            className="font-display text-[28px] leading-none text-white tracking-tight"
-            style={{ letterSpacing: '0.01em' }}
+            className="display text-[26px] leading-none text-near-black"
           >
-            OHMYCMO
+            OhMyCMO
           </Link>
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
@@ -107,18 +104,12 @@ export default function AppShell() {
               <Link
                 key={t.to}
                 to={t.to}
-                className={`flex items-center gap-2 px-3 py-2 text-[11px] ${monoCapsClass} font-bold transition-colors`}
-                style={{
-                  color: active ? '#000' : '#fff',
-                  backgroundColor: active ? '#3CFFD0' : 'transparent',
-                  borderRadius: '24px',
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) e.currentTarget.style.color = '#3860BE'
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) e.currentTarget.style.color = '#fff'
-                }}
+                className={`flex items-center gap-2.5 px-3 py-2 text-sm font-semibold transition-all ${
+                  active
+                    ? 'bg-mint-bg text-wise-dark'
+                    : 'text-near-black hover:bg-iron'
+                }`}
+                style={{ borderRadius: '9999px' }}
               >
                 <t.icon className="w-4 h-4 shrink-0" strokeWidth={2.2} />
                 <span className="truncate">{t.label}</span>
@@ -126,41 +117,44 @@ export default function AppShell() {
             )
           })}
         </nav>
-        <div className="p-4 border-t border-white/10">
-          <p className="font-mono uppercase tracking-[0.18em] text-[9px] text-steel">
-            v0.1 · LOCAL
-          </p>
+        <div className="p-4 border-t border-shadow">
+          <p className="text-[11px] text-graphite font-semibold">v0.1 · local</p>
         </div>
       </aside>
 
       {/* Main column */}
-      <div className="flex-1 md:ml-60 flex flex-col min-h-screen">
-        {/* Top bar — canvas with hairline bottom border */}
-        <header className="sticky top-0 z-20 bg-abyss/95 backdrop-blur border-b border-white/10 h-12 md:h-14 flex items-center px-3 md:px-6">
+      <div className="flex-1 md:ml-60 flex flex-col min-h-screen bg-white">
+        {/* Top bar — white with hairline bottom border (height matches sidebar wordmark row) */}
+        <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-shadow h-12 md:h-16 flex items-center px-3 md:px-6">
           {isDetail && (
             <button
               onClick={() => navigate(-1)}
-              className="md:hidden -ml-1 mr-1 p-2 hover:bg-white/5 text-white rounded-full"
+              className="md:hidden -ml-1 mr-1 p-2 hover:bg-iron text-near-black rounded-full"
               aria-label="Back"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
           )}
-          {/* Mobile: title in display font */}
-          <h1 className="md:hidden font-display text-xl text-white truncate flex-1" style={{ letterSpacing: '0.01em' }}>
+          {/* Mobile: title in display weight */}
+          <h1 className="md:hidden display text-2xl text-near-black truncate flex-1">
             {title}
           </h1>
-          {/* Web: breadcrumb in mono caps */}
-          <nav className={`hidden md:flex items-center gap-2 text-[11px] ${monoCapsClass} flex-1 min-w-0`}>
+          {/* Web: breadcrumb — current crumb sized to match the sidebar wordmark */}
+          <nav className="hidden md:flex items-center gap-2 flex-1 min-w-0">
             {crumbs.map((c, i) => {
               const isLast = i === crumbs.length - 1
               return (
                 <span key={`${c.to}-${i}`} className="flex items-center gap-2 min-w-0">
-                  {i > 0 && <ChevronRight className="w-3 h-3 text-steel shrink-0" />}
+                  {i > 0 && <ChevronRight className="w-5 h-5 text-ash shrink-0" />}
                   {isLast ? (
-                    <span className="font-bold text-white truncate">{c.label}</span>
+                    <span className="display text-[26px] leading-none text-near-black truncate">
+                      {c.label}
+                    </span>
                   ) : (
-                    <Link to={c.to} className="text-steel hover:text-white truncate">
+                    <Link
+                      to={c.to}
+                      className="display text-[26px] leading-none text-graphite hover:text-near-black truncate"
+                    >
                       {c.label}
                     </Link>
                   )}
@@ -177,10 +171,10 @@ export default function AppShell() {
           <Outlet />
         </main>
 
-        {/* Bottom nav — mobile only, hidden on detail */}
+        {/* Bottom nav — mobile only, white with hairline top border */}
         {!isDetail && (
           <nav
-            className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-abyss border-t border-white/10"
+            className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-shadow"
             style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
             <ul className="grid grid-cols-6 h-16">
@@ -190,13 +184,18 @@ export default function AppShell() {
                   <li key={t.to}>
                     <Link
                       to={t.to}
-                      className={`flex flex-col items-center justify-center gap-1 h-full ${monoCapsClass} text-[8px] font-bold transition-colors`}
-                      style={{
-                        color: active ? '#3CFFD0' : '#fff',
-                        boxShadow: active ? 'inset 0 -2px 0 0 #3CFFD0' : 'none',
-                      }}
+                      className={`flex flex-col items-center justify-center gap-0.5 h-full text-[10px] font-bold transition-colors ${
+                        active ? 'text-wise-dark' : 'text-graphite'
+                      }`}
                     >
-                      <t.icon className="w-5 h-5" strokeWidth={active ? 2.4 : 2} />
+                      <span
+                        className={`flex items-center justify-center transition-all ${
+                          active ? 'bg-mint w-9 h-7' : 'w-9 h-7'
+                        }`}
+                        style={{ borderRadius: active ? '9999px' : '0' }}
+                      >
+                        <t.icon className="w-5 h-5" strokeWidth={active ? 2.6 : 2} />
+                      </span>
                       <span>{t.mobileLabel}</span>
                     </Link>
                   </li>

@@ -1,14 +1,21 @@
 import { useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
-import { Mail, Phone, MapPin, Hash, Pencil, Users, ChevronRight } from 'lucide-react'
+import { Mail, Phone, MapPin, Hash, Pencil, Trash2, Users, ChevronRight } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
 
 const stages = ['Prospect', 'Active', 'On hold', 'Churned']
 
 export default function CustomerDetailOrg({ customer }) {
-  const { updateCustomer } = useStore()
+  const { updateCustomer, removeCustomer } = useStore()
   const [editing, setEditing] = useState(false)
+
+  const onDelete = () => {
+    if (confirm(`Delete ${customer.name}? This cannot be undone.`)) {
+      removeCustomer(customer.id)
+      history.back()
+    }
+  }
 
   return (
     <>
@@ -19,56 +26,65 @@ export default function CustomerDetailOrg({ customer }) {
               {customer.contact || 'No primary contact'}
             </p>
             {customer.industry && (
-              <p className="text-xs text-steel mt-0.5">{customer.industry}</p>
+              <p className="text-xs text-graphite mt-0.5">{customer.industry}</p>
             )}
           </div>
-          <button
-            onClick={() => setEditing(true)}
-            className="p-2 rounded-full hover:bg-iron text-steel shrink-0"
-            aria-label="Edit customer"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setEditing(true)}
+              className="p-2 rounded-full hover:bg-iron text-graphite transition-transform hover:scale-105 active:scale-95"
+              aria-label="Edit customer"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onDelete}
+              className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
+              aria-label="Delete customer"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1.5 text-sm text-white/75">
+        <div className="flex flex-col gap-1.5 text-sm text-graphite">
           {customer.email ? (
             <a href={`mailto:${customer.email}`} className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-ash shrink-0" />
+              <Mail className="w-4 h-4 text-graphite shrink-0" />
               <span className="truncate">{customer.email}</span>
             </a>
           ) : (
-            <p className="flex items-center gap-2 text-ash">
+            <p className="flex items-center gap-2 text-graphite">
               <Mail className="w-4 h-4 shrink-0" /> Add email
             </p>
           )}
           {customer.phone ? (
             <a href={`tel:${customer.phone}`} className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-ash shrink-0" />
+              <Phone className="w-4 h-4 text-graphite shrink-0" />
               <span className="truncate">{customer.phone}</span>
             </a>
           ) : (
-            <p className="flex items-center gap-2 text-ash">
+            <p className="flex items-center gap-2 text-graphite">
               <Phone className="w-4 h-4 shrink-0" /> Add tel
             </p>
           )}
           {customer.address ? (
             <p className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-ash shrink-0 mt-0.5" />
+              <MapPin className="w-4 h-4 text-graphite shrink-0 mt-0.5" />
               <span className="whitespace-pre-wrap">{customer.address}</span>
             </p>
           ) : (
-            <p className="flex items-center gap-2 text-ash">
+            <p className="flex items-center gap-2 text-graphite">
               <MapPin className="w-4 h-4 shrink-0" /> Add address
             </p>
           )}
           {customer.vatTin ? (
             <p className="flex items-center gap-2">
-              <Hash className="w-4 h-4 text-ash shrink-0" />
+              <Hash className="w-4 h-4 text-graphite shrink-0" />
               <span className="truncate">VAT TIN: {customer.vatTin}</span>
             </p>
           ) : (
-            <p className="flex items-center gap-2 text-ash">
+            <p className="flex items-center gap-2 text-graphite">
               <Hash className="w-4 h-4 shrink-0" /> Add VAT TIN
             </p>
           )}
@@ -83,12 +99,12 @@ export default function CustomerDetailOrg({ customer }) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Total staff</p>
-            <p className="text-xs text-steel">View company structure</p>
+            <p className="text-xs text-graphite">View company structure</p>
           </div>
-          <span className="text-lg font-bold text-white/85">
+          <span className="text-lg font-bold text-near-black">
             {customer.staff?.length || 0}
           </span>
-          <ChevronRight className="w-4 h-4 text-ash" />
+          <ChevronRight className="w-4 h-4 text-graphite" />
         </RouterLink>
       </section>
 

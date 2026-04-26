@@ -38,19 +38,11 @@ export default function Customers() {
 
   return (
     <>
-      <PageHeader
-        title="Customers"
-        subtitle={`${state.customers.length} relationships`}
-        action={
-          <button onClick={() => setOpen(true)} className="btn-primary !px-3 !py-2">
-            <Plus className="w-4 h-4" /> New
-          </button>
-        }
-      />
+      <PageHeader title="Customers" />
       <div className="space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ash" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -73,7 +65,7 @@ export default function Customers() {
             action={<button onClick={() => setOpen(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add customer</button>}
           />
         ) : filtered.length === 0 ? (
-          <p className="text-center text-sm text-steel py-6">
+          <p className="text-center text-sm text-graphite py-6">
             No customers match your filters.
           </p>
         ) : (
@@ -92,13 +84,13 @@ export default function Customers() {
                         <span className={`pill ${
                           c.stage === 'Active' ? 'bg-emerald-100 text-emerald-700'
                           : c.stage === 'Prospect' ? 'bg-amber-100 text-amber-700'
-                          : 'bg-iron text-white/75'
+                          : 'bg-iron text-graphite'
                         }`}>{c.stage}</span>
                       </div>
-                      <p className="text-xs text-steel flex items-center gap-1 mt-0.5">
+                      <p className="text-xs text-graphite flex items-center gap-1 mt-0.5">
                         <Building2 className="w-3 h-3" /> {c.industry || '—'} · {c.contact || 'No contact'}
                       </p>
-                      <div className="flex gap-3 mt-2 text-xs text-steel">
+                      <div className="flex gap-3 mt-2 text-xs text-graphite">
                         <span>{openTasks} open task{openTasks !== 1 ? 's' : ''}</span>
                         <span>{(c.files?.length || 0)} files</span>
                         <span>{(c.logs?.length || 0)} events</span>
@@ -113,6 +105,14 @@ export default function Customers() {
       </div>
 
       <NewCustomerModal open={open} onClose={() => setOpen(false)} onSubmit={(data) => { addCustomer(data); setOpen(false) }} />
+
+      <button
+        onClick={() => setOpen(true)}
+        className="btn-primary fixed z-40 right-4 md:right-8 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-8 shadow-xl"
+        aria-label="New customer"
+      >
+        <Plus className="w-5 h-5" /> New
+      </button>
     </>
   )
 }

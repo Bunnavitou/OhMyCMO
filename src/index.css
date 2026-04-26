@@ -7,114 +7,157 @@
     height: 100%;
   }
   body {
-    @apply bg-abyss text-white antialiased;
-    font-family: 'Space Grotesk', Inter, ui-sans-serif, system-ui, sans-serif;
+    background-color: #FFFFFF;
+    color: #0E0F0C;
+    font-family: Inter, ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
+    font-feature-settings: 'calt' 1; /* contextual alternates everywhere */
+    font-weight: 600; /* Inter Semibold as default reading weight per Wise spec */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  /* Display headings borrow Manuka's heavy-uppercase voice via Anton/Bebas. */
+  /* Display headings — Inter Black (900) at billboard scale, ultra-tight leading. */
   h1, h2, h3 {
-    font-family: 'Anton', 'Bebas Neue', Impact, sans-serif;
-    letter-spacing: 0.015em;
-    text-transform: uppercase;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 900;
+    line-height: 0.85;
+    letter-spacing: -0.02em;
+    color: #0E0F0C;
   }
-  /* Native form controls dressed for the dark canvas. */
-  select option { @apply bg-charcoal text-white; }
-  input, textarea, select { color-scheme: dark; }
-  ::placeholder { color: theme('colors.steel'); }
-  /* Hover register: every link drifts to deep link blue per spec. */
+  /* Native form controls. */
+  select option { background: #FFFFFF; color: #0E0F0C; }
+  input, textarea, select { color-scheme: light; }
+  ::placeholder { color: #868685; }
+  /* Hover register: links drift to dark green per Wise convention. */
   a { transition: color 150ms ease; }
-  a:hover { color: theme('colors.link-hover'); }
 }
 
 @layer components {
-  /* Surface — pill-cornered card with hairline white border on the canvas. */
+  /* Surface — white card with hairline ring border + 30px radius. */
   .card {
-    @apply bg-charcoal text-white border border-white/15 p-4 md:p-6;
-    border-radius: 20px;
+    background: #FFFFFF;
+    color: #0E0F0C;
+    border: 1px solid rgba(14, 15, 12, 0.12);
+    border-radius: 30px;
+    padding: 1rem;
+  }
+  @media (min-width: 768px) {
+    .card { padding: 1.5rem; }
   }
 
-  /* Status / category tag — solid color pill, mono caps with positive tracking. */
+  /* Tag pill — small status / category badge. */
   .pill {
-    @apply inline-flex items-center px-2.5 py-0.5 text-[10px] font-bold uppercase;
-    border-radius: 20px;
-    font-family: 'Space Mono', 'JetBrains Mono', monospace;
-    letter-spacing: 0.15em;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.01em;
   }
 
-  /* Primary CTA — Jelly Mint pill, black mono caps, fully rounded. */
+  /* Primary CTA — Wise Green pill with dark-green text and scale interaction. */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-1.5 px-5 md:px-6 py-2.5
-           bg-mint text-black text-xs md:text-sm font-bold uppercase
-           rounded-full transition-colors;
-    font-family: 'Space Mono', 'JetBrains Mono', monospace;
-    letter-spacing: 0.12em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 10px 22px;
+    background: #9FE870;
+    color: #163300;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+    border: none;
+    cursor: pointer;
   }
   .btn-primary:hover {
-    background-color: rgba(255, 255, 255, 0.20);
-    color: #000;
-    box-shadow: 0 0 0 1px #c2c2c2;
+    transform: scale(1.04);
+    background: #CDFFAD;
   }
-  .btn-primary:disabled { @apply opacity-40 cursor-not-allowed; }
+  .btn-primary:active {
+    transform: scale(0.96);
+  }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
 
-  /* Secondary CTA — outlined mint pill (the loudest pill). */
+  /* Secondary subtle pill — dark green at 8% on white. */
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-1.5 px-4 md:px-5 py-2.5
-           bg-transparent text-mint text-xs md:text-sm font-bold uppercase
-           border transition-colors;
-    border-color: theme('colors.mint');
-    border-radius: 40px;
-    font-family: 'Space Mono', 'JetBrains Mono', monospace;
-    letter-spacing: 0.12em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 10px 18px;
+    background: rgba(22, 51, 0, 0.08);
+    color: #0E0F0C;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    border: none;
+    transition: transform 180ms ease, background-color 180ms ease;
+    cursor: pointer;
   }
-  .btn-ghost:hover { @apply bg-mint text-black; }
+  .btn-ghost:hover {
+    transform: scale(1.04);
+    background: rgba(22, 51, 0, 0.14);
+  }
+  .btn-ghost:active { transform: scale(0.96); }
 
-  /* Tertiary slate pill — secondary action on dark surfaces. */
-  .btn-slate {
-    @apply inline-flex items-center justify-center gap-1.5 px-4 md:px-5 py-2.5
-           bg-charcoal text-muted text-xs md:text-sm font-bold uppercase
-           rounded-full transition-colors;
-    font-family: 'Space Mono', 'JetBrains Mono', monospace;
-    letter-spacing: 0.12em;
-  }
-  .btn-slate:hover {
-    background-color: rgba(255, 255, 255, 0.20);
-    color: #000;
-    box-shadow: 0 0 0 1px #c2c2c2;
-  }
+  /* Slate variant kept for source-compat — same subtle ghost styling. */
+  .btn-slate { @apply btn-ghost; }
 
-  /* Inputs — newspaper-tight 2px corners, white hairline border. */
+  /* Inputs — light surface, 10px radius, dark green focus border. */
   .input {
-    @apply w-full px-3.5 py-2.5 bg-abyss border border-white/20 text-sm text-white
-           placeholder:text-steel transition-colors
-           focus:outline-none focus:border-mint;
-    border-radius: 2px;
+    width: 100%;
+    padding: 10px 14px;
+    background: #FFFFFF;
+    color: #0E0F0C;
+    border: 1px solid rgba(14, 15, 12, 0.18);
+    border-radius: 10px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+  }
+  .input::placeholder { color: #868685; }
+  .input:focus {
+    outline: none;
+    border-color: #163300;
+    box-shadow: inset 0 0 0 1px #163300;
+    background: #FFFFFF;
   }
 
-  /* Field label — mono caps with letter-spacing whisper. */
+  /* Field label — small near-black semibold. */
   .label {
-    @apply block text-[10px] uppercase text-steel font-bold mb-1.5;
-    font-family: 'Space Mono', 'JetBrains Mono', monospace;
-    letter-spacing: 0.15em;
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #454745;
+    margin-bottom: 6px;
+    letter-spacing: -0.005em;
   }
 
-  /* Section title — mono caps eyebrow. */
+  /* Section eyebrow — small cap-ish. Not all-caps; Wise uses mixed case. */
   .section-title {
-    @apply text-[11px] md:text-xs uppercase font-bold text-white;
-    font-family: 'Space Mono', 'JetBrains Mono', monospace;
-    letter-spacing: 0.18em;
+    font-size: 14px;
+    font-weight: 700;
+    color: #454745;
+    letter-spacing: -0.01em;
   }
 
-  /* Display headline — Anton/Bebas at hero scale. */
+  /* Display utility — Inter 900 at hero scale. */
   .display {
-    font-family: 'Anton', 'Bebas Neue', Impact, sans-serif;
-    text-transform: uppercase;
-    line-height: 0.92;
-    letter-spacing: 0.01em;
+    font-family: Inter, system-ui, sans-serif;
+    font-weight: 900;
+    line-height: 0.85;
+    letter-spacing: -0.025em;
+    color: #0E0F0C;
   }
 
-  /* StoryStream timeline rail — vertical purple/white rule for feed views. */
-  .stream-rail {
-    border-left: 1px solid theme('colors.purple-rule');
-  }
-
-  .hairline { @apply border-white/15; }
+  .hairline { border-color: rgba(14, 15, 12, 0.12); }
 }

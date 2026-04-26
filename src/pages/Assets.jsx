@@ -47,7 +47,7 @@ export default function Assets() {
       />
       <div className="space-y-3">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ash" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search asset, assignee, serial" className="input pl-9" />
         </div>
 
@@ -56,7 +56,7 @@ export default function Assets() {
             <button
               key={c}
               onClick={() => setCat(c)}
-              className={`pill border ${cat === c ? 'bg-brand-600 border-brand-600 text-white' : 'bg-charcoal border-shadow text-white/75'}`}
+              className={`pill border ${cat === c ? 'bg-brand-600 border-brand-600 text-white' : 'bg-charcoal border-shadow text-graphite'}`}
             >
               {c}
             </button>
@@ -73,7 +73,7 @@ export default function Assets() {
         ) : (
           Object.entries(grouped).map(([category, items]) => (
             <section key={category} className="space-y-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-steel mt-3">{category}</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-graphite mt-3">{category}</h2>
               <ul className="card divide-y divide-shadow p-0">
                 {items.map((a) => (
                   <li key={a.id} className="p-4 flex items-center gap-3">
@@ -82,14 +82,14 @@ export default function Assets() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{a.name}</p>
-                      <p className="text-xs text-steel truncate">{a.assignee || 'Unassigned'} · {a.serial || '—'}</p>
+                      <p className="text-xs text-graphite truncate">{a.assignee || 'Unassigned'} · {a.serial || '—'}</p>
                     </div>
                     <span className={`pill ${
                       a.status === 'In use' || a.status === 'Active' ? 'bg-emerald-100 text-emerald-700'
-                      : a.status === 'Storage' ? 'bg-iron text-white/75'
+                      : a.status === 'Storage' ? 'bg-iron text-graphite'
                       : 'bg-rose-100 text-rose-700'
                     }`}>{a.status}</span>
-                    <button onClick={() => setEditing(a)} className="p-1.5 rounded-full hover:bg-iron text-steel"><Pencil className="w-4 h-4" /></button>
+                    <button onClick={() => setEditing(a)} className="p-1.5 rounded-full hover:bg-iron text-graphite"><Pencil className="w-4 h-4" /></button>
                     <button
                       onClick={() => { if (confirm(`Delete ${a.name}?`)) removeAsset(a.id) }}
                       className="p-1.5 rounded-full hover:bg-rose-50 text-rose-500"

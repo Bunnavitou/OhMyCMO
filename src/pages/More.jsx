@@ -8,7 +8,7 @@ const items = [
   { to: '/more/sub-users',   icon: Users,     label: 'Sub user Management',  iconBg: 'bg-violet-100 text-violet-700' },
   { to: '/assets',           icon: Boxes,     label: 'Assets Management',    iconBg: 'bg-sky-100 text-sky-700' },
   { to: '/more/influencers', icon: Sparkles,  label: 'Influencer Management',iconBg: 'bg-amber-100 text-amber-700' },
-  { to: '/more/tcs',         icon: FileText,  label: 'T&Cs',                 iconBg: 'bg-iron text-white/85' },
+  { to: '/more/tcs',         icon: FileText,  label: 'T&Cs',                 iconBg: 'bg-iron text-near-black' },
 ]
 
 export default function More() {
@@ -34,10 +34,10 @@ export default function More() {
               <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center shrink-0 ${item.iconBg}`}>
                 <item.icon className="w-4 h-4 md:w-5 md:h-5" />
               </div>
-              <span className="flex-1 text-sm md:text-base font-medium text-white truncate">
+              <span className="flex-1 text-sm md:text-base font-medium text-near-black truncate">
                 {item.label}
               </span>
-              <ChevronRight className="w-4 h-4 text-ash shrink-0" />
+              <ChevronRight className="w-4 h-4 text-graphite shrink-0" />
             </Link>
           </li>
         ))}
@@ -53,7 +53,7 @@ export default function More() {
         <span className="flex-1 text-left text-sm md:text-base font-semibold">Logout</span>
       </button>
 
-      <p className="text-[11px] text-ash text-center pt-2">
+      <p className="text-[11px] text-graphite text-center pt-2">
         OhMyCMO · v0.1
       </p>
     </div>

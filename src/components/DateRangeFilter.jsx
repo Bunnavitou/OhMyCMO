@@ -111,7 +111,7 @@ function MiniCalendar({ month, year, setMonth, setYear, start, end, role, onPick
         <button
           type="button"
           onClick={() => stepMonth(-1)}
-          className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-abyss text-white flex items-center justify-center shrink-0"
+          className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-near-black text-white flex items-center justify-center shrink-0"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -134,7 +134,7 @@ function MiniCalendar({ month, year, setMonth, setYear, start, end, role, onPick
         <button
           type="button"
           onClick={() => stepMonth(1)}
-          className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-abyss text-white flex items-center justify-center shrink-0"
+          className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-near-black text-white flex items-center justify-center shrink-0"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -142,7 +142,7 @@ function MiniCalendar({ month, year, setMonth, setYear, start, end, role, onPick
 
       <div className="grid grid-cols-7 gap-1 mb-1">
         {WEEKDAYS.map((d, i) => (
-          <div key={i} className="text-[10px] font-bold text-ash text-center py-1">{d}</div>
+          <div key={i} className="text-[10px] font-bold text-graphite text-center py-1">{d}</div>
         ))}
       </div>
 
@@ -161,10 +161,10 @@ function MiniCalendar({ month, year, setMonth, setYear, start, end, role, onPick
               onClick={() => onPick(date)}
               className={`aspect-square rounded text-xs md:text-sm font-medium transition ${
                 isStart || isEnd
-                  ? 'bg-brand-600 text-white shadow-sm'
+                  ? 'bg-wise-green text-wise-dark shadow-sm'
                   : inRange
                   ? 'bg-brand-100 text-brand-700'
-                  : 'border border-shadow text-white/85 hover:bg-iron'
+                  : 'border border-shadow text-near-black hover:bg-iron'
               }`}
             >
               {d}
@@ -226,8 +226,8 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
     <Modal open={open} onClose={onClose} title="Filter by date" size="3xl">
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl bg-iron">
-          <span className="text-xs md:text-sm font-bold text-steel">Range</span>
-          <span className="text-sm md:text-base font-bold text-white tabular-nums">
+          <span className="text-xs md:text-sm font-bold text-graphite">Range</span>
+          <span className="text-sm md:text-base font-bold text-near-black tabular-nums">
             {formatDateDDMMYYYY(start)} ~ {formatDateDDMMYYYY(end)}
           </span>
         </div>
@@ -243,7 +243,7 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
                 className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold border transition ${
                   active
                     ? 'bg-iron border-graphite text-white'
-                    : 'bg-charcoal border-shadow text-white/85 hover:bg-iron'
+                    : 'bg-charcoal border-shadow text-near-black hover:bg-iron'
                 }`}
               >
                 {p}
@@ -258,7 +258,7 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
               key={m}
               type="button"
               onClick={() => applyMonth(i)}
-              className="px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold border border-shadow bg-charcoal text-white/85 hover:bg-iron"
+              className="px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold border border-shadow bg-charcoal text-near-black hover:bg-iron"
             >
               {m}
             </button>
@@ -275,7 +275,7 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
             />
           </div>
           <div className="hidden md:flex items-center justify-center px-1">
-            <ArrowRight className="w-4 h-4 text-ash" />
+            <ArrowRight className="w-4 h-4 text-graphite" />
           </div>
           <div className="flex-1 min-w-0">
             <MiniCalendar
@@ -288,7 +288,7 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-3 border-t border-shadow">
-          <label className="flex items-center gap-2 flex-1 text-xs md:text-sm text-white/85 cursor-pointer">
+          <label className="flex items-center gap-2 flex-1 text-xs md:text-sm text-near-black cursor-pointer">
             <input
               type="checkbox"
               checked={save}
@@ -296,7 +296,7 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
               className="w-4 h-4 rounded accent-brand-600"
             />
             Save this date filtering for all time
-            <Info className="w-3 h-3 text-ash" aria-hidden />
+            <Info className="w-3 h-3 text-graphite" aria-hidden />
           </label>
           <div className="flex gap-1 sm:gap-2 justify-end">
             <button

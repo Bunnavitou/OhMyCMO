@@ -65,13 +65,13 @@ export default function CustomerDetailFile({ customer }) {
         <Upload className="w-4 h-4" /> Upload file
         <input type="file" className="hidden" onChange={handleFile} />
       </label>
-      <p className="text-[11px] text-steel px-1">
+      <p className="text-[11px] text-graphite px-1">
         Files are stored on this device. 1 MB max per file.
       </p>
       {error && <p className="text-xs text-rose-600 px-1">{error}</p>}
 
       {sorted.length === 0 ? (
-        <p className="text-center text-sm text-steel py-6">No files uploaded yet.</p>
+        <p className="text-center text-sm text-graphite py-6">No files uploaded yet.</p>
       ) : (
         <ul className="space-y-2">
           {sorted.map((f) => {
@@ -91,9 +91,9 @@ export default function CustomerDetailFile({ customer }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate">{f.name}</p>
                   {f.description && (
-                    <p className="text-xs text-steel truncate">{f.description}</p>
+                    <p className="text-xs text-graphite truncate">{f.description}</p>
                   )}
-                  <p className="text-[11px] text-ash">
+                  <p className="text-[11px] text-graphite">
                     {[formatBytes(f.size), date].filter(Boolean).join(' · ')}
                   </p>
                 </div>
@@ -101,7 +101,7 @@ export default function CustomerDetailFile({ customer }) {
                   <a
                     href={f.dataUrl}
                     download={f.name}
-                    className="p-2 text-steel hover:bg-iron rounded-lg"
+                    className="p-2 text-graphite hover:bg-iron rounded-lg"
                     aria-label="Download"
                   >
                     <Download className="w-4 h-4" />

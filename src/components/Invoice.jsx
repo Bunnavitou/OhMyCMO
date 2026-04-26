@@ -101,7 +101,7 @@ export function InvoiceForm({
         <div>
           <label className="label">Customer no</label>
           <input
-            className="input disabled:bg-iron disabled:text-steel"
+            className="input disabled:bg-iron disabled:text-graphite"
             value={customerNo}
             onChange={(e) => setCustomerNo(e.target.value)}
             placeholder="C-001"
@@ -111,7 +111,7 @@ export function InvoiceForm({
         <div>
           <label className="label">Customer name *</label>
           <input
-            className="input disabled:bg-iron disabled:text-steel"
+            className="input disabled:bg-iron disabled:text-graphite"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             placeholder="Acme Holdings"
@@ -128,7 +128,7 @@ export function InvoiceForm({
             return (
               <li key={it.id} className="card !p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-steel">#{idx + 1}</span>
+                  <span className="text-xs font-bold text-graphite">#{idx + 1}</span>
                   <button
                     type="button"
                     onClick={() => removeItem(it.id)}
@@ -146,7 +146,7 @@ export function InvoiceForm({
                 />
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="text-[10px] font-semibold text-steel block mb-0.5">Qty</label>
+                    <label className="text-[10px] font-semibold text-graphite block mb-0.5">Qty</label>
                     <input
                       className="input !py-1.5 !text-sm"
                       type="number"
@@ -157,7 +157,7 @@ export function InvoiceForm({
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-semibold text-steel block mb-0.5">Unit price</label>
+                    <label className="text-[10px] font-semibold text-graphite block mb-0.5">Unit price</label>
                     <input
                       className="input !py-1.5 !text-sm"
                       type="number"
@@ -168,8 +168,8 @@ export function InvoiceForm({
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-semibold text-steel block mb-0.5">Total</label>
-                    <p className="px-3 py-1.5 rounded-xl bg-iron text-sm font-medium text-white/85">
+                    <label className="text-[10px] font-semibold text-graphite block mb-0.5">Total</label>
+                    <p className="px-3 py-1.5 rounded-xl bg-iron text-sm font-medium text-near-black">
                       ${fmtMoney(lineTotal)}
                     </p>
                   </div>
@@ -189,15 +189,15 @@ export function InvoiceForm({
 
       <div className="card !p-3 space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="text-steel">Subtotal</span>
+          <span className="text-graphite">Subtotal</span>
           <span className="font-semibold">${fmtMoney(subtotal)}</span>
         </div>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-steel flex items-center gap-2">
+          <span className="text-graphite flex items-center gap-2">
             VAT
             <input
               type="number"
-              className="w-16 px-2 py-1 rounded-md bg-iron border border-shadow text-xs text-white/85"
+              className="w-16 px-2 py-1 rounded-md bg-iron border border-shadow text-xs text-near-black"
               value={Number(taxRate) * 100}
               onChange={(e) => setTaxRate(Number(e.target.value) / 100)}
               step="0.1"
@@ -240,7 +240,7 @@ export function MonthlyIncomeList({ items, onTap }) {
   }, [items])
 
   if (items.length === 0) {
-    return <p className="text-center text-sm text-steel py-6">No income recorded yet.</p>
+    return <p className="text-center text-sm text-graphite py-6">No income recorded yet.</p>
   }
 
   return (
@@ -251,7 +251,7 @@ export function MonthlyIncomeList({ items, onTap }) {
         return (
           <section key={ym}>
             <div className="flex items-center justify-between px-1 mb-1.5">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-steel">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-graphite">
                 {monthLabel(ym)}
               </h3>
               <span className="text-xs font-bold text-emerald-700">
@@ -277,7 +277,7 @@ export function MonthlyIncomeList({ items, onTap }) {
                         <p className="text-sm font-medium truncate">
                           {x.customerName || x.source || x.note || 'Income'}
                         </p>
-                        <p className="text-xs text-steel truncate">
+                        <p className="text-xs text-graphite truncate">
                           {subtitleParts.filter(Boolean).join(' · ')}
                         </p>
                       </div>
@@ -312,7 +312,7 @@ export function InvoiceDetail({ invoice, onDelete }) {
         <>
           <div className="card !p-0 overflow-hidden">
             <table className="w-full text-xs">
-              <thead className="bg-iron text-steel">
+              <thead className="bg-iron text-graphite">
                 <tr>
                   <th className="text-left p-2 font-semibold">#</th>
                   <th className="text-left p-2 font-semibold">Description</th>
@@ -354,7 +354,7 @@ export function InvoiceDetail({ invoice, onDelete }) {
 
       {invoice.note && (
         <div className="card !p-3">
-          <p className="text-xs text-steel mb-1">Note</p>
+          <p className="text-xs text-graphite mb-1">Note</p>
           <p className="text-sm">{invoice.note}</p>
         </div>
       )}
@@ -373,7 +373,7 @@ export function InvoiceDetail({ invoice, onDelete }) {
 function Row({ label, value, bold }) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="text-steel">{label}</span>
+      <span className="text-graphite">{label}</span>
       <span className={`text-right ${bold ? 'font-semibold' : ''}`}>{value}</span>
     </div>
   )
