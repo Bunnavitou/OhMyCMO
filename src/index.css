@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-abyss text-white antialiased;
+    font-family: 'Space Grotesk', Inter, ui-sans-serif, system-ui, sans-serif;
+  }
+  /* Display headings borrow Manuka's heavy-uppercase voice via Anton/Bebas. */
+  h1, h2, h3 {
+    font-family: 'Anton', 'Bebas Neue', Impact, sans-serif;
+    letter-spacing: 0.015em;
+    text-transform: uppercase;
+  }
+  /* Native form controls dressed for the dark canvas. */
+  select option { @apply bg-charcoal text-white; }
+  input, textarea, select { color-scheme: dark; }
+  ::placeholder { color: theme('colors.steel'); }
+  /* Hover register: every link drifts to deep link blue per spec. */
+  a { transition: color 150ms ease; }
+  a:hover { color: theme('colors.link-hover'); }
+}
+
+@layer components {
+  /* Surface — pill-cornered card with hairline white border on the canvas. */
+  .card {
+    @apply bg-charcoal text-white border border-white/15 p-4 md:p-6;
+    border-radius: 20px;
+  }
+
+  /* Status / category tag — solid color pill, mono caps with positive tracking. */
+  .pill {
+    @apply inline-flex items-center px-2.5 py-0.5 text-[10px] font-bold uppercase;
+    border-radius: 20px;
+    font-family: 'Space Mono', 'JetBrains Mono', monospace;
+    letter-spacing: 0.15em;
+  }
+
+  /* Primary CTA — Jelly Mint pill, black mono caps, fully rounded. */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-5 md:px-6 py-2.5
+           bg-mint text-black text-xs md:text-sm font-bold uppercase
+           rounded-full transition-colors;
+    font-family: 'Space Mono', 'JetBrains Mono', monospace;
+    letter-spacing: 0.12em;
+  }
+  .btn-primary:hover {
+    background-color: rgba(255, 255, 255, 0.20);
+    color: #000;
+    box-shadow: 0 0 0 1px #c2c2c2;
+  }
+  .btn-primary:disabled { @apply opacity-40 cursor-not-allowed; }
+
+  /* Secondary CTA — outlined mint pill (the loudest pill). */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 md:px-5 py-2.5
+           bg-transparent text-mint text-xs md:text-sm font-bold uppercase
+           border transition-colors;
+    border-color: theme('colors.mint');
+    border-radius: 40px;
+    font-family: 'Space Mono', 'JetBrains Mono', monospace;
+    letter-spacing: 0.12em;
+  }
+  .btn-ghost:hover { @apply bg-mint text-black; }
+
+  /* Tertiary slate pill — secondary action on dark surfaces. */
+  .btn-slate {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 md:px-5 py-2.5
+           bg-charcoal text-muted text-xs md:text-sm font-bold uppercase
+           rounded-full transition-colors;
+    font-family: 'Space Mono', 'JetBrains Mono', monospace;
+    letter-spacing: 0.12em;
+  }
+  .btn-slate:hover {
+    background-color: rgba(255, 255, 255, 0.20);
+    color: #000;
+    box-shadow: 0 0 0 1px #c2c2c2;
+  }
+
+  /* Inputs — newspaper-tight 2px corners, white hairline border. */
+  .input {
+    @apply w-full px-3.5 py-2.5 bg-abyss border border-white/20 text-sm text-white
+           placeholder:text-steel transition-colors
+           focus:outline-none focus:border-mint;
+    border-radius: 2px;
+  }
+
+  /* Field label — mono caps with letter-spacing whisper. */
+  .label {
+    @apply block text-[10px] uppercase text-steel font-bold mb-1.5;
+    font-family: 'Space Mono', 'JetBrains Mono', monospace;
+    letter-spacing: 0.15em;
+  }
+
+  /* Section title — mono caps eyebrow. */
+  .section-title {
+    @apply text-[11px] md:text-xs uppercase font-bold text-white;
+    font-family: 'Space Mono', 'JetBrains Mono', monospace;
+    letter-spacing: 0.18em;
+  }
+
+  /* Display headline — Anton/Bebas at hero scale. */
+  .display {
+    font-family: 'Anton', 'Bebas Neue', Impact, sans-serif;
+    text-transform: uppercase;
+    line-height: 0.92;
+    letter-spacing: 0.01em;
+  }
+
+  /* StoryStream timeline rail — vertical purple/white rule for feed views. */
+  .stream-rail {
+    border-left: 1px solid theme('colors.purple-rule');
+  }
+
+  .hairline { @apply border-white/15; }
+}
