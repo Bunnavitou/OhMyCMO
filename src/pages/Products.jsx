@@ -41,10 +41,7 @@ export default function Products() {
         ) : (
           (['Product', 'Service']).map((bucket) =>
             grouped[bucket].length === 0 ? null : (
-              <section key={bucket} className="space-y-2">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-graphite mt-3 px-1">
-                  {bucket === 'Product' ? 'Products' : 'Services'}
-                </h2>
+              <section key={bucket}>
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   {grouped[bucket].map((p) => {
                     const income = p.income.reduce((s, i) => s + Number(i.amount || 0), 0)
@@ -58,10 +55,7 @@ export default function Products() {
                               <Package className="w-5 h-5" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="font-semibold truncate">{p.name}</p>
-                                <span className="pill bg-iron text-graphite">{p.type}</span>
-                              </div>
+                              <p className="font-semibold truncate">{p.name}</p>
                             </div>
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-xs">

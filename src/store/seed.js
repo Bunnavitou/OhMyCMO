@@ -192,6 +192,7 @@ export const seedData = {
     { id: 'as-2', name: 'HubSpot Sales Hub', category: 'Software', assignee: 'BD Team', serial: '—', status: 'Active' },
     { id: 'as-3', name: 'Booth Banner Stand', category: 'Marketing', assignee: 'Events', serial: 'BNR-09', status: 'Storage' },
   ],
+  subUsers: [],
   campaigns: [
     {
       id: 'cm-1',
@@ -211,6 +212,7 @@ export const seedData = {
           keyFeature: 'Founder POV authenticity',
           caption: 'From burnt-out finance team to one-tap invoicing 🚀 The story behind WeBill365.',
           artwork: null,
+          postStatus: 'published',
         },
         {
           id: 'cmt-2',
@@ -221,6 +223,7 @@ export const seedData = {
           keyFeature: 'Speed of invoicing flow',
           caption: 'Pay your team faster. Watch us send a real invoice in under 30 seconds with WeBill365.',
           artwork: null,
+          postStatus: 'scheduled',
         },
       ],
     },

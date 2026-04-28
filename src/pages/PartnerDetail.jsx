@@ -2,10 +2,9 @@ import { useState } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import {
   Mail, Phone, Plus, Trash2, CheckCircle2, Circle, Calendar,
-  Paperclip, Download, DollarSign,
+  Paperclip, Download, DollarSign, Briefcase, Building2,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
-import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 
 const FILE_LIMIT_BYTES = 1024 * 1024 // 1 MB
@@ -38,38 +37,54 @@ export default function PartnerDetail() {
 
   return (
     <>
-      <PageHeader
-        title={partner.name}
-        subtitle={`${partner.role || '—'} · ${partner.company || '—'}`}
-        back
-        action={
-          <button
-            onClick={() => {
-              if (confirm(`Delete ${partner.name}?`)) {
-                removePartner(partner.id)
-                history.back()
-              }
-            }}
-            className="p-2 rounded-full hover:bg-rose-50 text-rose-500"
-            aria-label="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        }
-      />
-
       <div className="space-y-4">
-        <section className="card space-y-1.5 text-sm text-graphite">
-          {partner.email && (
-            <a href={`mailto:${partner.email}`} className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-graphite" /> {partner.email}
-            </a>
-          )}
-          {partner.phone && (
-            <a href={`tel:${partner.phone}`} className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-graphite" /> {partner.phone}
-            </a>
-          )}
+        <section className="card">
+          <div className="flex flex-col gap-1.5 text-sm text-graphite">
+            <div className="flex items-center justify-between gap-2">
+              {partner.role ? (
+                <p className="flex items-center gap-2 min-w-0">
+                  <Briefcase className="w-4 h-4 text-graphite shrink-0" />
+                  <span className="truncate text-near-black font-semibold">{partner.role}</span>
+                </p>
+              ) : (
+                <p className="flex items-center gap-2 text-graphite min-w-0">
+                  <Briefcase className="w-4 h-4 shrink-0" /> Add position
+                </p>
+              )}
+              <div className="shrink-0 -my-1.5 -mr-1">
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete ${partner.name}?`)) {
+                      removePartner(partner.id)
+                      history.back()
+                    }
+                  }}
+                  className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
+                  aria-label="Delete partner"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            {partner.company && (
+              <p className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-graphite shrink-0" />
+                <span className="truncate">{partner.company}</span>
+              </p>
+            )}
+            {partner.email && (
+              <a href={`mailto:${partner.email}`} className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-graphite shrink-0" />
+                <span className="truncate">{partner.email}</span>
+              </a>
+            )}
+            {partner.phone && (
+              <a href={`tel:${partner.phone}`} className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-graphite shrink-0" />
+                <span className="truncate">{partner.phone}</span>
+              </a>
+            )}
+          </div>
         </section>
 
         <div className="space-y-3">

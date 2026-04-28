@@ -52,7 +52,7 @@ export default function CustomerDetail() {
             products={state.products}
             onLink={() => setPickerOpen(true)}
             onUnlink={(linkId) => {
-              if (confirm('Unlink this product? Recorded income/expense entries are kept.')) {
+              if (confirm('Remove this product record? The activity thread will be deleted.')) {
                 removeCustomerProductLink(customer.id, linkId)
               }
             }}
@@ -65,11 +65,10 @@ export default function CustomerDetail() {
       <Modal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Link product / service"
+        title="Choose a product to record"
       >
         <ProductPicker
           products={state.products}
-          alreadyLinkedIds={(customer.productLinks || []).map((l) => l.productId)}
           onPick={(productId) => {
             addCustomerProductLink(customer.id, productId)
             setPickerOpen(false)
@@ -80,19 +79,28 @@ export default function CustomerDetail() {
   )
 }
 
+const formatStartDate = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d)) return ''
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function PanelProducts({ customer, products, onLink, onUnlink }) {
-  const linked = customer.productLinks || []
+  const linked = [...(customer.productLinks || [])].sort(
+    (a, b) => (b.linkedAt || '').localeCompare(a.linkedAt || ''),
+  )
   return (
     <div className="space-y-3">
       <button onClick={onLink} className="btn-primary w-full">
-        <Plus className="w-4 h-4" /> Link product / service
+        <Plus className="w-4 h-4" /> Choose product to record
       </button>
       <p className="text-[11px] text-graphite px-1">
-        Tap a linked product to open its activity thread.
+        The same product can be picked more than once — each pick opens its own activity thread.
       </p>
       {linked.length === 0 ? (
         <p className="text-center text-sm text-graphite py-6">
-          No products linked yet.
+          No product history yet.
         </p>
       ) : (
         <ul className="space-y-2">
@@ -112,6 +120,7 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
               )
             }
             const activityCount = (link.activities || []).length
+            const startedOn = formatStartDate(link.linkedAt)
             return (
               <li key={link.id} className="card !p-0 overflow-hidden">
                 <RouterLink
@@ -127,7 +136,9 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
                       <span className="pill bg-iron text-graphite">{product.type}</span>
                     </div>
                     <p className="text-[11px] text-graphite mt-0.5">
-                      {activityCount} activit{activityCount === 1 ? 'y' : 'ies'} recorded
+                      {startedOn ? `Started ${startedOn}` : 'New'}
+                      {' · '}
+                      {activityCount} activit{activityCount === 1 ? 'y' : 'ies'}
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-graphite" />
@@ -136,7 +147,7 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
                   onClick={() => onUnlink(link.id)}
                   className="w-full text-xs text-rose-600 py-2 border-t border-shadow hover:bg-rose-50 flex items-center justify-center gap-1"
                 >
-                  <Link2Off className="w-3 h-3" /> Unlink
+                  <Link2Off className="w-3 h-3" /> Remove this record
                 </button>
               </li>
             )
@@ -147,12 +158,10 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
   )
 }
 
-function ProductPicker({ products, alreadyLinkedIds, onPick }) {
+function ProductPicker({ products, onPick }) {
   const [q, setQ] = useState('')
-  const available = products.filter(
-    (p) =>
-      !alreadyLinkedIds.includes(p.id) &&
-      p.name.toLowerCase().includes(q.toLowerCase()),
+  const available = products.filter((p) =>
+    p.name.toLowerCase().includes(q.toLowerCase()),
   )
   return (
     <div className="space-y-3">
@@ -163,16 +172,16 @@ function ProductPicker({ products, alreadyLinkedIds, onPick }) {
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search products"
       />
+      <p className="text-[11px] text-graphite px-1">
+        You can pick the same product more than once — each pick opens its own
+        activity thread.
+      </p>
       {products.length === 0 ? (
         <p className="text-center text-sm text-graphite py-4">
           No products yet. Add one in the Products workspace first.
         </p>
       ) : available.length === 0 ? (
-        <p className="text-center text-sm text-graphite py-4">
-          {alreadyLinkedIds.length > 0 && q === ''
-            ? 'All your products are already linked.'
-            : 'No matching products.'}
-        </p>
+        <p className="text-center text-sm text-graphite py-4">No matching products.</p>
       ) : (
         <ul className="divide-y divide-shadow max-h-72 overflow-y-auto -mx-1">
           {available.map((p) => (
@@ -186,9 +195,7 @@ function ProductPicker({ products, alreadyLinkedIds, onPick }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate">{p.name}</p>
-                  <p className="text-[11px] text-graphite">
-                    {p.type} · ${Number(p.price || 0).toLocaleString()}
-                  </p>
+                  <p className="text-[11px] text-graphite">{p.type}</p>
                 </div>
                 <Plus className="w-4 h-4 text-brand-600" />
               </button>

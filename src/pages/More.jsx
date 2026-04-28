@@ -1,13 +1,11 @@
 import { Link } from 'react-router-dom'
 import {
-  User, Users, Boxes, Sparkles, FileText, LogOut, ChevronRight,
+  User, Users, FileText, LogOut, ChevronRight,
 } from 'lucide-react'
 
 const items = [
   { to: '/more/profile',     icon: User,      label: 'Profile',              iconBg: 'bg-brand-50 text-brand-700' },
   { to: '/more/sub-users',   icon: Users,     label: 'Sub user Management',  iconBg: 'bg-violet-100 text-violet-700' },
-  { to: '/assets',           icon: Boxes,     label: 'Assets Management',    iconBg: 'bg-sky-100 text-sky-700' },
-  { to: '/more/influencers', icon: Sparkles,  label: 'Influencer Management',iconBg: 'bg-amber-100 text-amber-700' },
   { to: '/more/tcs',         icon: FileText,  label: 'T&Cs',                 iconBg: 'bg-iron text-near-black' },
 ]
 

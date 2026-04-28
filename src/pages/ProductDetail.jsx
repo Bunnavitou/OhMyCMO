@@ -67,7 +67,11 @@ export default function ProductDetail() {
             <button onClick={() => setOpenModal('income')} className="btn-primary w-full">
               <Receipt className="w-4 h-4" /> New invoice
             </button>
-            <MonthlyIncomeList items={product.income} onTap={(x) => setViewingInvoice(x)} />
+            <MonthlyIncomeList
+              items={product.income}
+              onTap={(x) => setViewingInvoice(x)}
+              productName={product.name}
+            />
           </div>
         )}
         {tab === 'Expenses' && (

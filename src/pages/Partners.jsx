@@ -7,7 +7,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
 import { scanCard } from '../utils/cardScanner.js'
 
-const EMPTY_PARTNER = { name: '', company: '', role: '', email: '', phone: '' }
+const EMPTY_PARTNER = { name: '', company: '', role: '', email: '', phone: '', cardImage: null }
 
 const partnerInRange = (p, range) => {
   if (!range) return true
@@ -70,6 +70,7 @@ export default function Partners() {
         role: fields.role || '',
         email: fields.email || '',
         phone: fields.phone || '',
+        cardImage: fields.cardImage || null,
       })
       setFromScan(true)
       setOpen(true)
@@ -145,34 +146,66 @@ export default function Partners() {
             No partners match your filters.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             {filtered.map((p) => {
               const openTasks = p.tasks.filter((t) => !t.done).length
               return (
                 <li key={p.id}>
-                  <Link to={`/partners/${p.id}`} className="card flex gap-3 active:scale-[0.99]">
-                    <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
-                      {p.name.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{p.name}</p>
-                      <p className="text-xs text-graphite truncate">
-                        {p.role || '—'} · {p.company || '—'}
-                      </p>
-                      <div className="flex gap-3 mt-2 text-xs text-graphite">
-                        {p.email && (
-                          <span className="flex items-center gap-1">
-                            <Mail className="w-3 h-3" /> {p.email}
-                          </span>
-                        )}
-                        {p.phone && (
-                          <span className="flex items-center gap-1">
-                            <Phone className="w-3 h-3" /> {p.phone}
-                          </span>
-                        )}
+                  <Link
+                    to={`/partners/${p.id}`}
+                    className="card !p-0 overflow-hidden block hover:scale-[1.01] transition-transform"
+                  >
+                    {/* Name card photo banner */}
+                    {p.cardImage?.dataUrl ? (
+                      <div className="bg-iron border-b border-shadow">
+                        <img
+                          src={p.cardImage.dataUrl}
+                          alt={`${p.name} business card`}
+                          className="w-full h-40 md:h-48 object-cover object-center"
+                        />
                       </div>
-                      <div className="flex gap-3 mt-1 text-xs text-graphite">
-                        <span>{openTasks} open task{openTasks !== 1 ? 's' : ''}</span>
+                    ) : (
+                      <div className="bg-mint-bg h-20 md:h-24 flex items-center justify-center border-b border-shadow">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-wise-dark/70">
+                          No name card
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Body */}
+                    <div className="p-4 md:p-5 flex gap-3">
+                      <div className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center font-bold shrink-0">
+                        {p.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="font-bold text-near-black truncate leading-tight">
+                          {p.name}
+                        </p>
+                        {p.role && (
+                          <p className="text-sm font-semibold text-wise-dark truncate">
+                            {p.role}
+                          </p>
+                        )}
+                        {p.company && (
+                          <p className="text-xs text-graphite truncate">{p.company}</p>
+                        )}
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 pt-1 text-[11px] text-graphite">
+                          {p.email && (
+                            <span className="flex items-center gap-1 truncate">
+                              <Mail className="w-3 h-3 shrink-0" /> <span className="truncate">{p.email}</span>
+                            </span>
+                          )}
+                          {p.phone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="w-3 h-3 shrink-0" /> {p.phone}
+                            </span>
+                          )}
+                        </div>
+                        {openTasks > 0 && (
+                          <p className="text-[11px] text-graphite pt-1">
+                            {openTasks} open task{openTasks !== 1 ? 's' : ''}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -265,10 +298,21 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
   return (
     <Modal open={open} onClose={onClose} title={fromScan ? 'Review scanned card' : 'New partner'}>
       {fromScan && (
-        <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-50 text-brand-700 text-xs">
-          <Sparkles className="w-3.5 h-3.5 shrink-0" />
-          <span>Pre-filled from your photo. Review and edit before saving.</span>
-        </div>
+        <>
+          {form.cardImage?.dataUrl && (
+            <div className="mb-3 overflow-hidden rounded-2xl border border-shadow">
+              <img
+                src={form.cardImage.dataUrl}
+                alt="Scanned name card"
+                className="w-full max-h-48 object-cover"
+              />
+            </div>
+          )}
+          <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-50 text-brand-800 text-xs">
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            <span>Pre-filled from your photo. Review and edit before saving.</span>
+          </div>
+        </>
       )}
       <form
         onSubmit={(e) => {

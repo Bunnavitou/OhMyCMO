@@ -241,7 +241,8 @@ export function StoreProvider({ children }) {
           )
         }),
 
-      // Customer ↔ Product links
+      // Customer ↔ Product history records (the same product can be picked
+      // multiple times — each pick opens its own activity thread).
       addCustomerProductLink: (customerId, productId) =>
         setState((s) => {
           const product = s.products.find((p) => p.id === productId)
@@ -249,13 +250,12 @@ export function StoreProvider({ children }) {
             ...s,
             customers: s.customers.map((c) => {
               if (c.id !== customerId) return c
-              if ((c.productLinks || []).some((l) => l.productId === productId)) return c
               const link = { id: uid('pl'), productId, linkedAt: new Date().toISOString() }
               return withLog(
                 { ...c, productLinks: [...(c.productLinks || []), link] },
                 {
                   type: 'product.link',
-                  message: `Linked product "${product?.name || productId}"`,
+                  message: `Started product history: "${product?.name || productId}"`,
                   meta: { linkId: link.id, productId },
                 },
               )
@@ -663,6 +663,34 @@ export function StoreProvider({ children }) {
       removeAsset: (id) =>
         updateCollection('assets', (list) => list.filter((a) => a.id !== id)),
 
+      // Sub-user management (More > Sub user Management)
+      addSubUser: (data) =>
+        updateCollection('subUsers', (list) => [
+          {
+            id: uid('su'),
+            username: '',
+            password: '',
+            active: true,
+            createdAt: new Date().toISOString(),
+            access: {
+              customers: true,
+              products: true,
+              partners: true,
+              marketing: true,
+              assets: false,
+              subUsers: false,
+            },
+            ...data,
+          },
+          ...(list || []),
+        ]),
+      updateSubUser: (id, patch) =>
+        updateCollection('subUsers', (list) =>
+          (list || []).map((u) => (u.id === id ? { ...u, ...patch } : u)),
+        ),
+      removeSubUser: (id) =>
+        updateCollection('subUsers', (list) => (list || []).filter((u) => u.id !== id)),
+
       // Marketing campaigns
       addCampaign: (data) =>
         updateCollection('campaigns', (list) => [
@@ -701,6 +729,7 @@ export function StoreProvider({ children }) {
                       keyFeature: '',
                       caption: '',
                       artwork: null,
+                      postStatus: 'draft',
                       ...todo,
                     },
                     ...(c.todos || []),
@@ -724,6 +753,7 @@ export function StoreProvider({ children }) {
                     keyFeature: '',
                     caption: '',
                     artwork: null,
+                    postStatus: 'draft',
                     ...t,
                   })),
                 }

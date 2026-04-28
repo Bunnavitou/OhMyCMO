@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
-import { Mail, Phone, MapPin, Hash, Pencil, Trash2, Users, ChevronRight } from 'lucide-react'
+import { Mail, Phone, MapPin, Hash, Building2, Pencil, Trash2, Users, ChevronRight } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
 
@@ -20,34 +20,35 @@ export default function CustomerDetailOrg({ customer }) {
   return (
     <>
       <section className="card space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold truncate">
-              {customer.contact || 'No primary contact'}
-            </p>
-            {customer.industry && (
-              <p className="text-xs text-graphite mt-0.5">{customer.industry}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setEditing(true)}
-              className="p-2 rounded-full hover:bg-iron text-graphite transition-transform hover:scale-105 active:scale-95"
-              aria-label="Edit customer"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onDelete}
-              className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
-              aria-label="Delete customer"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
         <div className="flex flex-col gap-1.5 text-sm text-graphite">
+          <div className="flex items-center justify-between gap-2">
+            {customer.industry ? (
+              <p className="flex items-center gap-2 min-w-0">
+                <Building2 className="w-4 h-4 text-graphite shrink-0" />
+                <span className="truncate">{customer.industry}</span>
+              </p>
+            ) : (
+              <p className="flex items-center gap-2 text-graphite min-w-0">
+                <Building2 className="w-4 h-4 shrink-0" /> Add industry
+              </p>
+            )}
+            <div className="flex items-center gap-1 shrink-0 -my-1.5 -mr-1">
+              <button
+                onClick={() => setEditing(true)}
+                className="p-2 rounded-full hover:bg-iron text-graphite transition-transform hover:scale-105 active:scale-95"
+                aria-label="Edit customer"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onDelete}
+                className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
+                aria-label="Delete customer"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
           {customer.email ? (
             <a href={`mailto:${customer.email}`} className="flex items-center gap-2">
               <Mail className="w-4 h-4 text-graphite shrink-0" />
@@ -163,15 +164,6 @@ function CustomerForm({ initial, onSubmit }) {
             {stages.map((s) => <option key={s}>{s}</option>)}
           </select>
         </div>
-      </div>
-      <div>
-        <label className="label">Primary contact</label>
-        <input
-          className="input"
-          value={form.contact}
-          onChange={change('contact')}
-          placeholder="Sara Lim"
-        />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

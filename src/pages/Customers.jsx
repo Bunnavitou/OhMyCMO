@@ -88,7 +88,7 @@ export default function Customers() {
                         }`}>{c.stage}</span>
                       </div>
                       <p className="text-xs text-graphite flex items-center gap-1 mt-0.5">
-                        <Building2 className="w-3 h-3" /> {c.industry || '—'} · {c.contact || 'No contact'}
+                        <Building2 className="w-3 h-3" /> {c.industry || '—'}
                       </p>
                       <div className="flex gap-3 mt-2 text-xs text-graphite">
                         <span>{openTasks} open task{openTasks !== 1 ? 's' : ''}</span>
@@ -155,10 +155,6 @@ function NewCustomerModal({ open, onClose, onSubmit }) {
               {stages.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
-        </div>
-        <div>
-          <label className="label">Primary contact</label>
-          <input className="input" value={form.contact} onChange={change('contact')} placeholder="Sara Lim" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

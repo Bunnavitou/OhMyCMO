@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useParams, Navigate, Link } from 'react-router-dom'
+import { useParams, Navigate } from 'react-router-dom'
 import {
-  Package, Send, Paperclip, ListChecks, Type, Image as ImageIcon, Video,
+  Send, Paperclip, ListChecks, Type, Image as ImageIcon, Video,
   FileText, FileSpreadsheet, FileArchive, Download, Trash2, Share2,
-  Link2Off, Check, Clock, Circle as CircleIcon, ArrowUp, User as UserIcon,
+  Check, Clock, Circle as CircleIcon, ArrowUp,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import PageHeader from '../components/PageHeader.jsx'
@@ -68,7 +68,6 @@ export default function CustomerProductDetail() {
     addCustomerProductActivity,
     updateCustomerProductActivity,
     removeCustomerProductActivity,
-    removeCustomerProductLink,
   } = useStore()
 
   const customer = state.customers.find((c) => c.id === id)
@@ -211,50 +210,16 @@ export default function CustomerProductDetail() {
     <div className="flex flex-col h-[calc(100vh-3.5rem)] -mt-4 md:-mt-6 -mx-3 md:-mx-6">
       <div className="px-3 md:px-6 pt-4 md:pt-6">
         <PageHeader
-          subtitle={
-            <span className="inline-flex items-center gap-1.5">
-              <UserIcon className="w-3 h-3" /> {customer.name}
-            </span>
-          }
           action={
-            <div className="flex items-center gap-1">
-              <button
-                onClick={exportMarkdown}
-                className="btn-ghost !px-3 !py-1.5 text-xs"
-                title="Download markdown"
-              >
-                <Share2 className="w-4 h-4" /> Share
-              </button>
-              <button
-                onClick={() => {
-                  if (confirm('Unlink this product from this customer? The thread is kept.')) {
-                    removeCustomerProductLink(customer.id, link.id)
-                    history.back()
-                  }
-                }}
-                className="p-2 rounded-full hover:bg-rose-50 text-rose-500"
-                aria-label="Unlink"
-              >
-                <Link2Off className="w-4 h-4" />
-              </button>
-            </div>
+            <button
+              onClick={exportMarkdown}
+              className="btn-ghost !px-3 !py-1.5 text-xs"
+              title="Download markdown"
+            >
+              <Share2 className="w-4 h-4" /> Share
+            </button>
           }
         />
-
-        <Link
-          to={`/products/${product.id}`}
-          className="card flex items-center gap-3 mb-4 hover:bg-iron transition-colors"
-        >
-          <div className="w-10 h-10 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center shrink-0">
-            <Package className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="display text-2xl text-near-black leading-none">{product.name}</p>
-            <p className="text-xs text-graphite mt-1">
-              {product.type} · Tap to open product workspace
-            </p>
-          </div>
-        </Link>
       </div>
 
       {/* Thread (scrollable) */}

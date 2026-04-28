@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Trash2, TrendingUp, Receipt } from 'lucide-react'
+import { Plus, Trash2, TrendingUp, Receipt, Share2 } from 'lucide-react'
 
 const newId = () => Math.random().toString(36).slice(2, 9)
 const blankItem = () => ({ id: newId(), description: '', qty: 1, unitPrice: 0 })
@@ -228,7 +228,67 @@ export function InvoiceForm({
   )
 }
 
-export function MonthlyIncomeList({ items, onTap }) {
+async function exportMonthlyInvoicesExcel(productName, ym, items) {
+  const XLSX = await import('xlsx')
+
+  // Sheet 1: invoice summary, one row per invoice.
+  const summary = items.map((x) => ({
+    'Invoice Date': x.date || '',
+    'Invoice No': x.invoiceNo || '',
+    'Customer No': x.customerNo || '',
+    'Customer Name': x.customerName || x.source || '',
+    'Subtotal (USD)': Number(x.subtotal || 0),
+    'VAT %': Number((Number(x.taxRate || 0) * 100).toFixed(2)),
+    'VAT Amount (USD)': Number(x.tax || 0),
+    'Grand Total (USD)': Number(x.amount || 0),
+    'Note': x.note || '',
+  }))
+  const wsSummary = XLSX.utils.json_to_sheet(summary)
+  wsSummary['!cols'] = [
+    { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 28 },
+    { wch: 14 }, { wch: 8 },  { wch: 14 }, { wch: 16 }, { wch: 30 },
+  ]
+
+  // Sheet 2: line items, one row per line, with parent invoice ref.
+  const lineRows = []
+  for (const x of items) {
+    const lines = Array.isArray(x.items) ? x.items : []
+    if (lines.length === 0) continue
+    lines.forEach((it, i) => {
+      lineRows.push({
+        'Invoice No': x.invoiceNo || '',
+        'Invoice Date': x.date || '',
+        'Customer Name': x.customerName || x.source || '',
+        'Line': i + 1,
+        'Description': it.description || '',
+        'Qty': Number(it.qty || 0),
+        'Unit Price (USD)': Number(it.unitPrice || 0),
+        'Total (USD)': Number(it.total || 0),
+      })
+    })
+  }
+  const wsLines = XLSX.utils.json_to_sheet(
+    lineRows.length ? lineRows : [{
+      'Invoice No': '', 'Invoice Date': '', 'Customer Name': '',
+      'Line': '', 'Description': 'No line items',
+      'Qty': '', 'Unit Price (USD)': '', 'Total (USD)': '',
+    }],
+  )
+  wsLines['!cols'] = [
+    { wch: 16 }, { wch: 12 }, { wch: 28 }, { wch: 6 },
+    { wch: 36 }, { wch: 8 },  { wch: 14 }, { wch: 14 },
+  ]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Invoices')
+  XLSX.utils.book_append_sheet(wb, wsLines, 'Line items')
+
+  const safeMonth = monthLabel(ym).replace(/[^A-Za-z0-9-_]+/g, '_')
+  const safeProduct = (productName || 'product').replace(/[^A-Za-z0-9-_]+/g, '_')
+  XLSX.writeFile(wb, `accounting-${safeProduct}-${safeMonth}.xlsx`)
+}
+
+export function MonthlyIncomeList({ items, onTap, productName }) {
   const grouped = useMemo(() => {
     const acc = {}
     for (const x of items) {
@@ -250,13 +310,23 @@ export function MonthlyIncomeList({ items, onTap }) {
         const sorted = [...entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
         return (
           <section key={ym}>
-            <div className="flex items-center justify-between px-1 mb-1.5">
+            <div className="flex items-center justify-between gap-2 px-1 mb-1.5">
               <h3 className="text-xs font-bold uppercase tracking-wider text-graphite">
                 {monthLabel(ym)}
               </h3>
-              <span className="text-xs font-bold text-emerald-700">
-                ${Number(monthTotal).toLocaleString()}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-emerald-700">
+                  ${Number(monthTotal).toLocaleString()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => exportMonthlyInvoicesExcel(productName, ym, sorted)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-iron text-graphite hover:bg-mint-bg hover:text-wise-dark transition-colors"
+                  title="Share this month's invoices to the accounting team"
+                >
+                  <Share2 className="w-3 h-3" /> Share
+                </button>
+              </div>
             </div>
             <ul className="card divide-y divide-shadow p-0">
               {sorted.map((x) => {

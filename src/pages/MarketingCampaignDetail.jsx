@@ -15,6 +15,23 @@ const POST_CHANNELS = [
   'Facebook', 'Instagram', 'TikTok', 'YouTube',
   'LinkedIn', 'X (Twitter)', 'Threads', 'Telegram', 'Other',
 ]
+const POST_STATUSES = [
+  { value: 'draft',     label: 'Draft' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'published', label: 'Published' },
+  { value: 'cancelled', label: 'Cancelled' },
+]
+const cyclePostStatus = (s) => {
+  const idx = POST_STATUSES.findIndex((x) => x.value === s)
+  return POST_STATUSES[(idx + 1) % POST_STATUSES.length].value
+}
+const postStatusPill = (s) =>
+  s === 'published' ? 'bg-wise-green text-wise-dark'
+  : s === 'scheduled' ? 'bg-brand-100 text-brand-800'
+  : s === 'cancelled' ? 'bg-rose-100 text-rose-700'
+  : 'bg-iron text-graphite'
+const postStatusLabel = (s) =>
+  POST_STATUSES.find((x) => x.value === s)?.label || 'Draft'
 const FILE_LIMIT_BYTES = 1024 * 1024 // 1 MB
 
 const channelStyle = (c) =>
@@ -247,63 +264,110 @@ export default function MarketingCampaignDetail() {
               No posts scheduled yet.
             </p>
           ) : (
-            <ul className="space-y-2">
-              {sortedTodos.map((t) => {
-                const TypeIcon = postTypeIcon(t.type)
-                const isImage = t.artwork?.type?.startsWith('image/')
-                return (
-                  <li key={t.id}>
-                    <button
-                      onClick={() => { setEditingTodo(t); setTodoModalOpen(true) }}
-                      className="card w-full text-left space-y-2 active:bg-iron"
-                    >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[11px] font-semibold text-graphite">
-                          {t.postDate || 'No date'}
-                        </span>
-                        <span className={`pill ml-auto ${postTypePill(t.type)}`}>
-                          <TypeIcon className="w-3 h-3 mr-1" /> {t.type}
-                        </span>
-                        {t.channel && (
-                          <span className={`pill ${channelStyle(t.channel)}`}>
-                            <Radio className="w-3 h-3 mr-1" /> {t.channel}
+            <div className="overflow-x-auto border border-shadow rounded-2xl bg-white">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-iron sticky top-0 z-10">
+                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-graphite">
+                    <th className="px-3 py-2 w-10">#</th>
+                    <th className="px-3 py-2 whitespace-nowrap">Status</th>
+                    <th className="px-3 py-2 whitespace-nowrap">Post date</th>
+                    <th className="px-3 py-2 min-w-[180px]">Concept</th>
+                    <th className="px-3 py-2 whitespace-nowrap">Type</th>
+                    <th className="px-3 py-2 whitespace-nowrap">Channel</th>
+                    <th className="px-3 py-2 min-w-[140px]">Key feature</th>
+                    <th className="px-3 py-2 min-w-[260px]">Caption</th>
+                    <th className="px-3 py-2 whitespace-nowrap">Artwork</th>
+                    <th className="px-3 py-2 w-10" aria-label="Actions"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedTodos.map((t, idx) => {
+                    const TypeIcon = postTypeIcon(t.type)
+                    const isImage = t.artwork?.type?.startsWith('image/')
+                    return (
+                      <tr
+                        key={t.id}
+                        onClick={() => { setEditingTodo(t); setTodoModalOpen(true) }}
+                        className="border-t border-shadow hover:bg-iron cursor-pointer transition-colors align-top"
+                      >
+                        <td className="px-3 py-2.5 text-[11px] font-bold text-graphite">
+                          {idx + 1}
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              updateCampaignTodo(campaign.id, t.id, {
+                                postStatus: cyclePostStatus(t.postStatus || 'draft'),
+                              })
+                            }}
+                            className={`pill ${postStatusPill(t.postStatus || 'draft')} hover:scale-105 active:scale-95 transition-transform`}
+                            title="Click to cycle status"
+                          >
+                            {postStatusLabel(t.postStatus || 'draft')}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs font-semibold text-near-black whitespace-nowrap tabular-nums">
+                          {t.postDate || '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-near-black">
+                          <span className="line-clamp-2">{t.concept || '—'}</span>
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <span className={`pill ${postTypePill(t.type)}`}>
+                            <TypeIcon className="w-3 h-3 mr-1" /> {t.type}
                           </span>
-                        )}
-                      </div>
-                      {t.concept && (
-                        <p className="text-sm md:text-base font-semibold leading-snug">
-                          {t.concept}
-                        </p>
-                      )}
-                      {t.keyFeature && (
-                        <p className="text-[11px] md:text-xs text-graphite flex items-center gap-1">
-                          <Star className="w-3 h-3" /> {t.keyFeature}
-                        </p>
-                      )}
-                      {t.caption && (
-                        <p className="text-xs md:text-sm text-graphite line-clamp-3 whitespace-pre-wrap">
-                          {t.caption}
-                        </p>
-                      )}
-                      {t.artwork && (
-                        isImage ? (
-                          <img
-                            src={t.artwork.dataUrl}
-                            alt={t.artwork.name}
-                            className="w-full max-h-56 object-cover rounded-lg border border-shadow"
-                          />
-                        ) : (
-                          <div className="flex items-center gap-2 p-2 rounded-lg bg-iron border border-shadow">
-                            <Paperclip className="w-3.5 h-3.5 text-graphite" />
-                            <span className="text-xs truncate">{t.artwork.name}</span>
-                          </div>
-                        )
-                      )}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {t.channel ? (
+                            <span className={`pill ${channelStyle(t.channel)}`}>
+                              <Radio className="w-3 h-3 mr-1" /> {t.channel}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-graphite">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-graphite">
+                          {t.keyFeature ? (
+                            <span className="flex items-start gap-1">
+                              <Star className="w-3 h-3 mt-0.5 shrink-0" />
+                              <span className="line-clamp-2">{t.keyFeature}</span>
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-graphite">
+                          {t.caption ? (
+                            <span className="line-clamp-2 whitespace-pre-wrap">{t.caption}</span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {t.artwork ? (
+                            isImage ? (
+                              <img
+                                src={t.artwork.dataUrl}
+                                alt={t.artwork.name}
+                                className="w-12 h-12 object-cover rounded-md border border-shadow"
+                              />
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs text-graphite max-w-[140px]">
+                                <Paperclip className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{t.artwork.name}</span>
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-xs text-graphite">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-graphite text-right">
+                          <Pencil className="w-3.5 h-3.5 inline-block" />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
       </div>
@@ -423,6 +487,7 @@ function TodoForm({ initial, onSubmit, onDelete }) {
       keyFeature: '',
       caption: '',
       artwork: null,
+      postStatus: 'draft',
     },
   )
   const [fileError, setFileError] = useState('')
@@ -476,16 +541,30 @@ function TodoForm({ initial, onSubmit, onDelete }) {
         </div>
       </div>
 
-      <div>
-        <label className="label">Post channel</label>
-        <select
-          className="input"
-          value={form.channel}
-          onChange={(e) => setForm({ ...form, channel: e.target.value })}
-        >
-          <option value="">— Pick a channel —</option>
-          {POST_CHANNELS.map((c) => <option key={c}>{c}</option>)}
-        </select>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">Post channel</label>
+          <select
+            className="input"
+            value={form.channel}
+            onChange={(e) => setForm({ ...form, channel: e.target.value })}
+          >
+            <option value="">— Pick a channel —</option>
+            {POST_CHANNELS.map((c) => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Status</label>
+          <select
+            className="input"
+            value={form.postStatus || 'draft'}
+            onChange={(e) => setForm({ ...form, postStatus: e.target.value })}
+          >
+            {POST_STATUSES.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div>
