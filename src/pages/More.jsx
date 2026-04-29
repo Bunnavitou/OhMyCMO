@@ -1,23 +1,29 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Users, FileText, LogOut, ChevronRight,
+  Megaphone, Folder,
 } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 
-const items = [
-  { to: '/more/profile',     icon: User,      label: 'Profile',              iconBg: 'bg-brand-50 text-brand-700' },
-  { to: '/more/sub-users',   icon: Users,     label: 'Sub user Management',  iconBg: 'bg-violet-100 text-violet-700' },
-  { to: '/more/tcs',         icon: FileText,  label: 'T&Cs',                 iconBg: 'bg-iron text-near-black' },
+const ALL_ITEMS = [
+  { to: '/more/profile',     icon: User,      label: 'Profile',              iconBg: 'bg-brand-50 text-brand-700',    perm: null },
+  { to: '/more/sub-users',   icon: Users,     label: 'Sub user Management',  iconBg: 'bg-violet-100 text-violet-700', perm: 'subUsers' },
+  { to: '/more/influencers', icon: Megaphone, label: 'Influencer Management',iconBg: 'bg-amber-100 text-amber-700',   perm: 'marketing' },
+  { to: '/assets',           icon: Folder,    label: 'Assets Management',    iconBg: 'bg-sky-100 text-sky-700',       perm: 'assets' },
+  { to: '/more/tcs',         icon: FileText,  label: 'T&Cs',                 iconBg: 'bg-iron text-near-black',       perm: null },
 ]
 
 export default function More() {
-  const handleLogout = () => {
-    if (!confirm('Sign out and reset all local data on this device?')) return
-    try {
-      localStorage.removeItem('ohmycmo:v1')
-    } catch {
-      // ignore
-    }
-    window.location.assign('/')
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const items = ALL_ITEMS.filter((it) => !it.perm || hasPermission(user, it.perm))
+
+  const handleLogout = async () => {
+    if (!confirm('Sign out?')) return
+    await logout()
+    navigate('/login', { replace: true })
   }
 
   return (

@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppShell from './components/AppShell.jsx'
+import RequireAuth from './auth/RequireAuth.jsx'
+import Login from './pages/Login.jsx'
 import Home from './pages/Home.jsx'
 import Customers from './pages/Customers.jsx'
 import CustomerDetail from './pages/CustomerDetail.jsx'
@@ -21,7 +23,14 @@ import MoreTCs from './pages/MoreTCs.jsx'
 export default function App() {
   return (
     <Routes>
-      <Route element={<AppShell />}>
+      <Route path="/login" element={<Login />} />
+      <Route
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
         <Route index element={<Home />} />
         <Route path="customers" element={<Customers />} />
         <Route path="customers/:id" element={<CustomerDetail />} />

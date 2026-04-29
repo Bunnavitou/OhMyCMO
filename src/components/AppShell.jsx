@@ -4,14 +4,16 @@ import {
   ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 
-const TABS = [
-  { to: '/',          label: 'Home',                 icon: Home,           mobileLabel: 'Home',      isActive: (p) => p === '/' },
-  { to: '/customers', label: 'Customers',            icon: Users,          mobileLabel: 'Customers', isActive: (p) => p.startsWith('/customers') },
-  { to: '/products',  label: 'Products & Services',  icon: Package,        mobileLabel: 'Products',  isActive: (p) => p.startsWith('/products') },
-  { to: '/partners',  label: 'Partners',             icon: Handshake,      mobileLabel: 'Partners',  isActive: (p) => p.startsWith('/partners') },
-  { to: '/marketing', label: 'Marketing',            icon: Megaphone,      mobileLabel: 'Marketing', isActive: (p) => p.startsWith('/marketing') },
-  { to: '/more',      label: 'More',                 icon: MoreHorizontal, mobileLabel: 'More',      isActive: (p) => p.startsWith('/more') || p.startsWith('/assets') },
+const ALL_TABS = [
+  { to: '/',          label: 'Home',                 icon: Home,           mobileLabel: 'Home',      isActive: (p) => p === '/',                                            perm: null },
+  { to: '/customers', label: 'Customers',            icon: Users,          mobileLabel: 'Customers', isActive: (p) => p.startsWith('/customers'),                           perm: 'customers' },
+  { to: '/products',  label: 'Products & Services',  icon: Package,        mobileLabel: 'Products',  isActive: (p) => p.startsWith('/products'),                            perm: 'products' },
+  { to: '/partners',  label: 'Partners',             icon: Handshake,      mobileLabel: 'Partners',  isActive: (p) => p.startsWith('/partners'),                            perm: 'partners' },
+  { to: '/marketing', label: 'Marketing',            icon: Megaphone,      mobileLabel: 'Marketing', isActive: (p) => p.startsWith('/marketing'),                           perm: 'marketing' },
+  { to: '/more',      label: 'More',                 icon: MoreHorizontal, mobileLabel: 'More',      isActive: (p) => p.startsWith('/more') || p.startsWith('/assets'),     perm: null },
 ]
 
 const MORE_LABELS = {
@@ -83,7 +85,10 @@ export default function AppShell() {
   const { crumbs, level, title } = useNavMeta()
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const isDetail = level >= 2
+
+  const TABS = ALL_TABS.filter((t) => !t.perm || hasPermission(user, t.perm))
 
   return (
     <div className="min-h-screen bg-white text-near-black md:flex">
@@ -177,7 +182,10 @@ export default function AppShell() {
             className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-shadow"
             style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
-            <ul className="grid grid-cols-6 h-16">
+            <ul
+              className="grid h-16"
+              style={{ gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))` }}
+            >
               {TABS.map((t) => {
                 const active = t.isActive(pathname)
                 return (
