@@ -9,7 +9,7 @@
   body {
     background-color: #FFFFFF;
     color: #0E0F0C;
-    font-family: Inter, ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
+    font-family: Inter, "Noto Sans KR", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
     font-feature-settings: 'calt' 1; /* contextual alternates everywhere */
     font-weight: 600; /* Inter Semibold as default reading weight per Wise spec */
     -webkit-font-smoothing: antialiased;
@@ -17,11 +17,34 @@
   }
   /* Display headings — Inter Black (900) at billboard scale, ultra-tight leading. */
   h1, h2, h3 {
-    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    font-family: Inter, "Noto Sans KR", ui-sans-serif, system-ui, sans-serif;
     font-weight: 900;
     line-height: 0.85;
     letter-spacing: -0.02em;
     color: #0E0F0C;
+  }
+
+  /* Korean: promote Noto Sans KR to the front. LanguageContext sets
+     <html lang> to the active language, so this kicks in automatically.
+     Also relax the display tracking — Korean glyphs need a touch more space. */
+  html[lang="ko"] body {
+    font-family: "Noto Sans KR", Inter, ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
+  }
+  html[lang="ko"] h1,
+  html[lang="ko"] h2,
+  html[lang="ko"] h3,
+  html[lang="ko"] .display {
+    font-family: "Noto Sans KR", Inter, ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0;
+  }
+  html[lang="ko"] .btn-primary,
+  html[lang="ko"] .btn-ghost,
+  html[lang="ko"] .btn-slate,
+  html[lang="ko"] input,
+  html[lang="ko"] textarea,
+  html[lang="ko"] select,
+  html[lang="ko"] button {
+    font-family: "Noto Sans KR", Inter, system-ui, sans-serif;
   }
   /* Native form controls. */
   select option { background: #FFFFFF; color: #0E0F0C; }
@@ -65,7 +88,7 @@
     padding: 10px 22px;
     background: #9FE870;
     color: #163300;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: Inter, "Noto Sans KR", system-ui, sans-serif;
     font-size: 0.9375rem;
     font-weight: 600;
     border-radius: 9999px;
@@ -95,7 +118,7 @@
     padding: 10px 18px;
     background: rgba(22, 51, 0, 0.08);
     color: #0E0F0C;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: Inter, "Noto Sans KR", system-ui, sans-serif;
     font-size: 0.9375rem;
     font-weight: 600;
     border-radius: 9999px;
@@ -152,7 +175,7 @@
 
   /* Display utility — Inter 900 at hero scale. */
   .display {
-    font-family: Inter, system-ui, sans-serif;
+    font-family: Inter, "Noto Sans KR", system-ui, sans-serif;
     font-weight: 900;
     line-height: 0.85;
     letter-spacing: -0.025em;

@@ -16,6 +16,7 @@ import {
 } from 'react'
 import { api } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
+import { useT } from '../i18n/LanguageContext.jsx'
 
 const StoreContext = createContext(null)
 
@@ -24,6 +25,7 @@ const uid = (prefix = 'id') =>
 
 const EMPTY_STATE = {
   customers: [],
+  customerGroups: [],
   products: [],
   partners: [],
   campaigns: [],
@@ -35,6 +37,7 @@ const EMPTY_STATE = {
 
 export function StoreProvider({ children }) {
   const { status } = useAuth()
+  const { t } = useT()
   const [state, setState] = useState(EMPTY_STATE)
   const [bootstrapped, setBootstrapped] = useState(false)
   const [bootstrapError, setBootstrapError] = useState(null)
@@ -52,15 +55,17 @@ export function StoreProvider({ children }) {
     setBootstrapError(null)
     Promise.all([
       api.get('/customers'),
+      api.get('/customer-groups'),
       api.get('/products'),
       api.get('/partners'),
       api.get('/campaigns'),
       api.get('/assets'),
     ])
-      .then(([cust, prod, part, camp, ass]) => {
+      .then(([cust, custGroups, prod, part, camp, ass]) => {
         if (cancelled) return
         setState({
           customers: cust.data.items,
+          customerGroups: custGroups.data.items,
           products: prod.data.items,
           partners: part.data.items,
           campaigns: camp.data.items,
@@ -136,6 +141,7 @@ export function StoreProvider({ children }) {
         run(async () => {
           const res = await api.post('/customers', data)
           prependTo('customers', res.data.customer)
+          return res.data.customer
         }),
 
       updateCustomer: (id, patch) => patchCustomer(id, patch),
@@ -144,6 +150,40 @@ export function StoreProvider({ children }) {
         run(async () => {
           await api.delete(`/customers/${id}`)
           removeFrom('customers', id)
+        }),
+
+      // ── Customer groups (buckets like "Strategic", "Q4 launch")
+      addCustomerGroup: (data) =>
+        run(async () => {
+          const res = await api.post('/customer-groups', data)
+          setState((s) => ({
+            ...s,
+            customerGroups: [res.data.group, ...s.customerGroups],
+          }))
+          return res.data.group
+        }),
+      updateCustomerGroup: (id, patch) =>
+        run(async () => {
+          const res = await api.patch(`/customer-groups/${id}`, patch)
+          setState((s) => ({
+            ...s,
+            customerGroups: s.customerGroups.map((g) =>
+              g.id === id ? res.data.group : g,
+            ),
+          }))
+        }),
+      removeCustomerGroup: (id) =>
+        run(async () => {
+          await api.delete(`/customer-groups/${id}`)
+          setState((s) => ({
+            ...s,
+            customerGroups: s.customerGroups.filter((g) => g.id !== id),
+            // Group deletion sets customers' groupId to null on the server;
+            // mirror that locally without a refetch.
+            customers: s.customers.map((c) =>
+              c.groupId === id ? { ...c, groupId: null } : c,
+            ),
+          }))
         }),
 
       // Manual audit log entry (used by "Log activity")
@@ -515,6 +555,7 @@ export function StoreProvider({ children }) {
           const body = { type: 'Service', price: 0, ...data }
           const res = await api.post('/products', body)
           prependTo('products', res.data.product)
+          return res.data.product
         }),
       updateProduct: (id, patch) =>
         run(async () => {
@@ -551,6 +592,7 @@ export function StoreProvider({ children }) {
         run(async () => {
           const res = await api.post('/partners', data)
           prependTo('partners', res.data.partner)
+          return res.data.partner
         }),
       updatePartner: (id, patch) =>
         run(async () => {
@@ -622,6 +664,7 @@ export function StoreProvider({ children }) {
           const body = { status: 'In use', ...data }
           const res = await api.post('/assets', body)
           prependTo('assets', res.data.asset)
+          return res.data.asset
         }),
       updateAsset: (id, patch) =>
         run(async () => {
@@ -646,6 +689,7 @@ export function StoreProvider({ children }) {
           const body = { name: '', description: '', status: 'Planning', todos: [], ...data }
           const res = await api.post('/campaigns', body)
           prependTo('campaigns', res.data.campaign)
+          return res.data.campaign
         }),
       updateCampaign: (id, patch) =>
         run(async () => {
@@ -710,7 +754,7 @@ export function StoreProvider({ children }) {
   if (status === 'pending' || (status === 'authed' && !bootstrapped)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white text-graphite text-sm">
-        Loading workspace…
+        {t('loadingWorkspace')}
       </div>
     )
   }

@@ -19,6 +19,7 @@ import MoreProfile from './pages/MoreProfile.jsx'
 import MoreSubUsers from './pages/MoreSubUsers.jsx'
 import MoreInfluencers from './pages/MoreInfluencers.jsx'
 import MoreTCs from './pages/MoreTCs.jsx'
+import MoreLanguage from './pages/MoreLanguage.jsx'
 
 export default function App() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="more/sub-users" element={<MoreSubUsers />} />
         <Route path="more/influencers" element={<MoreInfluencers />} />
         <Route path="more/tcs" element={<MoreTCs />} />
+        <Route path="more/language" element={<MoreLanguage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

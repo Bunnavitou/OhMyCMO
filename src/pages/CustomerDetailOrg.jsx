@@ -3,12 +3,15 @@ import { Link as RouterLink } from 'react-router-dom'
 import { Mail, Phone, MapPin, Hash, Building2, Pencil, Trash2, Users, ChevronRight } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
+import { useT } from '../i18n/LanguageContext.jsx'
 
 const stages = ['Prospect', 'Active', 'On hold', 'Churned']
 
 export default function CustomerDetailOrg({ customer }) {
-  const { updateCustomer, removeCustomer } = useStore()
+  const { state, updateCustomer, removeCustomer } = useStore()
+  const { t } = useT()
   const [editing, setEditing] = useState(false)
+  const groups = state.customerGroups || []
 
   const onDelete = () => {
     if (confirm(`Delete ${customer.name}? This cannot be undone.`)) {
@@ -113,17 +116,19 @@ export default function CustomerDetailOrg({ customer }) {
         <CustomerForm
           key={`edit-${customer.id}`}
           initial={customer}
+          groups={groups}
           onSubmit={(patch) => {
             updateCustomer(customer.id, patch)
             setEditing(false)
           }}
+          t={t}
         />
       </Modal>
     </>
   )
 }
 
-function CustomerForm({ initial, onSubmit }) {
+function CustomerForm({ initial, groups, onSubmit, t }) {
   const [form, setForm] = useState({
     name: initial?.name || '',
     industry: initial?.industry || '',
@@ -133,14 +138,17 @@ function CustomerForm({ initial, onSubmit }) {
     address: initial?.address || '',
     vatTin: initial?.vatTin || '',
     stage: initial?.stage || 'Prospect',
+    groupId: initial?.groupId || '',
   })
   const change = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const submit = (e) => {
+    e.preventDefault()
+    if (form.name.trim()) onSubmit({ ...form, groupId: form.groupId || null })
+  }
+
   return (
     <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (form.name.trim()) onSubmit(form)
-      }}
+      onSubmit={submit}
       className="space-y-3"
     >
       <div>
@@ -164,6 +172,15 @@ function CustomerForm({ initial, onSubmit }) {
             {stages.map((s) => <option key={s}>{s}</option>)}
           </select>
         </div>
+      </div>
+      <div>
+        <label className="label">{t('customer.field.group')}</label>
+        <select className="input" value={form.groupId} onChange={change('groupId')}>
+          <option value="">{t('customer.field.groupNone')}</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>{g.name}</option>
+          ))}
+        </select>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

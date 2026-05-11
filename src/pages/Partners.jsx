@@ -6,6 +6,7 @@ import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
 import { scanCard } from '../utils/cardScanner.js'
+import { useT } from '../i18n/LanguageContext.jsx'
 
 const EMPTY_PARTNER = { name: '', company: '', role: '', email: '', phone: '', cardImage: null }
 
@@ -24,6 +25,7 @@ const partnerInRange = (p, range) => {
 
 export default function Partners() {
   const { state, addPartner } = useStore()
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [initial, setInitial] = useState(EMPTY_PARTNER)
   const [fromScan, setFromScan] = useState(false)
@@ -61,7 +63,7 @@ export default function Partners() {
       const fields = await scanCard(file)
       const found = ['name', 'company', 'role', 'email', 'phone'].filter((k) => fields[k])
       if (found.length === 0) {
-        setScanError('Could not read the card. Try a clearer, well-lit photo.')
+        setScanError(t('partner.scanError.read'))
         return
       }
       setInitial({
@@ -76,7 +78,7 @@ export default function Partners() {
       setOpen(true)
     } catch (err) {
       console.error(err)
-      setScanError('OCR failed. Check your connection (the language pack downloads on first run).')
+      setScanError(t('partner.scanError.ocr'))
     } finally {
       setScanning(false)
     }
@@ -119,7 +121,7 @@ export default function Partners() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search partner, company, role"
+              placeholder={t('partner.search')}
               className="input pl-9"
             />
           </div>
@@ -133,17 +135,17 @@ export default function Partners() {
         {state.partners.length === 0 ? (
           <EmptyState
             icon={Handshake}
-            title="No partners yet"
-            description="Capture name cards, log meetings and follow-ups in one place."
+            title={t('partner.empty.title')}
+            description={t('partner.empty.body')}
             action={
               <button onClick={() => setChooserOpen(true)} className="btn-primary">
-                <Plus className="w-4 h-4" /> Add a partner
+                <Plus className="w-4 h-4" /> {t('partner.addNew')}
               </button>
             }
           />
         ) : filtered.length === 0 ? (
           <p className="text-center text-sm text-graphite py-6">
-            No partners match your filters.
+            {t('partner.noFilterMatch')}
           </p>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -167,7 +169,7 @@ export default function Partners() {
                     ) : (
                       <div className="bg-mint-bg h-20 md:h-24 flex items-center justify-center border-b border-shadow">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-wise-dark/70">
-                          No name card
+                          {t('partner.noNameCard')}
                         </p>
                       </div>
                     )}
@@ -203,7 +205,7 @@ export default function Partners() {
                         </div>
                         {openTasks > 0 && (
                           <p className="text-[11px] text-graphite pt-1">
-                            {openTasks} open task{openTasks !== 1 ? 's' : ''}
+                            {t('partner.openTasks', { count: openTasks })}
                           </p>
                         )}
                       </div>
@@ -233,14 +235,14 @@ export default function Partners() {
       <button
         onClick={() => setChooserOpen(true)}
         className="btn-primary fixed z-40 right-4 md:right-8 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-8 shadow-xl"
-        aria-label="New partner"
+        aria-label={t('partner.addNew')}
       >
-        <Plus className="w-5 h-5" /> New
+        <Plus className="w-5 h-5" /> {t('common.new')}
       </button>
 
-      <Modal open={chooserOpen} onClose={() => setChooserOpen(false)} title="Add a new partner">
+      <Modal open={chooserOpen} onClose={() => setChooserOpen(false)} title={t('partner.chooser.title')}>
         <p className="text-sm text-graphite mb-4">
-          Choose how you'd like to capture this partner.
+          {t('partner.chooser.body')}
         </p>
         <div className="space-y-2.5">
           <button
@@ -252,9 +254,9 @@ export default function Partners() {
               <Camera className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-bold text-near-black">Scan a name card</p>
+              <p className="text-base font-bold text-near-black">{t('partner.chooser.scan')}</p>
               <p className="text-xs text-graphite mt-0.5">
-                Snap a photo and we'll fill the form for you using OCR.
+                {t('partner.chooser.scanBody')}
               </p>
             </div>
           </button>
@@ -267,9 +269,9 @@ export default function Partners() {
               <Pencil className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-bold text-near-black">Enter manually</p>
+              <p className="text-base font-bold text-near-black">{t('partner.chooser.manual')}</p>
               <p className="text-xs text-graphite mt-0.5">
-                Type in the partner's details from scratch.
+                {t('partner.chooser.manualBody')}
               </p>
             </div>
           </button>
@@ -280,13 +282,14 @@ export default function Partners() {
 }
 
 function ScanningOverlay() {
+  const { t } = useT()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="bg-charcoal rounded-2xl p-6 shadow-xl flex flex-col items-center gap-3 max-w-xs mx-4">
         <Loader2 className="w-8 h-8 text-brand-600 animate-spin" />
-        <p className="text-sm font-semibold">Reading name card…</p>
+        <p className="text-sm font-semibold">{t('partner.scanning')}</p>
         <p className="text-xs text-graphite text-center">
-          First scan downloads the OCR language pack — please wait a few seconds.
+          {t('partner.scanning.note')}
         </p>
       </div>
     </div>
@@ -294,9 +297,10 @@ function ScanningOverlay() {
 }
 
 function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
+  const { t } = useT()
   const [form, setForm] = useState(initial)
   return (
-    <Modal open={open} onClose={onClose} title={fromScan ? 'Review scanned card' : 'New partner'}>
+    <Modal open={open} onClose={onClose} title={fromScan ? t('partner.review.title') : t('partner.modal.new')}>
       {fromScan && (
         <>
           {form.cardImage?.dataUrl && (
@@ -310,7 +314,7 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
           )}
           <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-50 text-brand-800 text-xs">
             <Sparkles className="w-3.5 h-3.5 shrink-0" />
-            <span>Pre-filled from your photo. Review and edit before saving.</span>
+            <span>{t('partner.review.note')}</span>
           </div>
         </>
       )}
@@ -322,7 +326,7 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
         className="space-y-3"
       >
         <div>
-          <label className="label">Full name *</label>
+          <label className="label">{t('partner.fullName')} *</label>
           <input
             className="input"
             autoFocus
@@ -333,7 +337,7 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Company</label>
+            <label className="label">{t('partner.field.company')}</label>
             <input
               className="input"
               value={form.company}
@@ -342,7 +346,7 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
             />
           </div>
           <div>
-            <label className="label">Role</label>
+            <label className="label">{t('partner.field.role')}</label>
             <input
               className="input"
               value={form.role}
@@ -353,7 +357,7 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Email</label>
+            <label className="label">{t('field.email')}</label>
             <input
               className="input"
               type="email"
@@ -362,7 +366,7 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
             />
           </div>
           <div>
-            <label className="label">Phone</label>
+            <label className="label">{t('field.phone')}</label>
             <input
               className="input"
               value={form.phone}
@@ -370,7 +374,7 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
             />
           </div>
         </div>
-        <button className="btn-primary w-full mt-2">Save partner</button>
+        <button className="btn-primary w-full mt-2">{t('partner.save')}</button>
       </form>
     </Modal>
   )

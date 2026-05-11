@@ -5,13 +5,19 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
+import { useT } from '../i18n/LanguageContext.jsx'
 
 import CustomerDetailOrg from './CustomerDetailOrg.jsx'
 import CustomerDetailTask from './CustomerDetailTask.jsx'
 import CustomerDetailFile from './CustomerDetailFile.jsx'
 import CustomerDetailLog from './CustomerDetailLog.jsx'
 
-const tabs = ['Tasks', 'Products', 'Files', 'Audit Log']
+const TABS = [
+  { value: 'Tasks',     tKey: 'customer.tab.tasks' },
+  { value: 'Products',  tKey: 'customer.tab.products' },
+  { value: 'Files',     tKey: 'customer.tab.files' },
+  { value: 'Audit Log', tKey: 'customer.tab.audit' },
+]
 
 export default function CustomerDetail() {
   const { id } = useParams()
@@ -20,6 +26,7 @@ export default function CustomerDetail() {
     addCustomerProductLink,
     removeCustomerProductLink,
   } = useStore()
+  const { t } = useT()
   const customer = state.customers.find((c) => c.id === id)
   const [tab, setTab] = useState('Tasks')
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -32,15 +39,15 @@ export default function CustomerDetail() {
         <CustomerDetailOrg customer={customer} />
 
         <div className="flex bg-iron border border-shadow">
-          {tabs.map((t) => (
+          {TABS.map((tabDef) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tabDef.value}
+              onClick={() => setTab(tabDef.value)}
               className={`flex-1 text-xs md:text-sm py-2 font-bold uppercase tracking-wider transition-colors ${
-                tab === t ? 'bg-charcoal text-brand-500 border-b-2 border-brand-500' : 'text-graphite'
+                tab === tabDef.value ? 'bg-charcoal text-brand-500 border-b-2 border-brand-500' : 'text-graphite'
               }`}
             >
-              {t}
+              {t(tabDef.tKey)}
             </button>
           ))}
         </div>
@@ -52,7 +59,7 @@ export default function CustomerDetail() {
             products={state.products}
             onLink={() => setPickerOpen(true)}
             onUnlink={(linkId) => {
-              if (confirm('Remove this product record? The activity thread will be deleted.')) {
+              if (confirm(t('customer.products.confirmUnlink'))) {
                 removeCustomerProductLink(customer.id, linkId)
               }
             }}
@@ -65,7 +72,7 @@ export default function CustomerDetail() {
       <Modal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Choose a product to record"
+        title={t('customer.products.pickerTitle')}
       >
         <ProductPicker
           products={state.products}
@@ -87,20 +94,21 @@ const formatStartDate = (iso) => {
 }
 
 function PanelProducts({ customer, products, onLink, onUnlink }) {
+  const { t } = useT()
   const linked = [...(customer.productLinks || [])].sort(
     (a, b) => (b.linkedAt || '').localeCompare(a.linkedAt || ''),
   )
   return (
     <div className="space-y-3">
       <button onClick={onLink} className="btn-primary w-full">
-        <Plus className="w-4 h-4" /> Choose product to record
+        <Plus className="w-4 h-4" /> {t('customer.products.choose')}
       </button>
       <p className="text-[11px] text-graphite px-1">
-        The same product can be picked more than once — each pick opens its own activity thread.
+        {t('customer.products.note')}
       </p>
       {linked.length === 0 ? (
         <p className="text-center text-sm text-graphite py-6">
-          No product history yet.
+          {t('customer.products.empty')}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -109,10 +117,11 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
             if (!product) {
               return (
                 <li key={link.id} className="card flex items-center justify-between">
-                  <span className="text-sm text-graphite">Missing product</span>
+                  <span className="text-sm text-graphite">{t('customer.products.missing')}</span>
                   <button
                     onClick={() => onUnlink(link.id)}
                     className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"
+                    aria-label={t('common.remove')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -136,9 +145,9 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
                       <span className="pill bg-iron text-graphite">{product.type}</span>
                     </div>
                     <p className="text-[11px] text-graphite mt-0.5">
-                      {startedOn ? `Started ${startedOn}` : 'New'}
+                      {startedOn ? t('customer.products.startedOn', { date: startedOn }) : t('common.new')}
                       {' · '}
-                      {activityCount} activit{activityCount === 1 ? 'y' : 'ies'}
+                      {t('customer.products.activity', { count: activityCount })}
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-graphite" />
@@ -147,7 +156,7 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
                   onClick={() => onUnlink(link.id)}
                   className="w-full text-xs text-rose-600 py-2 border-t border-shadow hover:bg-rose-50 flex items-center justify-center gap-1"
                 >
-                  <Link2Off className="w-3 h-3" /> Remove this record
+                  <Link2Off className="w-3 h-3" /> {t('customer.products.removeRecord')}
                 </button>
               </li>
             )
@@ -159,6 +168,7 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
 }
 
 function ProductPicker({ products, onPick }) {
+  const { t } = useT()
   const [q, setQ] = useState('')
   const available = products.filter((p) =>
     p.name.toLowerCase().includes(q.toLowerCase()),
@@ -170,18 +180,17 @@ function ProductPicker({ products, onPick }) {
         autoFocus
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search products"
+        placeholder={t('customer.products.searchProducts')}
       />
       <p className="text-[11px] text-graphite px-1">
-        You can pick the same product more than once — each pick opens its own
-        activity thread.
+        {t('customer.products.pickerNote')}
       </p>
       {products.length === 0 ? (
         <p className="text-center text-sm text-graphite py-4">
-          No products yet. Add one in the Products workspace first.
+          {t('customer.products.noneYet')}
         </p>
       ) : available.length === 0 ? (
-        <p className="text-center text-sm text-graphite py-4">No matching products.</p>
+        <p className="text-center text-sm text-graphite py-4">{t('customer.products.noMatch')}</p>
       ) : (
         <ul className="divide-y divide-shadow max-h-72 overflow-y-auto -mx-1">
           {available.map((p) => (

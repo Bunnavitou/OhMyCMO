@@ -65,8 +65,11 @@ export default {
       },
 
       fontFamily: {
-        sans:    ['Inter', 'ui-sans-serif', 'system-ui', 'Helvetica', 'Arial', 'sans-serif'],
-        display: ['Inter', 'ui-sans-serif', 'system-ui', 'Helvetica', 'Arial', 'sans-serif'],
+        // Inter handles Latin; Noto Sans KR fills in Korean glyphs even on
+        // English screens. The :lang(ko) rule in index.css promotes Noto
+        // to the front of the stack when the UI is in Korean.
+        sans:    ['Inter', '"Noto Sans KR"', 'ui-sans-serif', 'system-ui', 'Helvetica', 'Arial', 'sans-serif'],
+        display: ['Inter', '"Noto Sans KR"', 'ui-sans-serif', 'system-ui', 'Helvetica', 'Arial', 'sans-serif'],
         mono:    ['ui-monospace', 'SFMono-Regular', 'monospace'],
       },
 

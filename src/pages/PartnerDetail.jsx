@@ -3,9 +3,11 @@ import { useParams, Navigate } from 'react-router-dom'
 import {
   Mail, Phone, Plus, Trash2, CheckCircle2, Circle, Calendar,
   Paperclip, Download, DollarSign, Briefcase, Building2,
+  Image as ImageIcon, Maximize2,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
+import { useT } from '../i18n/LanguageContext.jsx'
 
 const FILE_LIMIT_BYTES = 1024 * 1024 // 1 MB
 
@@ -19,9 +21,11 @@ export default function PartnerDetail() {
     removePartnerTask,
     removePartner,
   } = useStore()
+  const { t } = useT()
   const partner = state.partners.find((p) => p.id === id)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
+  const [cardPreviewOpen, setCardPreviewOpen] = useState(false)
 
   if (!partner) return <Navigate to="/partners" replace />
 
@@ -48,19 +52,19 @@ export default function PartnerDetail() {
                 </p>
               ) : (
                 <p className="flex items-center gap-2 text-graphite min-w-0">
-                  <Briefcase className="w-4 h-4 shrink-0" /> Add position
+                  <Briefcase className="w-4 h-4 shrink-0" /> {t('partner.addPosition')}
                 </p>
               )}
               <div className="shrink-0 -my-1.5 -mr-1">
                 <button
                   onClick={() => {
-                    if (confirm(`Delete ${partner.name}?`)) {
+                    if (confirm(t('partner.confirmDelete', { name: partner.name }))) {
                       removePartner(partner.id)
                       history.back()
                     }
                   }}
                   className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
-                  aria-label="Delete partner"
+                  aria-label={t('common.delete')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -87,18 +91,51 @@ export default function PartnerDetail() {
           </div>
         </section>
 
+        {partner.cardImage?.dataUrl && (
+          <section className="card !p-0 overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-shadow">
+              <div className="flex items-center gap-2 min-w-0">
+                <ImageIcon className="w-4 h-4 text-graphite shrink-0" />
+                <p className="text-sm font-semibold text-near-black truncate">
+                  {t('partner.nameCard.title')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCardPreviewOpen(true)}
+                className="p-2 rounded-full hover:bg-iron text-graphite transition-transform hover:scale-105 active:scale-95"
+                aria-label={t('partner.nameCard.preview')}
+                title={t('partner.nameCard.preview')}
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCardPreviewOpen(true)}
+              className="block w-full bg-iron"
+            >
+              <img
+                src={partner.cardImage.dataUrl}
+                alt={`${partner.name} name card`}
+                className="w-full max-h-64 object-contain"
+              />
+            </button>
+          </section>
+        )}
+
         <div className="space-y-3">
           <button
             onClick={() => { setEditingTask(null); setTaskModalOpen(true) }}
             className="btn-primary w-full"
           >
-            <Plus className="w-4 h-4" /> Add task
+            <Plus className="w-4 h-4" /> {t('partner.task.add')}
           </button>
 
             {partner.tasks.length > 0 && (
               <div className="card !p-3 flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-graphite">
-                  Total expense
+                  {t('partner.task.totalExpense')}
                 </span>
                 <span className="text-base font-bold text-rose-700">
                   ${totalExpense.toLocaleString()}
@@ -107,58 +144,58 @@ export default function PartnerDetail() {
             )}
 
             {partner.tasks.length === 0 ? (
-              <p className="text-center text-sm text-graphite py-6">No tasks yet.</p>
+              <p className="text-center text-sm text-graphite py-6">{t('partner.task.empty')}</p>
             ) : (
               <ul className="card divide-y divide-shadow p-0">
-                {partner.tasks.map((t) => (
-                  <li key={t.id} className="flex items-start gap-3 p-3">
+                {partner.tasks.map((task) => (
+                  <li key={task.id} className="flex items-start gap-3 p-3">
                     <button
-                      onClick={() => togglePartnerTask(partner.id, t.id)}
+                      onClick={() => togglePartnerTask(partner.id, task.id)}
                       className="pt-0.5 shrink-0"
-                      aria-label="Toggle done"
+                      aria-label={t('partner.task.toggleDone')}
                     >
-                      {t.done ? (
+                      {task.done ? (
                         <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                       ) : (
                         <Circle className="w-5 h-5 text-graphite" />
                       )}
                     </button>
                     <button
-                      onClick={() => { setEditingTask(t); setTaskModalOpen(true) }}
+                      onClick={() => { setEditingTask(task); setTaskModalOpen(true) }}
                       className="flex-1 min-w-0 text-left"
                     >
                       <p
                         className={`text-sm font-semibold ${
-                          t.done ? 'line-through text-graphite' : ''
+                          task.done ? 'line-through text-graphite' : ''
                         }`}
                       >
-                        {t.name}
+                        {task.name}
                       </p>
-                      {t.description && (
+                      {task.description && (
                         <p className="text-xs text-graphite line-clamp-2 mt-0.5">
-                          {t.description}
+                          {task.description}
                         </p>
                       )}
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-graphite">
-                        {t.setDate && (
+                        {task.setDate && (
                           <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> Set {t.setDate}
+                            <Calendar className="w-3 h-3" /> {t('partner.task.fields.setOn', { date: task.setDate })}
                           </span>
                         )}
-                        {t.due && (
+                        {task.due && (
                           <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> Due {t.due}
+                            <Calendar className="w-3 h-3" /> {t('partner.task.fields.dueOn', { date: task.due })}
                           </span>
                         )}
-                        {Number(t.expense) > 0 && (
+                        {Number(task.expense) > 0 && (
                           <span className="flex items-center gap-1 text-rose-700 font-medium">
                             <DollarSign className="w-3 h-3" />
-                            {Number(t.expense).toLocaleString()}
+                            {Number(task.expense).toLocaleString()}
                           </span>
                         )}
-                        {t.file && (
+                        {task.file && (
                           <span className="flex items-center gap-1">
-                            <Paperclip className="w-3 h-3" /> {t.file.name}
+                            <Paperclip className="w-3 h-3" /> {task.file.name}
                           </span>
                         )}
                       </div>
@@ -173,7 +210,7 @@ export default function PartnerDetail() {
       <Modal
         open={taskModalOpen}
         onClose={closeTaskModal}
-        title={editingTask ? 'Edit task' : 'New task'}
+        title={editingTask ? t('partner.task.modal.edit') : t('partner.task.modal.new')}
       >
         <TaskForm
           key={editingTask?.id || 'new'}
@@ -181,7 +218,7 @@ export default function PartnerDetail() {
           onDelete={
             editingTask
               ? () => {
-                  if (confirm('Delete this task?')) {
+                  if (confirm(t('partner.task.delete'))) {
                     removePartnerTask(partner.id, editingTask.id)
                     closeTaskModal()
                   }
@@ -195,11 +232,26 @@ export default function PartnerDetail() {
           }}
         />
       </Modal>
+
+      <Modal
+        open={cardPreviewOpen}
+        onClose={() => setCardPreviewOpen(false)}
+        title={t('partner.nameCard.preview')}
+      >
+        <div className="overflow-hidden rounded-xl border border-shadow bg-iron">
+          <img
+            src={partner.cardImage?.dataUrl}
+            alt={`${partner.name} name card`}
+            className="w-full max-h-[70vh] object-contain"
+          />
+        </div>
+      </Modal>
     </>
   )
 }
 
 function TaskForm({ initial, onSubmit, onDelete }) {
+  const { t } = useT()
   const today = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState(
     initial || {
@@ -219,7 +271,7 @@ function TaskForm({ initial, onSubmit, onDelete }) {
     e.target.value = ''
     if (!f) return
     if (f.size > FILE_LIMIT_BYTES) {
-      setFileError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — max 1 MB stored locally.`)
+      setFileError(t('partner.task.fileTooBig', { mb: (f.size / 1024 / 1024).toFixed(1) }))
       return
     }
     setFileError('')
@@ -245,7 +297,7 @@ function TaskForm({ initial, onSubmit, onDelete }) {
   return (
     <form onSubmit={submit} className="space-y-3">
       <div>
-        <label className="label">Task name *</label>
+        <label className="label">{t('partner.task.fields.name')} *</label>
         <input
           className="input"
           autoFocus
@@ -256,7 +308,7 @@ function TaskForm({ initial, onSubmit, onDelete }) {
       </div>
 
       <div>
-        <label className="label">Description</label>
+        <label className="label">{t('field.description')}</label>
         <textarea
           className="input min-h-[80px]"
           value={form.description}
@@ -267,7 +319,7 @@ function TaskForm({ initial, onSubmit, onDelete }) {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Task set date</label>
+          <label className="label">{t('partner.task.fields.setDate')}</label>
           <input
             className="input"
             type="date"
@@ -276,7 +328,7 @@ function TaskForm({ initial, onSubmit, onDelete }) {
           />
         </div>
         <div>
-          <label className="label">Due date</label>
+          <label className="label">{t('field.dueDate')}</label>
           <input
             className="input"
             type="date"
@@ -287,7 +339,7 @@ function TaskForm({ initial, onSubmit, onDelete }) {
       </div>
 
       <div>
-        <label className="label">Expense amount (USD)</label>
+        <label className="label">{t('partner.task.fields.expense')}</label>
         <div className="relative">
           <DollarSign className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
           <input
@@ -303,7 +355,7 @@ function TaskForm({ initial, onSubmit, onDelete }) {
       </div>
 
       <div>
-        <label className="label">File attachment</label>
+        <label className="label">{t('partner.task.fields.attach')}</label>
         {form.file ? (
           <div className="flex items-center gap-2 p-2.5 rounded-xl border border-shadow bg-iron">
             <Paperclip className="w-4 h-4 text-graphite shrink-0" />
@@ -328,7 +380,7 @@ function TaskForm({ initial, onSubmit, onDelete }) {
         ) : (
           <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite cursor-pointer hover:bg-iron">
             <Paperclip className="w-4 h-4" />
-            Attach file (max 1 MB)
+            {t('partner.task.fields.attachLabel')}
             <input type="file" className="hidden" onChange={onFile} />
           </label>
         )}
@@ -342,14 +394,13 @@ function TaskForm({ initial, onSubmit, onDelete }) {
             onClick={onDelete}
             className="px-4 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 text-sm font-semibold"
           >
-            Delete
+            {t('common.delete')}
           </button>
         )}
         <button type="submit" className="btn-primary flex-1">
-          {initial ? 'Save changes' : 'Save task'}
+          {initial ? t('common.saveChanges') : t('partner.task.save')}
         </button>
       </div>
     </form>
   )
 }
-

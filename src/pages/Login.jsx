@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext.jsx'
+import { useT } from '../i18n/LanguageContext.jsx'
 
 export default function Login() {
   const { login, status } = useAuth()
+  const { t } = useT()
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from?.pathname || '/'
@@ -34,13 +36,13 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <h1 className="display text-3xl text-near-black">OhMyCMO</h1>
-          <p className="text-sm text-graphite mt-1">Sign in to continue</p>
+          <h1 className="display text-3xl text-near-black">{t('login.title')}</h1>
+          <p className="text-sm text-graphite mt-1">{t('login.subtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card space-y-4">
           <Field
-            label="Email or username"
+            label={t('login.identifier')}
             type="text"
             value={identifier}
             onChange={setIdentifier}
@@ -48,7 +50,7 @@ export default function Login() {
             required
           />
           <Field
-            label="Password"
+            label={t('login.password')}
             type="password"
             value={password}
             onChange={setPassword}
@@ -68,15 +70,15 @@ export default function Login() {
             className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-near-black text-white font-semibold py-2.5 text-sm disabled:opacity-60"
           >
             <LogIn className="w-4 h-4" />
-            {submitting ? 'Signing in…' : 'Sign in'}
+            {submitting ? t('login.signingIn') : t('login.signIn')}
           </button>
 
           <p className="text-[11px] text-graphite text-center leading-relaxed">
-            Demo accounts:
+            {t('login.demoTitle')}
             <br />
-            Owner — <span className="font-mono">admin@ohmycmo.local</span> / <span className="font-mono">Admin@123</span>
+            {t('login.demoOwner')} — <span className="font-mono">admin@ohmycmo.local</span> / <span className="font-mono">Admin@123</span>
             <br />
-            Sub-user — <span className="font-mono">alice</span> / <span className="font-mono">alice123</span>
+            {t('login.demoSubUser')} — <span className="font-mono">alice</span> / <span className="font-mono">alice123</span>
           </p>
         </form>
       </div>

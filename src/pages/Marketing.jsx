@@ -2,10 +2,10 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Megaphone, Calendar, Package, ListChecks } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
-import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
+import { useT } from '../i18n/LanguageContext.jsx'
 
 const campaignInRange = (c, range) => {
   if (!range) return true
@@ -13,7 +13,6 @@ const campaignInRange = (c, range) => {
   const endMs = range.end.getTime()
   const cStart = c.startDate ? new Date(c.startDate).getTime() : null
   const cEnd = c.endDate ? new Date(c.endDate).getTime() : null
-  // Match if any post falls in range, even when campaign dates are missing.
   const postHit = (c.todos || []).some((t) => {
     if (!t.postDate) return false
     const ms = new Date(t.postDate).getTime()
@@ -21,13 +20,18 @@ const campaignInRange = (c, range) => {
   })
   if (postHit) return true
   if (cStart == null && cEnd == null) return false
-  // Overlap test: campaign window [cStart..cEnd] intersects [startMs..endMs]
   const lo = cStart ?? Number.NEGATIVE_INFINITY
   const hi = cEnd ?? Number.POSITIVE_INFINITY
   return hi >= startMs && lo <= endMs
 }
 
-const CAMPAIGN_STATUS = ['Planning', 'Active', 'Paused', 'Completed']
+// Status values stored as canonical English; UI shows translated labels.
+const CAMPAIGN_STATUS = [
+  { value: 'Planning',  tKey: 'campaign.status.planning' },
+  { value: 'Active',    tKey: 'campaign.status.active' },
+  { value: 'Paused',    tKey: 'campaign.status.paused' },
+  { value: 'Completed', tKey: 'campaign.status.done' },
+]
 
 const statusStyle = (s) =>
   s === 'Active'    ? 'bg-emerald-100 text-emerald-700'
@@ -35,6 +39,11 @@ const statusStyle = (s) =>
   : s === 'Paused'    ? 'bg-amber-100 text-amber-700'
   : s === 'Completed' ? 'bg-brand-100 text-brand-700'
   : 'bg-iron text-graphite'
+
+const statusLabel = (s, t) => {
+  const found = CAMPAIGN_STATUS.find((x) => x.value === s)
+  return found ? t(found.tKey) : s
+}
 
 const formatDateRange = (start, end) => {
   const fmt = (d) =>
@@ -46,6 +55,7 @@ const formatDateRange = (start, end) => {
 
 export default function Marketing() {
   const { state, addCampaign } = useStore()
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [dateRange, setDateRange] = useState(null)
@@ -63,7 +73,6 @@ export default function Marketing() {
 
   return (
     <>
-
       <div className="space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
@@ -71,7 +80,7 @@ export default function Marketing() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search campaigns"
+              placeholder={t('campaign.search')}
               className="input pl-9"
             />
           </div>
@@ -85,16 +94,16 @@ export default function Marketing() {
         {campaigns.length === 0 ? (
           <EmptyState
             icon={Megaphone}
-            title="No campaigns yet"
-            description="Plan content sprints around any product or service. Schedule posts, track key features, attach artwork."
+            title={t('campaign.empty.title')}
+            description={t('campaign.empty.body')}
             action={
               <button onClick={() => setOpen(true)} className="btn-primary">
-                <Plus className="w-4 h-4" /> New campaign
+                <Plus className="w-4 h-4" /> {t('campaign.modal.new')}
               </button>
             }
           />
         ) : filtered.length === 0 ? (
-          <p className="text-center text-sm text-graphite py-6">No matches.</p>
+          <p className="text-center text-sm text-graphite py-6">{t('common.noResults')}</p>
         ) : (
           <ul className="space-y-3">
             {filtered.map((c) => {
@@ -110,7 +119,7 @@ export default function Marketing() {
                         <div className="flex items-center gap-2">
                           <p className="font-semibold truncate">{c.name}</p>
                           <span className={`pill shrink-0 ${statusStyle(c.status)}`}>
-                            {c.status}
+                            {statusLabel(c.status, t)}
                           </span>
                         </div>
                         {c.description && (
@@ -131,7 +140,7 @@ export default function Marketing() {
                       )}
                       <span className="flex items-center gap-1">
                         <ListChecks className="w-3 h-3" />
-                        {(c.todos?.length || 0)} post{(c.todos?.length || 0) !== 1 ? 's' : ''}
+                        {(c.todos?.length || 0)} {(c.todos?.length || 0) === 1 ? 'post' : 'posts'}
                       </span>
                     </div>
                   </Link>
@@ -155,42 +164,37 @@ export default function Marketing() {
       <button
         onClick={() => setOpen(true)}
         className="btn-primary fixed z-40 right-4 md:right-8 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-8 shadow-xl"
-        aria-label="New campaign"
+        aria-label={t('campaign.modal.new')}
       >
-        <Plus className="w-5 h-5" /> New
+        <Plus className="w-5 h-5" /> {t('common.new')}
       </button>
     </>
   )
 }
 
 function NewCampaignModal({ open, onClose, products, onSubmit }) {
-  const [form, setForm] = useState({
+  const { t } = useT()
+  const empty = {
     name: '',
     description: '',
     productId: products[0]?.id || '',
     startDate: '',
     endDate: '',
     status: 'Planning',
-  })
+  }
+  const [form, setForm] = useState(empty)
   const change = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const submit = (e) => {
     e.preventDefault()
     if (!form.name.trim()) return
     onSubmit(form)
-    setForm({
-      name: '',
-      description: '',
-      productId: products[0]?.id || '',
-      startDate: '',
-      endDate: '',
-      status: 'Planning',
-    })
+    setForm(empty)
   }
   return (
-    <Modal open={open} onClose={onClose} title="New campaign">
+    <Modal open={open} onClose={onClose} title={t('campaign.modal.new')}>
       <form onSubmit={submit} className="space-y-3">
         <div>
-          <label className="label">Campaign name *</label>
+          <label className="label">{t('field.name')} *</label>
           <input
             className="input"
             autoFocus
@@ -200,7 +204,7 @@ function NewCampaignModal({ open, onClose, products, onSubmit }) {
           />
         </div>
         <div>
-          <label className="label">Description</label>
+          <label className="label">{t('field.description')}</label>
           <textarea
             className="input min-h-[80px]"
             value={form.description}
@@ -209,9 +213,9 @@ function NewCampaignModal({ open, onClose, products, onSubmit }) {
           />
         </div>
         <div>
-          <label className="label">Product / Service</label>
+          <label className="label">{t('campaign.field.product')}</label>
           <select className="input" value={form.productId} onChange={change('productId')}>
-            <option value="">— None —</option>
+            <option value="">— —</option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} ({p.type})
@@ -221,7 +225,7 @@ function NewCampaignModal({ open, onClose, products, onSubmit }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Start date</label>
+            <label className="label">{t('field.startDate')}</label>
             <input
               className="input"
               type="date"
@@ -230,7 +234,7 @@ function NewCampaignModal({ open, onClose, products, onSubmit }) {
             />
           </div>
           <div>
-            <label className="label">End date</label>
+            <label className="label">{t('field.endDate')}</label>
             <input
               className="input"
               type="date"
@@ -240,15 +244,17 @@ function NewCampaignModal({ open, onClose, products, onSubmit }) {
           </div>
         </div>
         <div>
-          <label className="label">Status</label>
+          <label className="label">{t('field.status')}</label>
           <select className="input" value={form.status} onChange={change('status')}>
-            {CAMPAIGN_STATUS.map((s) => <option key={s}>{s}</option>)}
+            {CAMPAIGN_STATUS.map((s) => (
+              <option key={s.value} value={s.value}>{t(s.tKey)}</option>
+            ))}
           </select>
         </div>
-        <button type="submit" className="btn-primary w-full mt-2">Save campaign</button>
+        <button type="submit" className="btn-primary w-full mt-2">{t('campaign.save')}</button>
       </form>
     </Modal>
   )
 }
 
-export { CAMPAIGN_STATUS, statusStyle, formatDateRange }
+export { CAMPAIGN_STATUS, statusStyle, statusLabel, formatDateRange }

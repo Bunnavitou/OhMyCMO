@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { useT } from '../i18n/LanguageContext.jsx'
 
 const SIZE_CLASS = {
   md: 'max-w-md',
@@ -11,6 +12,7 @@ const SIZE_CLASS = {
 }
 
 export default function Modal({ open, onClose, title, size = 'md', children }) {
+  const { t } = useT()
   useEffect(() => {
     if (!open) return
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -40,7 +42,7 @@ export default function Modal({ open, onClose, title, size = 'md', children }) {
           <button
             onClick={onClose}
             className="p-1.5 hover:bg-iron text-near-black rounded-full transition-transform hover:scale-105 active:scale-95"
-            aria-label="Close"
+            aria-label={t('common.close')}
           >
             <X className="w-5 h-5" />
           </button>

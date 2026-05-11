@@ -1,13 +1,15 @@
 import { Sparkles, Plus } from 'lucide-react'
+import { useT } from '../i18n/LanguageContext.jsx'
 
 export default function MoreInfluencers() {
+  const { t } = useT()
   return (
     <div className="space-y-3">
       <button
-        onClick={() => alert('Influencer management is coming soon.')}
+        onClick={() => alert(t('influencers.comingSoon'))}
         className="btn-primary w-full"
       >
-        <Plus className="w-4 h-4" /> Add influencer
+        <Plus className="w-4 h-4" /> {t('influencers.add')}
       </button>
 
       <div className="card text-center py-12">
@@ -15,11 +17,10 @@ export default function MoreInfluencers() {
           <Sparkles className="w-6 h-6" />
         </div>
         <p className="text-sm md:text-base font-semibold text-near-black">
-          No influencers yet
+          {t('influencers.empty')}
         </p>
         <p className="text-xs md:text-sm text-graphite mt-1 max-w-xs mx-auto">
-          Track creator partnerships, payouts and content briefs in one place.
-          Full influencer CRM is on the roadmap.
+          {t('influencers.body')}
         </p>
       </div>
     </div>
