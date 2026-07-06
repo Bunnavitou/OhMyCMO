@@ -120,11 +120,78 @@ export async function request(path, opts = {}) {
   }
 }
 
+// Authenticated binary fetch (e.g. image bytes from /files/:id/content).
+// Mirrors request()'s refresh-on-401-then-retry behaviour but returns a Blob.
+async function rawBlob(path, { signal } = {}) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+    signal,
+  })
+  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`)
+  return res.blob()
+}
+
+export async function getBlob(path, opts = {}) {
+  try {
+    return await rawBlob(path, opts)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401 && !opts._retry) {
+      try {
+        await doRefresh()
+        return await rawBlob(path, { ...opts, _retry: true })
+      } catch {
+        setAccessToken(null)
+        throw err
+      }
+    }
+    throw err
+  }
+}
+
+// Authenticated multipart upload (FormData). Deliberately omits Content-Type so
+// the browser sets the multipart boundary. Returns the parsed JSON envelope.
+async function rawUpload(path, formData, { signal } = {}) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+    body: formData,
+    signal,
+  })
+  const payload = await parseResponse(res)
+  if (!res.ok) {
+    const msg = payload?.error?.message || `HTTP ${res.status}`
+    throw new ApiError(res.status, msg, payload?.error?.details)
+  }
+  return payload
+}
+
+export async function upload(path, formData, opts = {}) {
+  try {
+    return await rawUpload(path, formData, opts)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401 && !opts._retry) {
+      try {
+        await doRefresh()
+        return await rawUpload(path, formData, { ...opts, _retry: true })
+      } catch {
+        setAccessToken(null)
+        throw err
+      }
+    }
+    throw err
+  }
+}
+
 export const api = {
   get: (path, opts) => request(path, { ...opts, method: 'GET' }),
   post: (path, body, opts) => request(path, { ...opts, method: 'POST', body }),
   patch: (path, body, opts) => request(path, { ...opts, method: 'PATCH', body }),
   delete: (path, opts) => request(path, { ...opts, method: 'DELETE' }),
+  getBlob,
+  upload,
 }
 
 export { ApiError }

@@ -146,6 +146,20 @@ export function StoreProvider({ children }) {
 
       updateCustomer: (id, patch) => patchCustomer(id, patch),
 
+      toggleCustomerPin: (id) => {
+        const c = getCustomer(id)
+        if (!c) return
+        const nextPinned = !c.pinned
+        return patchCustomer(
+          id,
+          { pinned: nextPinned },
+          {
+            type: nextPinned ? 'customer.pin' : 'customer.unpin',
+            message: nextPinned ? `Pinned "${c.name}"` : `Unpinned "${c.name}"`,
+          },
+        )
+      },
+
       removeCustomer: (id) =>
         run(async () => {
           await api.delete(`/customers/${id}`)
@@ -575,6 +589,16 @@ export function StoreProvider({ children }) {
           const res = await api.patch(`/products/${id}`, {
             [field]: [newItem, ...(p[field] || [])],
           })
+          replaceIn('products', res.data.product)
+        }),
+      updateProductChild: (id, field, entryId, patch) =>
+        run(async () => {
+          const p = getProduct(id)
+          if (!p) return
+          const list = (p[field] || []).map((x) =>
+            x.id === entryId ? { ...x, ...patch, id: entryId } : x,
+          )
+          const res = await api.patch(`/products/${id}`, { [field]: list })
           replaceIn('products', res.data.product)
         }),
       removeProductChild: (id, field, entryId) =>

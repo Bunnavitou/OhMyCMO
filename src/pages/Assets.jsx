@@ -1,10 +1,25 @@
 import { useState, useMemo } from 'react'
-import { Plus, Search, Boxes, Trash2, Pencil } from 'lucide-react'
+import { Plus, Search, Boxes, Trash2, Pencil, Camera, Loader2 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+
+const PHOTO_LIMIT_BYTES = 1024 * 1024 // 1 MB per photo
+
+const readPhoto = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve({
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      dataUrl: reader.result,
+    })
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 
 // Stored values stay English; UI shows translated labels.
 const CATEGORIES = [
@@ -146,9 +161,44 @@ export default function Assets() {
 
 function AssetModal({ open, editing, onClose, onSubmit }) {
   const { t } = useT()
-  const initial = editing || { name: '', category: 'Hardware', assignee: '', serial: '', status: 'In use' }
+  const initial = editing
+    ? { ...editing, photos: Array.isArray(editing.photos) ? editing.photos : [] }
+    : { name: '', category: 'Hardware', assignee: '', serial: '', status: 'In use', photos: [] }
   const [form, setForm] = useState(initial)
+  const [photoError, setPhotoError] = useState('')
+  const [uploading, setUploading] = useState(false)
   const key = `${open}-${editing?.id || 'new'}`
+
+  const onPickPhotos = async (e) => {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (!files.length) return
+    const tooBig = files.find((f) => f.size > PHOTO_LIMIT_BYTES)
+    if (tooBig) {
+      setPhotoError(t('asset.photos.tooBig', {
+        name: tooBig.name,
+        mb: (tooBig.size / 1024 / 1024).toFixed(1),
+      }))
+      return
+    }
+    setPhotoError('')
+    setUploading(true)
+    try {
+      const loaded = await Promise.all(files.map(readPhoto))
+      setForm((s) => ({ ...s, photos: [...(s.photos || []), ...loaded] }))
+    } catch {
+      setPhotoError(t('asset.photos.readError'))
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const removePhoto = (idx) => {
+    setForm((s) => ({ ...s, photos: (s.photos || []).filter((_, i) => i !== idx) }))
+  }
+
+  const photos = form.photos || []
+
   return (
     <Modal open={open} onClose={onClose} title={editing ? t('asset.modal.edit') : t('asset.modal.new')} key={key}>
       <form onSubmit={(e) => { e.preventDefault(); if (form.name.trim()) onSubmit(form) }} className="space-y-3">
@@ -180,6 +230,76 @@ function AssetModal({ open, editing, onClose, onSubmit }) {
             <input className="input" value={form.serial} onChange={(e) => setForm({ ...form, serial: e.target.value })} placeholder="C02XJ" />
           </div>
         </div>
+        <div>
+          <label className="label">
+            {t('asset.photos.label')}
+            {photos.length > 0 && (
+              <span className="text-graphite font-normal"> ({photos.length})</span>
+            )}
+          </label>
+          {photos.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {photos.map((p, idx) => {
+                const isImg = (p.type || '').startsWith('image/')
+                return (
+                  <div
+                    key={`${p.name}-${idx}`}
+                    className="relative group rounded-xl border border-shadow overflow-hidden bg-iron aspect-square"
+                  >
+                    {isImg ? (
+                      <img
+                        src={p.dataUrl}
+                        alt={p.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-1 p-2 text-graphite h-full">
+                        <Camera className="w-5 h-5" />
+                        <span className="text-[10px] text-center truncate w-full">{p.name}</span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(idx)}
+                      className="absolute top-1 right-1 p-1 bg-white/90 text-rose-500 rounded-full shadow hover:bg-white"
+                      aria-label={t('asset.photos.remove')}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <label
+            className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite ${
+              uploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-iron'
+            }`}
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {t('asset.photos.uploading')}
+              </>
+            ) : (
+              <>
+                <Camera className="w-4 h-4" />
+                {photos.length > 0 ? t('asset.photos.addMore') : t('asset.photos.add')}
+              </>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              multiple
+              disabled={uploading}
+              onChange={onPickPhotos}
+            />
+          </label>
+          <p className="text-[11px] text-graphite mt-1">{t('asset.photos.limit')}</p>
+          {photoError && <p className="text-xs text-rose-600 mt-1">{photoError}</p>}
+        </div>
+
         <button className="btn-primary w-full mt-2">{editing ? t('common.saveChanges') : t('asset.addNew')}</button>
       </form>
     </Modal>

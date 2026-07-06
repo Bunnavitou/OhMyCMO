@@ -1,14 +1,34 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Handshake, Mail, Phone, Camera, Pencil, Loader2, Sparkles } from 'lucide-react'
+import { Plus, Search, Handshake, Mail, Phone, Camera, Pencil, Loader2, Sparkles, Trash2, ArrowDownAZ, ArrowDownZA, ArrowUpDown, Check, Building2 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
 import { scanCard } from '../utils/cardScanner.js'
+import { compressImage } from '../utils/imageCompress.js'
 import { useT } from '../i18n/LanguageContext.jsx'
+import AuthImage from '../components/AuthImage.jsx'
+import { persistImageRef, hasImage } from '../utils/imageRef.js'
 
-const EMPTY_PARTNER = { name: '', company: '', role: '', email: '', phone: '', cardImage: null }
+const EMPTY_PARTNER = {
+  name: '',
+  company: '',
+  role: '',
+  email: '',
+  phone: '',
+  telegram: '',
+  cardImage: null,
+  telegramQr: null,
+}
+
+const TG_QR_LIMIT_BYTES = 2 * 1024 * 1024 // 2 MB
+
+const SEARCH_KEY = 'ohmycmo:partners:q'
+const SCROLL_KEY = 'ohmycmo:partners:scroll'
+const SORT_KEY = 'ohmycmo:partners:sort'
+
+const SORT_OPTIONS = ['default', 'az', 'za', 'companyAz', 'companyZa']
 
 const partnerInRange = (p, range) => {
   if (!range) return true
@@ -29,7 +49,17 @@ export default function Partners() {
   const [open, setOpen] = useState(false)
   const [initial, setInitial] = useState(EMPTY_PARTNER)
   const [fromScan, setFromScan] = useState(false)
-  const [q, setQ] = useState('')
+  const [q, setQ] = useState(() => {
+    try { return sessionStorage.getItem(SEARCH_KEY) || '' } catch { return '' }
+  })
+  const [sort, setSort] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(SORT_KEY)
+      return SORT_OPTIONS.includes(saved) ? saved : 'default'
+    } catch { return 'default' }
+  })
+  const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  const sortMenuRef = useRef(null)
 
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState('')
@@ -37,15 +67,59 @@ export default function Partners() {
   const [chooserOpen, setChooserOpen] = useState(false)
   const fileInputRef = useRef(null)
 
-  const filtered = useMemo(
-    () =>
-      state.partners
-        .filter((p) =>
-          [p.name, p.company, p.role].join(' ').toLowerCase().includes(q.toLowerCase()),
-        )
-        .filter((p) => partnerInRange(p, dateRange)),
-    [state.partners, q, dateRange],
-  )
+  useEffect(() => {
+    try { sessionStorage.setItem(SEARCH_KEY, q) } catch { /* ignore */ }
+  }, [q])
+
+  useEffect(() => {
+    try { sessionStorage.setItem(SORT_KEY, sort) } catch { /* ignore */ }
+  }, [sort])
+
+  useEffect(() => {
+    if (!sortMenuOpen) return
+    const onClick = (e) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target)) {
+        setSortMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [sortMenuOpen])
+
+  // Restore scroll on mount; save before unmount.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(SCROLL_KEY)
+      if (saved) {
+        const y = Number(saved)
+        if (!Number.isNaN(y)) window.scrollTo(0, y)
+      }
+    } catch { /* ignore */ }
+    return () => {
+      try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)) } catch { /* ignore */ }
+    }
+  }, [])
+
+  const filtered = useMemo(() => {
+    const base = state.partners
+      .filter((p) =>
+        [p.name, p.company, p.role].join(' ').toLowerCase().includes(q.toLowerCase()),
+      )
+      .filter((p) => partnerInRange(p, dateRange))
+    if (sort === 'az' || sort === 'za') {
+      const sorted = [...base].sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }),
+      )
+      return sort === 'za' ? sorted.reverse() : sorted
+    }
+    if (sort === 'companyAz' || sort === 'companyZa') {
+      const sorted = [...base].sort((a, b) =>
+        (a.company || '').localeCompare(b.company || '', undefined, { sensitivity: 'base' }),
+      )
+      return sort === 'companyZa' ? sorted.reverse() : sorted
+    }
+    return base
+  }, [state.partners, q, dateRange, sort])
 
   const onScanClick = () => {
     setScanError('')
@@ -130,7 +204,85 @@ export default function Partners() {
             onChange={setDateRange}
             storageKey="ohmycmo:filter:partners"
           />
+          <div className="relative" ref={sortMenuRef}>
+            <button
+              type="button"
+              onClick={() => setSortMenuOpen((v) => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border ${
+                sort !== 'default'
+                  ? 'bg-brand-50 border-brand-200 text-brand-700'
+                  : 'bg-charcoal border-shadow text-near-black hover:bg-iron'
+              }`}
+              aria-haspopup="menu"
+              aria-expanded={sortMenuOpen}
+            >
+              {sort === 'az' ? (
+                <ArrowDownAZ className="w-4 h-4" />
+              ) : sort === 'za' ? (
+                <ArrowDownZA className="w-4 h-4" />
+              ) : sort === 'companyAz' || sort === 'companyZa' ? (
+                <Building2 className="w-4 h-4" />
+              ) : (
+                <ArrowUpDown className="w-4 h-4" />
+              )}
+              {sort === 'az'
+                ? t('partner.sort.az')
+                : sort === 'za'
+                  ? t('partner.sort.za')
+                  : sort === 'companyAz'
+                    ? t('partner.sort.companyAz')
+                    : sort === 'companyZa'
+                      ? t('partner.sort.companyZa')
+                      : t('partner.sort.label')}
+            </button>
+            {sortMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-1 z-20 w-56 rounded-xl border border-shadow bg-charcoal shadow-xl overflow-hidden"
+              >
+                {[
+                  { key: 'default', label: t('partner.sort.default'), Icon: ArrowUpDown },
+                  { key: 'az', label: t('partner.sort.az'), Icon: ArrowDownAZ },
+                  { key: 'za', label: t('partner.sort.za'), Icon: ArrowDownZA },
+                  { key: 'companyAz', label: t('partner.sort.companyAz'), Icon: Building2 },
+                  { key: 'companyZa', label: t('partner.sort.companyZa'), Icon: Building2 },
+                ].map(({ key, label, Icon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={sort === key}
+                    onClick={() => {
+                      setSort(key)
+                      setSortMenuOpen(false)
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-iron ${
+                      sort === key ? 'text-brand-700 font-semibold' : 'text-near-black'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="flex-1">{label}</span>
+                    {sort === key && <Check className="w-4 h-4 text-brand-700 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {state.partners.length > 0 && (
+          <div className="card !p-3 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center shrink-0">
+              <Handshake className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-graphite">{t('partner.total')}</p>
+              <p className="text-lg font-bold text-near-black tabular-nums leading-tight">
+                {state.partners.length}
+              </p>
+            </div>
+          </div>
+        )}
 
         {state.partners.length === 0 ? (
           <EmptyState
@@ -148,7 +300,7 @@ export default function Partners() {
             {t('partner.noFilterMatch')}
           </p>
         ) : (
-          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
             {filtered.map((p) => {
               const openTasks = p.tasks.filter((t) => !t.done).length
               return (
@@ -158,10 +310,10 @@ export default function Partners() {
                     className="card !p-0 overflow-hidden block hover:scale-[1.01] transition-transform"
                   >
                     {/* Name card photo banner */}
-                    {p.cardImage?.dataUrl ? (
+                    {hasImage(p.cardImage) ? (
                       <div className="bg-iron border-b border-shadow">
-                        <img
-                          src={p.cardImage.dataUrl}
+                        <AuthImage
+                          value={p.cardImage}
                           alt={`${p.name} business card`}
                           className="w-full h-40 md:h-48 object-cover object-center"
                         />
@@ -226,9 +378,15 @@ export default function Partners() {
         onClose={closeModal}
         initial={initial}
         fromScan={fromScan}
-        onSubmit={(d) => {
-          addPartner(d)
+        onSubmit={async (d) => {
           closeModal()
+          // Move any inline image (scanned card / picked QR) into the File store
+          // so base64 never lands in the DB row.
+          const [cardImage, telegramQr] = await Promise.all([
+            persistImageRef(d.cardImage, { entityType: 'partner' }),
+            persistImageRef(d.telegramQr, { entityType: 'partner' }),
+          ])
+          addPartner({ ...d, cardImage, telegramQr })
         }}
       />
 
@@ -281,6 +439,57 @@ export default function Partners() {
   )
 }
 
+export function TelegramQrPicker({ value, onChange }) {
+  const [error, setError] = useState('')
+
+  const onFile = async (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    if (f.size > TG_QR_LIMIT_BYTES) {
+      setError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — max 2 MB.`)
+      return
+    }
+    setError('')
+    try {
+      // QR codes need crisp edges to stay scannable — keep more pixels & quality.
+      const qr = await compressImage(f, { maxDim: 1024, quality: 0.9 })
+      onChange(qr)
+    } catch {
+      setError('Could not read that image — try a different file.')
+    }
+  }
+
+  return (
+    <div>
+      <label className="label">Telegram QR</label>
+      {hasImage(value) ? (
+        <div className="flex items-center gap-3 p-2.5 rounded-xl border border-shadow bg-iron">
+          <AuthImage value={value} alt="Telegram QR" className="w-14 h-14 object-cover rounded-md" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm truncate">{value.name || 'qr.png'}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"
+            aria-label="Remove"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ) : (
+        <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite cursor-pointer hover:bg-iron">
+          <Camera className="w-4 h-4" />
+          Upload QR image
+          <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+        </label>
+      )}
+      {error && <p className="text-xs text-rose-600 mt-1">{error}</p>}
+    </div>
+  )
+}
+
 function ScanningOverlay() {
   const { t } = useT()
   return (
@@ -303,10 +512,10 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
     <Modal open={open} onClose={onClose} title={fromScan ? t('partner.review.title') : t('partner.modal.new')}>
       {fromScan && (
         <>
-          {form.cardImage?.dataUrl && (
+          {hasImage(form.cardImage) && (
             <div className="mb-3 overflow-hidden rounded-2xl border border-shadow">
-              <img
-                src={form.cardImage.dataUrl}
+              <AuthImage
+                value={form.cardImage}
                 alt="Scanned name card"
                 className="w-full max-h-48 object-cover"
               />
@@ -374,6 +583,19 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
             />
           </div>
         </div>
+        <div>
+          <label className="label">Telegram user ID</label>
+          <input
+            className="input"
+            value={form.telegram}
+            onChange={(e) => setForm({ ...form, telegram: e.target.value })}
+            placeholder="@username"
+          />
+        </div>
+        <TelegramQrPicker
+          value={form.telegramQr}
+          onChange={(qr) => setForm({ ...form, telegramQr: qr })}
+        />
         <button className="btn-primary w-full mt-2">{t('partner.save')}</button>
       </form>
     </Modal>

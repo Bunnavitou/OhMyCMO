@@ -48,7 +48,7 @@ function useNavMeta() {
       }
     }
   } else if (segs[0] === 'products') {
-    crumbs.push({ label: t('nav.products'), to: '/products' })
+    crumbs.push({ label: t('product.title'), to: '/products' })
     if (segs[1]) {
       const p = state.products.find((x) => x.id === segs[1])
       crumbs.push({ label: p?.name || t('breadcrumb.product'), to: pathname })

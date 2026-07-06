@@ -11,8 +11,8 @@ export default function Login() {
   const location = useLocation()
   const from = location.state?.from?.pathname || '/'
 
-  const [identifier, setIdentifier] = useState('admin@ohmycmo.local')
-  const [password, setPassword] = useState('Admin@123')
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
@@ -72,14 +72,6 @@ export default function Login() {
             <LogIn className="w-4 h-4" />
             {submitting ? t('login.signingIn') : t('login.signIn')}
           </button>
-
-          <p className="text-[11px] text-graphite text-center leading-relaxed">
-            {t('login.demoTitle')}
-            <br />
-            {t('login.demoOwner')} — <span className="font-mono">admin@ohmycmo.local</span> / <span className="font-mono">Admin@123</span>
-            <br />
-            {t('login.demoSubUser')} — <span className="font-mono">alice</span> / <span className="font-mono">alice123</span>
-          </p>
         </form>
       </div>
     </div>

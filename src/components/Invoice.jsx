@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Plus, Trash2, TrendingUp, Receipt, Share2 } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { Plus, Trash2, TrendingUp, Receipt, Share2, Pencil, Copy, Search, X, ChevronDown } from 'lucide-react'
 
 const newId = () => Math.random().toString(36).slice(2, 9)
 const blankItem = () => ({ id: newId(), description: '', qty: 1, unitPrice: 0 })
@@ -13,21 +13,170 @@ const monthLabel = (ym) => {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleString([], { month: 'long', year: 'numeric' })
 }
 
+const deriveCustomerNo = (c) => (c?.id ? String(c.id).toUpperCase() : '')
+
+function CustomerSearchPicker({ customers, selectedId, selectedName, disabled, onPick }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const wrapRef = useRef(null)
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDocDown = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocDown)
+    return () => document.removeEventListener('mousedown', onDocDown)
+  }, [open])
+
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => inputRef.current?.focus())
+  }, [open])
+
+  const toggleOpen = () => {
+    if (disabled) return
+    setOpen((v) => {
+      const next = !v
+      if (next) setQuery('')
+      return next
+    })
+  }
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return customers
+    return customers.filter((c) => {
+      const haystack = [c.name, c.industry, c.contact, c.email, c.phone, deriveCustomerNo(c)]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [customers, query])
+
+  const choose = (c) => {
+    onPick(c.id)
+    setOpen(false)
+  }
+
+  const clear = (e) => {
+    e.stopPropagation()
+    onPick('')
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={toggleOpen}
+        disabled={disabled}
+        className="input flex items-center justify-between gap-2 text-left disabled:bg-iron disabled:text-graphite"
+      >
+        <span className={`truncate ${selectedName ? '' : 'text-graphite'}`}>
+          {selectedName || '— Select customer —'}
+        </span>
+        <span className="flex items-center gap-1 shrink-0 text-graphite">
+          {selectedId && !disabled && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={clear}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  clear(e)
+                }
+              }}
+              aria-label="Clear customer"
+              className="p-0.5 rounded hover:bg-iron text-graphite cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </span>
+          )}
+          <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 left-0 right-0 card !p-0 overflow-hidden shadow-lg">
+          <div className="relative border-b border-shadow">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search customer"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-white outline-none"
+            />
+          </div>
+          <ul className="max-h-56 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-3 text-xs text-graphite text-center">No matches.</li>
+            ) : (
+              filtered.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => choose(c)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-iron flex items-center justify-between gap-2 ${
+                      c.id === selectedId ? 'bg-mint-bg text-wise-dark' : ''
+                    }`}
+                  >
+                    <span className="truncate">{c.name}</span>
+                    {c.industry && (
+                      <span className="text-[10px] uppercase tracking-wider text-graphite shrink-0">
+                        {c.industry}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function InvoiceForm({
   initial,
   defaultCustomer = {},
   lockCustomer = false,
   submitLabel = 'Save invoice',
+  customers = [],
   onSubmit,
 }) {
   const [date, setDate] = useState(initial?.date || new Date().toISOString().slice(0, 10))
   const [invoiceNo, setInvoiceNo] = useState(initial?.invoiceNo || '')
+  const [customerId, setCustomerId] = useState(
+    initial?.customerId ?? defaultCustomer.customerId ?? '',
+  )
   const [customerNo, setCustomerNo] = useState(
     initial?.customerNo ?? defaultCustomer.customerNo ?? '',
   )
   const [customerName, setCustomerName] = useState(
     initial?.customerName ?? defaultCustomer.customerName ?? '',
   )
+
+  const hasCustomerList = Array.isArray(customers) && customers.length > 0
+  const sortedCustomers = useMemo(
+    () => (hasCustomerList ? [...customers].sort((a, b) => (a.name || '').localeCompare(b.name || '')) : []),
+    [customers, hasCustomerList],
+  )
+
+  const onPickCustomer = (id) => {
+    const c = sortedCustomers.find((x) => x.id === id)
+    if (!c) {
+      setCustomerId('')
+      setCustomerName('')
+      setCustomerNo('')
+      return
+    }
+    setCustomerId(c.id)
+    setCustomerName(c.name || '')
+    setCustomerNo(deriveCustomerNo(c))
+  }
   const [items, setItems] = useState(
     initial?.items?.length
       ? initial.items.map((it) => ({ id: it.id || newId(), ...it }))
@@ -55,6 +204,7 @@ export function InvoiceForm({
     onSubmit({
       date,
       invoiceNo: invoiceNo.trim(),
+      customerId: customerId || undefined,
       customerNo: customerNo.trim(),
       customerName: customerName.trim(),
       source: customerName.trim(),
@@ -97,28 +247,44 @@ export function InvoiceForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {hasCustomerList ? (
         <div>
-          <label className="label">Customer no</label>
-          <input
-            className="input disabled:bg-iron disabled:text-graphite"
-            value={customerNo}
-            onChange={(e) => setCustomerNo(e.target.value)}
-            placeholder="C-001"
+          <label className="label">Customer *</label>
+          <CustomerSearchPicker
+            customers={sortedCustomers}
+            selectedId={customerId}
+            selectedName={customerName}
             disabled={lockCustomer}
+            onPick={onPickCustomer}
           />
+          {customerNo && (
+            <p className="text-xs text-graphite mt-1">Customer no: <span className="font-medium text-near-black">{customerNo}</span></p>
+          )}
         </div>
-        <div>
-          <label className="label">Customer name *</label>
-          <input
-            className="input disabled:bg-iron disabled:text-graphite"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="Acme Holdings"
-            disabled={lockCustomer}
-          />
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Customer no</label>
+            <input
+              className="input disabled:bg-iron disabled:text-graphite"
+              value={customerNo}
+              onChange={(e) => setCustomerNo(e.target.value)}
+              placeholder="C-001"
+              disabled={lockCustomer}
+            />
+          </div>
+          <div>
+            <label className="label">Customer name *</label>
+            <input
+              className="input disabled:bg-iron disabled:text-graphite"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Acme Holdings"
+              disabled={lockCustomer}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div>
         <label className="label">Line items</label>
@@ -288,19 +454,43 @@ async function exportMonthlyInvoicesExcel(productName, ym, items) {
   XLSX.writeFile(wb, `accounting-${safeProduct}-${safeMonth}.xlsx`)
 }
 
-export function MonthlyIncomeList({ items, onTap, productName }) {
+export function MonthlyIncomeList({ items, onTap, productName, query = '' }) {
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return items
+    return items.filter((x) => {
+      const haystack = [
+        x.customerName,
+        x.customerNo,
+        x.invoiceNo,
+        x.source,
+        x.note,
+        x.date,
+        ...(Array.isArray(x.items) ? x.items.map((it) => it.description) : []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [items, query])
+
   const grouped = useMemo(() => {
     const acc = {}
-    for (const x of items) {
+    for (const x of filtered) {
       const ym = (x.date || '').slice(0, 7) || 'unknown'
       acc[ym] = acc[ym] || []
       acc[ym].push(x)
     }
     return Object.entries(acc).sort((a, b) => b[0].localeCompare(a[0]))
-  }, [items])
+  }, [filtered])
 
   if (items.length === 0) {
     return <p className="text-center text-sm text-graphite py-6">No income recorded yet.</p>
+  }
+
+  if (filtered.length === 0) {
+    return <p className="text-center text-sm text-graphite py-6">No matches.</p>
   }
 
   return (
@@ -366,9 +556,25 @@ export function MonthlyIncomeList({ items, onTap, productName }) {
   )
 }
 
-export function InvoiceDetail({ invoice, onDelete }) {
+export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, customers = [] }) {
+  const [editing, setEditing] = useState(false)
   if (!invoice) return null
   const isInvoice = Array.isArray(invoice.items) && invoice.items.length > 0
+
+  if (editing && onUpdate) {
+    return (
+      <InvoiceForm
+        initial={invoice}
+        customers={customers}
+        submitLabel="Update invoice"
+        onSubmit={(data) => {
+          onUpdate(data)
+          setEditing(false)
+        }}
+      />
+    )
+  }
+
   return (
     <div className="space-y-3">
       <div className="card !p-3 space-y-1 text-sm">
@@ -428,6 +634,27 @@ export function InvoiceDetail({ invoice, onDelete }) {
           <p className="text-sm">{invoice.note}</p>
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-2">
+        {onUpdate && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="btn-primary w-full"
+          >
+            <Pencil className="w-4 h-4" /> Update
+          </button>
+        )}
+        {onDuplicate && (
+          <button
+            type="button"
+            onClick={() => onDuplicate(invoice)}
+            className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2"
+          >
+            <Copy className="w-4 h-4" /> Duplicate
+          </button>
+        )}
+      </div>
 
       <button
         type="button"

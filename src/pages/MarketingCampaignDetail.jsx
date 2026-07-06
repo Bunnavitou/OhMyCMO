@@ -1,14 +1,19 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, Navigate, Link } from 'react-router-dom'
 import {
   Plus, Pencil, Trash2, Calendar, Package, Image as ImageIcon, Video,
-  Layers, Star, Paperclip, Download, Upload, FileSpreadsheet, Loader2, Radio,
+  Layers, Paperclip, Download, Upload, FileSpreadsheet, Loader2, Radio,
+  X, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useT } from '../i18n/LanguageContext.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import { CAMPAIGN_STATUS, statusStyle, formatDateRange } from './Marketing.jsx'
 import { parsePostsFile, downloadTemplate, exportPostsExcel } from '../utils/campaignExcel.js'
+import AuthImage from '../components/AuthImage.jsx'
+import { persistImageRef, fileContentPath } from '../utils/imageRef.js'
+import { getBlob } from '../api/client.js'
 
 const POST_TYPES = ['Image', 'Video', 'Carousel', 'Reel', 'Story', 'Article', 'Other']
 const POST_CHANNELS = [
@@ -33,6 +38,34 @@ const postStatusPill = (s) =>
 const postStatusLabel = (s) =>
   POST_STATUSES.find((x) => x.value === s)?.label || 'Draft'
 const FILE_LIMIT_BYTES = 1024 * 1024 // 1 MB
+
+const normalizeArtworks = (todo) => {
+  if (Array.isArray(todo?.artworks) && todo.artworks.length) return todo.artworks
+  if (todo?.artwork) return [todo.artwork]
+  return []
+}
+
+// Trigger a download for an artwork (legacy dataUrl or a stored file ref).
+// File-backed artwork needs an authenticated fetch (a plain <a download>
+// can't send the Bearer token), so we pull the bytes and save a blob URL.
+async function downloadArtwork(item) {
+  const name = item?.name || 'artwork'
+  let href = item?.dataUrl
+  let revoke
+  if (!href && item?.fileId) {
+    const blob = await getBlob(fileContentPath(item.fileId))
+    href = URL.createObjectURL(blob)
+    revoke = href
+  }
+  if (!href) return
+  const a = document.createElement('a')
+  a.href = href
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  if (revoke) setTimeout(() => URL.revokeObjectURL(revoke), 1000)
+}
 
 const channelStyle = (c) =>
     c === 'Facebook'    ? 'bg-blue-100 text-blue-700'
@@ -102,7 +135,7 @@ export default function MarketingCampaignDetail() {
     try {
       const todos = await parsePostsFile(f)
       if (todos.length === 0) {
-        setImportError('No rows detected. Make sure the sheet has Post Date / Post Concept columns.')
+        setImportError('No rows detected. Make sure the sheet has Post Date / Post Title columns.')
         return
       }
       const ok = window.confirm(
@@ -271,10 +304,9 @@ export default function MarketingCampaignDetail() {
                     <th className="px-3 py-2 w-10">#</th>
                     <th className="px-3 py-2 whitespace-nowrap">Status</th>
                     <th className="px-3 py-2 whitespace-nowrap">Post date</th>
-                    <th className="px-3 py-2 min-w-[180px]">Concept</th>
+                    <th className="px-3 py-2 min-w-[180px]">Post title</th>
                     <th className="px-3 py-2 whitespace-nowrap">Type</th>
                     <th className="px-3 py-2 whitespace-nowrap">Channel</th>
-                    <th className="px-3 py-2 min-w-[140px]">Key feature</th>
                     <th className="px-3 py-2 min-w-[260px]">Caption</th>
                     <th className="px-3 py-2 whitespace-nowrap">Artwork</th>
                     <th className="px-3 py-2 w-10" aria-label="Actions"></th>
@@ -283,7 +315,9 @@ export default function MarketingCampaignDetail() {
                 <tbody>
                   {sortedTodos.map((t, idx) => {
                     const TypeIcon = postTypeIcon(t.type)
-                    const isImage = t.artwork?.type?.startsWith('image/')
+                    const artworks = normalizeArtworks(t)
+                    const firstArtwork = artworks[0]
+                    const isImage = firstArtwork?.type?.startsWith('image/')
                     return (
                       <tr
                         key={t.id}
@@ -329,32 +363,31 @@ export default function MarketingCampaignDetail() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-xs text-graphite">
-                          {t.keyFeature ? (
-                            <span className="flex items-start gap-1">
-                              <Star className="w-3 h-3 mt-0.5 shrink-0" />
-                              <span className="line-clamp-2">{t.keyFeature}</span>
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-graphite">
                           {t.caption ? (
                             <span className="line-clamp-2 whitespace-pre-wrap">{t.caption}</span>
                           ) : '—'}
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
-                          {t.artwork ? (
-                            isImage ? (
-                              <img
-                                src={t.artwork.dataUrl}
-                                alt={t.artwork.name}
-                                className="w-12 h-12 object-cover rounded-md border border-shadow"
-                              />
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-xs text-graphite max-w-[140px]">
-                                <Paperclip className="w-3 h-3 shrink-0" />
-                                <span className="truncate">{t.artwork.name}</span>
-                              </span>
-                            )
+                          {firstArtwork ? (
+                            <div className="relative inline-block">
+                              {isImage ? (
+                                <AuthImage
+                                  value={firstArtwork}
+                                  alt={firstArtwork.name}
+                                  className="w-12 h-12 object-cover rounded-md border border-shadow"
+                                />
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs text-graphite max-w-[140px]">
+                                  <Paperclip className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{firstArtwork.name}</span>
+                                </span>
+                              )}
+                              {artworks.length > 1 && (
+                                <span className="absolute -top-1 -right-1 bg-near-black text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">
+                                  +{artworks.length - 1}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-xs text-graphite">—</span>
                           )}
@@ -418,6 +451,7 @@ export default function MarketingCampaignDetail() {
 }
 
 function CampaignForm({ initial, products, onSubmit }) {
+  const { t } = useT()
   const [form, setForm] = useState({
     name: initial?.name || '',
     description: initial?.description || '',
@@ -469,7 +503,9 @@ function CampaignForm({ initial, products, onSubmit }) {
       <div>
         <label className="label">Status</label>
         <select className="input" value={form.status} onChange={change('status')}>
-          {CAMPAIGN_STATUS.map((s) => <option key={s}>{s}</option>)}
+          {CAMPAIGN_STATUS.map((s) => (
+            <option key={s.value} value={s.value}>{t(s.tKey)}</option>
+          ))}
         </select>
       </div>
       <button className="btn-primary w-full mt-2">Save changes</button>
@@ -478,46 +514,77 @@ function CampaignForm({ initial, products, onSubmit }) {
 }
 
 function TodoForm({ initial, onSubmit, onDelete }) {
-  const [form, setForm] = useState(
-    initial || {
+  const [form, setForm] = useState(() => {
+    const base = initial || {
       postDate: new Date().toISOString().slice(0, 10),
       concept: '',
       type: 'Image',
       channel: '',
-      keyFeature: '',
       caption: '',
-      artwork: null,
       postStatus: 'draft',
-    },
-  )
+    }
+    return { ...base, artworks: normalizeArtworks(base) }
+  })
   const [fileError, setFileError] = useState('')
+  const [previewIndex, setPreviewIndex] = useState(null)
+  const [uploading, setUploading] = useState(false)
 
-  const onFile = (e) => {
-    const f = e.target.files?.[0]
+  const readFile = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: reader.result,
+      })
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+  const onFile = async (e) => {
+    const files = Array.from(e.target.files || [])
     e.target.value = ''
-    if (!f) return
-    if (f.size > FILE_LIMIT_BYTES) {
-      setFileError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — max 1 MB stored locally.`)
+    if (!files.length) return
+    const tooBig = files.find((f) => f.size > FILE_LIMIT_BYTES)
+    if (tooBig) {
+      setFileError(`"${tooBig.name}" is ${(tooBig.size / 1024 / 1024).toFixed(1)} MB — max 1 MB per file.`)
       return
     }
     setFileError('')
-    const reader = new FileReader()
-    reader.onload = () => {
-      setForm((s) => ({
-        ...s,
-        artwork: { name: f.name, type: f.type, size: f.size, dataUrl: reader.result },
-      }))
+    setUploading(true)
+    try {
+      const loaded = await Promise.all(files.map(readFile))
+      setForm((s) => ({ ...s, artworks: [...(s.artworks || []), ...loaded] }))
+    } catch {
+      setFileError('Could not read one of the selected files.')
+    } finally {
+      setUploading(false)
     }
-    reader.readAsDataURL(f)
   }
 
-  const isImage = form.artwork?.type?.startsWith('image/')
+  const removeArtwork = (idx) => {
+    setForm((s) => ({
+      ...s,
+      artworks: (s.artworks || []).filter((_, i) => i !== idx),
+    }))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    // Move any freshly-attached artwork (held as a dataUrl) into the File store
+    // so campaign rows never carry base64 bytes.
+    const artworks = await Promise.all(
+      (form.artworks || []).map((a) => persistImageRef(a, { entityType: 'campaign' })),
+    )
+    onSubmit({ ...form, artworks, artwork: artworks[0] || null })
+  }
+
+  const artworks = form.artworks || []
+  const previewItem = previewIndex != null ? artworks[previewIndex] : null
 
   return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); onSubmit(form) }}
-      className="space-y-3"
-    >
+    <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Post date *</label>
@@ -568,22 +635,12 @@ function TodoForm({ initial, onSubmit, onDelete }) {
       </div>
 
       <div>
-        <label className="label">Post concept</label>
+        <label className="label">Post title</label>
         <input
           className="input"
           value={form.concept}
           onChange={(e) => setForm({ ...form, concept: e.target.value })}
           placeholder="Founder story — why we built X"
-        />
-      </div>
-
-      <div>
-        <label className="label">Key feature</label>
-        <input
-          className="input"
-          value={form.keyFeature}
-          onChange={(e) => setForm({ ...form, keyFeature: e.target.value })}
-          placeholder="One-tap invoicing"
         />
       </div>
 
@@ -598,42 +655,73 @@ function TodoForm({ initial, onSubmit, onDelete }) {
       </div>
 
       <div>
-        <label className="label">Artwork</label>
-        {form.artwork ? (
-          <div className="space-y-2">
-            {isImage && (
-              <img
-                src={form.artwork.dataUrl}
-                alt={form.artwork.name}
-                className="w-full max-h-64 object-cover rounded-xl border border-shadow"
-              />
-            )}
-            <div className="flex items-center gap-2 p-2.5 rounded-xl border border-shadow bg-iron">
-              <Paperclip className="w-4 h-4 text-graphite shrink-0" />
-              <span className="text-sm flex-1 min-w-0 truncate">{form.artwork.name}</span>
-              <a
-                href={form.artwork.dataUrl}
-                download={form.artwork.name}
-                className="p-1.5 text-graphite hover:bg-iron rounded"
-              >
-                <Download className="w-4 h-4" />
-              </a>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, artwork: null })}
-                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+        <label className="label">
+          Artwork {artworks.length > 0 && <span className="text-graphite font-normal">({artworks.length})</span>}
+        </label>
+        {artworks.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            {artworks.map((a, idx) => {
+              const isImg = a.type?.startsWith('image/')
+              return (
+                <div
+                  key={`${a.name}-${idx}`}
+                  className="relative group rounded-xl border border-shadow overflow-hidden bg-iron"
+                >
+                  {isImg ? (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewIndex(idx)}
+                      className="block w-full aspect-square"
+                      aria-label={`Preview ${a.name}`}
+                    >
+                      <AuthImage
+                        value={a}
+                        alt={a.name}
+                        className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                      />
+                    </button>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-1 aspect-square p-2 text-graphite">
+                      <Paperclip className="w-5 h-5" />
+                      <span className="text-[10px] text-center truncate w-full">{a.name}</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeArtwork(idx)}
+                    className="absolute top-1 right-1 p-1 bg-white/90 text-rose-500 rounded-full shadow hover:bg-white"
+                    aria-label={`Remove ${a.name}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )
+            })}
           </div>
-        ) : (
-          <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite cursor-pointer hover:bg-iron">
-            <Paperclip className="w-4 h-4" />
-            Attach artwork (max 1 MB)
-            <input type="file" className="hidden" onChange={onFile} />
-          </label>
         )}
+        <label
+          className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite ${
+            uploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-iron'
+          }`}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" /> Uploading…
+            </>
+          ) : (
+            <>
+              <Paperclip className="w-4 h-4" />
+              {artworks.length > 0 ? 'Add more artwork' : 'Attach artwork (max 1 MB each)'}
+            </>
+          )}
+          <input
+            type="file"
+            className="hidden"
+            multiple
+            disabled={uploading}
+            onChange={onFile}
+          />
+        </label>
         {fileError && <p className="text-xs text-rose-600 mt-1">{fileError}</p>}
       </div>
 
@@ -651,7 +739,89 @@ function TodoForm({ initial, onSubmit, onDelete }) {
           {initial ? 'Save changes' : 'Save post'}
         </button>
       </div>
+
+      {previewItem && (
+        <ArtworkPreview
+          item={previewItem}
+          index={previewIndex}
+          total={artworks.length}
+          onClose={() => setPreviewIndex(null)}
+          onPrev={() => setPreviewIndex((i) => (i - 1 + artworks.length) % artworks.length)}
+          onNext={() => setPreviewIndex((i) => (i + 1) % artworks.length)}
+        />
+      )}
     </form>
+  )
+}
+
+function ArtworkPreview({ item, index, total, onClose, onPrev, onNext }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowLeft' && total > 1) onPrev()
+      else if (e.key === 'ArrowRight' && total > 1) onNext()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose, onPrev, onNext, total])
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-near-black/80 backdrop-blur-sm" />
+      <div
+        className="relative max-w-[92vw] max-h-[92vh] flex flex-col items-center gap-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <AuthImage
+          value={item}
+          alt={item.name}
+          className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl"
+        />
+        <div className="flex items-center gap-3 text-white text-sm">
+          <span className="truncate max-w-[60vw]">{item.name}</span>
+          {total > 1 && <span className="text-white/70">{index + 1} / {total}</span>}
+          <button
+            type="button"
+            className="p-1.5 rounded-full hover:bg-white/10"
+            aria-label="Download"
+            onClick={(e) => { e.stopPropagation(); downloadArtwork(item) }}
+          >
+            <Download className="w-4 h-4" />
+          </button>
+        </div>
+        {total > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={onPrev}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"
+              aria-label="Previous"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              type="button"
+              onClick={onNext}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"
+              aria-label="Next"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -top-2 -right-2 p-1.5 rounded-full bg-white text-near-black shadow hover:bg-iron"
+          aria-label="Close preview"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
   )
 }
 

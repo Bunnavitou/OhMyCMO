@@ -3,7 +3,10 @@ import { Link as RouterLink } from 'react-router-dom'
 import { Mail, Phone, MapPin, Hash, Building2, Pencil, Trash2, Users, ChevronRight } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
+import { ProfileImagePicker } from './Customers.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import AuthImage from '../components/AuthImage.jsx'
+import { persistImageRef, hasImage } from '../utils/imageRef.js'
 
 const stages = ['Prospect', 'Active', 'On hold', 'Churned']
 
@@ -23,6 +26,23 @@ export default function CustomerDetailOrg({ customer }) {
   return (
     <>
       <section className="card space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-brand-50 text-brand-700 flex items-center justify-center text-2xl font-bold shrink-0 border border-shadow">
+            {hasImage(customer.profileImage) ? (
+              <AuthImage
+                value={customer.profileImage}
+                alt={customer.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              customer.name.charAt(0)
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-lg font-bold text-near-black truncate">{customer.name}</p>
+            <p className="text-xs text-graphite truncate">{customer.stage}</p>
+          </div>
+        </div>
         <div className="flex flex-col gap-1.5 text-sm text-graphite">
           <div className="flex items-center justify-between gap-2">
             {customer.industry ? (
@@ -117,9 +137,12 @@ export default function CustomerDetailOrg({ customer }) {
           key={`edit-${customer.id}`}
           initial={customer}
           groups={groups}
-          onSubmit={(patch) => {
-            updateCustomer(customer.id, patch)
+          onSubmit={async (patch) => {
             setEditing(false)
+            const profileImage = await persistImageRef(patch.profileImage, {
+              entityType: 'customer', entityId: customer.id,
+            })
+            updateCustomer(customer.id, { ...patch, profileImage })
           }}
           t={t}
         />
@@ -139,6 +162,7 @@ function CustomerForm({ initial, groups, onSubmit, t }) {
     vatTin: initial?.vatTin || '',
     stage: initial?.stage || 'Prospect',
     groupId: initial?.groupId || '',
+    profileImage: initial?.profileImage || null,
   })
   const change = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const submit = (e) => {
@@ -151,6 +175,11 @@ function CustomerForm({ initial, groups, onSubmit, t }) {
       onSubmit={submit}
       className="space-y-3"
     >
+      <ProfileImagePicker
+        value={form.profileImage}
+        onChange={(img) => setForm((f) => ({ ...f, profileImage: img }))}
+        fallbackInitial={form.name}
+      />
       <div>
         <label className="label">Company name *</label>
         <input

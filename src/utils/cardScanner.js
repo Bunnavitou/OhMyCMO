@@ -66,28 +66,16 @@ export function extractCardFields(rawText) {
   return fields
 }
 
-// Reads the raw photo into a base64 data URL so we can keep a thumbnail of
-// the original card alongside the extracted fields.
-const readAsDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
+import { compressImage } from './imageCompress.js'
 
 export async function scanCard(file) {
   const { default: Tesseract } = await import('tesseract.js')
-  const [result, dataUrl] = await Promise.all([
+  // OCR runs on the original file for best recognition; only the stored
+  // thumbnail is compressed.
+  const [result, cardImage] = await Promise.all([
     Tesseract.recognize(file, 'eng'),
-    readAsDataUrl(file),
+    compressImage(file, { maxDim: 1600, quality: 0.82 }),
   ])
   const rawText = result?.data?.text || ''
-  const cardImage = {
-    name: file.name,
-    type: file.type,
-    size: file.size,
-    dataUrl,
-  }
   return { ...extractCardFields(rawText), rawText, cardImage }
 }

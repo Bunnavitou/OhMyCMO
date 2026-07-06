@@ -3,11 +3,16 @@ import { useParams, Navigate } from 'react-router-dom'
 import {
   Mail, Phone, Plus, Trash2, CheckCircle2, Circle, Calendar,
   Paperclip, Download, DollarSign, Briefcase, Building2,
-  Image as ImageIcon, Maximize2,
+  Image as ImageIcon, Maximize2, Pencil, Send, Camera,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
+import { TelegramQrPicker } from './Partners.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import AuthImage from '../components/AuthImage.jsx'
+import { uploadImageRef, hasImage } from '../utils/imageRef.js'
+
+const CARD_LIMIT_BYTES = 2 * 1024 * 1024
 
 const FILE_LIMIT_BYTES = 1024 * 1024 // 1 MB
 
@@ -20,12 +25,15 @@ export default function PartnerDetail() {
     updatePartnerTask,
     removePartnerTask,
     removePartner,
+    updatePartner,
   } = useStore()
   const { t } = useT()
   const partner = state.partners.find((p) => p.id === id)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false)
+  const [editPartnerOpen, setEditPartnerOpen] = useState(false)
+  const [qrPreviewOpen, setQrPreviewOpen] = useState(false)
 
   if (!partner) return <Navigate to="/partners" replace />
 
@@ -55,7 +63,14 @@ export default function PartnerDetail() {
                   <Briefcase className="w-4 h-4 shrink-0" /> {t('partner.addPosition')}
                 </p>
               )}
-              <div className="shrink-0 -my-1.5 -mr-1">
+              <div className="shrink-0 -my-1.5 -mr-1 flex items-center">
+                <button
+                  onClick={() => setEditPartnerOpen(true)}
+                  className="p-2 rounded-full hover:bg-iron text-graphite transition-transform hover:scale-105 active:scale-95"
+                  aria-label={t('common.edit')}
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => {
                     if (confirm(t('partner.confirmDelete', { name: partner.name }))) {
@@ -88,10 +103,30 @@ export default function PartnerDetail() {
                 <span className="truncate">{partner.phone}</span>
               </a>
             )}
+            {partner.telegram && (
+              <p className="flex items-center gap-2">
+                <Send className="w-4 h-4 text-graphite shrink-0" />
+                <span className="truncate">{partner.telegram}</span>
+              </p>
+            )}
+            {hasImage(partner.telegramQr) && (
+              <button
+                type="button"
+                onClick={() => setQrPreviewOpen(true)}
+                className="mt-1 inline-flex items-center gap-2 self-start rounded-xl border border-shadow p-1 hover:bg-iron"
+              >
+                <AuthImage
+                  value={partner.telegramQr}
+                  alt="Telegram QR"
+                  className="w-12 h-12 object-cover rounded-md"
+                />
+                <span className="text-xs text-graphite pr-2">Telegram QR</span>
+              </button>
+            )}
           </div>
         </section>
 
-        {partner.cardImage?.dataUrl && (
+        {hasImage(partner.cardImage) && (
           <section className="card !p-0 overflow-hidden">
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-shadow">
               <div className="flex items-center gap-2 min-w-0">
@@ -115,8 +150,8 @@ export default function PartnerDetail() {
               onClick={() => setCardPreviewOpen(true)}
               className="block w-full bg-iron"
             >
-              <img
-                src={partner.cardImage.dataUrl}
+              <AuthImage
+                value={partner.cardImage}
                 alt={`${partner.name} name card`}
                 className="w-full max-h-64 object-contain"
               />
@@ -239,14 +274,211 @@ export default function PartnerDetail() {
         title={t('partner.nameCard.preview')}
       >
         <div className="overflow-hidden rounded-xl border border-shadow bg-iron">
-          <img
-            src={partner.cardImage?.dataUrl}
+          <AuthImage
+            value={partner.cardImage}
             alt={`${partner.name} name card`}
             className="w-full max-h-[70vh] object-contain"
           />
         </div>
       </Modal>
+
+      <Modal
+        open={qrPreviewOpen}
+        onClose={() => setQrPreviewOpen(false)}
+        title="Telegram QR"
+      >
+        <div className="overflow-hidden rounded-xl border border-shadow bg-iron">
+          <AuthImage
+            value={partner.telegramQr}
+            alt={`${partner.name} telegram QR`}
+            className="w-full max-h-[70vh] object-contain"
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        open={editPartnerOpen}
+        onClose={() => setEditPartnerOpen(false)}
+        title={t('common.edit')}
+      >
+        <EditPartnerForm
+          partner={partner}
+          onSubmit={async (patch) => {
+            await updatePartner(partner.id, patch)
+            setEditPartnerOpen(false)
+          }}
+        />
+      </Modal>
     </>
+  )
+}
+
+function EditPartnerForm({ partner, onSubmit }) {
+  const { t } = useT()
+  const [form, setForm] = useState({
+    name: partner.name || '',
+    company: partner.company || '',
+    role: partner.role || '',
+    email: partner.email || '',
+    phone: partner.phone || '',
+    telegram: partner.telegram || '',
+    cardImage: partner.cardImage || null,
+    telegramQr: partner.telegramQr || null,
+  })
+  const [cardError, setCardError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+
+  const onCardFile = async (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    if (f.size > CARD_LIMIT_BYTES) {
+      setCardError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — max 2 MB.`)
+      return
+    }
+    setCardError('')
+    try {
+      const cardImage = await uploadImageRef(f, {
+        maxDim: 1600, quality: 0.82, entityType: 'partner', entityId: partner.id,
+      })
+      setForm((s) => ({ ...s, cardImage }))
+    } catch {
+      setCardError('Could not read that image — try a different file.')
+    }
+  }
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim()) return setError('Name is required.')
+    setSubmitting(true)
+    setError(null)
+    try {
+      await onSubmit({
+        name: form.name.trim(),
+        company: form.company.trim() || null,
+        role: form.role.trim() || null,
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        telegram: form.telegram.trim() || null,
+        cardImage: form.cardImage,
+        telegramQr: form.telegramQr,
+      })
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <div>
+        <label className="label">{t('partner.fullName')} *</label>
+        <input
+          className="input"
+          autoFocus
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">{t('partner.field.company')}</label>
+          <input
+            className="input"
+            value={form.company}
+            onChange={(e) => setForm({ ...form, company: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="label">{t('partner.field.role')}</label>
+          <input
+            className="input"
+            value={form.role}
+            onChange={(e) => setForm({ ...form, role: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">{t('field.email')}</label>
+          <input
+            className="input"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="label">{t('field.phone')}</label>
+          <input
+            className="input"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Telegram user ID</label>
+        <input
+          className="input"
+          value={form.telegram}
+          onChange={(e) => setForm({ ...form, telegram: e.target.value })}
+          placeholder="@username"
+        />
+      </div>
+
+      <TelegramQrPicker
+        value={form.telegramQr}
+        onChange={(qr) => setForm({ ...form, telegramQr: qr })}
+      />
+
+      <div>
+        <label className="label">{t('partner.nameCard.title')}</label>
+        {hasImage(form.cardImage) ? (
+          <div className="space-y-2">
+            <div className="rounded-xl overflow-hidden border border-shadow bg-iron">
+              <AuthImage
+                value={form.cardImage}
+                alt="Name card"
+                className="w-full max-h-48 object-contain"
+              />
+            </div>
+            <div className="flex gap-2">
+              <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-shadow text-sm text-graphite cursor-pointer hover:bg-iron">
+                <Camera className="w-4 h-4" /> Replace
+                <input type="file" accept="image/*" className="hidden" onChange={onCardFile} />
+              </label>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, cardImage: null })}
+                className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-sm"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite cursor-pointer hover:bg-iron">
+            <Camera className="w-4 h-4" /> Upload name card
+            <input type="file" accept="image/*" className="hidden" onChange={onCardFile} />
+          </label>
+        )}
+        {cardError && <p className="text-xs text-rose-600 mt-1">{cardError}</p>}
+      </div>
+
+      {error && (
+        <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+
+      <button type="submit" disabled={submitting} className="btn-primary w-full mt-2 disabled:opacity-60">
+        {submitting ? t('common.saving') : t('common.saveChanges')}
+      </button>
+    </form>
   )
 }
 

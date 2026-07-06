@@ -1,12 +1,68 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Users, Building2, FolderPlus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Search, Users, Building2, FolderPlus, Pencil, Trash2, Camera, Pin, PinOff } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import AuthImage from '../components/AuthImage.jsx'
+import { persistImageRef, hasImage } from '../utils/imageRef.js'
+
+const PROFILE_IMG_LIMIT_BYTES = 2 * 1024 * 1024
+
+export function ProfileImagePicker({ value, onChange, fallbackInitial = '' }) {
+  const [error, setError] = useState('')
+
+  const onFile = (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    if (f.size > PROFILE_IMG_LIMIT_BYTES) {
+      setError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — max 2 MB.`)
+      return
+    }
+    setError('')
+    const reader = new FileReader()
+    reader.onload = () => {
+      onChange({ name: f.name, type: f.type, size: f.size, dataUrl: reader.result })
+    }
+    reader.readAsDataURL(f)
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-16 h-16 rounded-2xl overflow-hidden bg-brand-50 text-brand-700 flex items-center justify-center text-2xl font-bold shrink-0 border border-shadow">
+        {hasImage(value) ? (
+          <AuthImage value={value} alt="Profile" className="w-full h-full object-cover" />
+        ) : (
+          <span>{fallbackInitial?.charAt(0) || '?'}</span>
+        )}
+      </div>
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex gap-2">
+          <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-shadow text-sm text-graphite cursor-pointer hover:bg-iron">
+            <Camera className="w-4 h-4" />
+            {hasImage(value) ? 'Replace' : 'Upload profile image'}
+            <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+          </label>
+          {hasImage(value) && (
+            <button
+              type="button"
+              onClick={() => onChange(null)}
+              className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-sm"
+              aria-label="Remove"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        {error && <p className="text-xs text-rose-600">{error}</p>}
+      </div>
+    </div>
+  )
+}
 
 const customerInRange = (c, range) => {
   if (!range) return true
@@ -38,6 +94,7 @@ export default function Customers() {
     addCustomerGroup,
     updateCustomerGroup,
     removeCustomerGroup,
+    toggleCustomerPin,
   } = useStore()
   const { t } = useT()
   const [open, setOpen] = useState(false)
@@ -60,7 +117,9 @@ export default function Customers() {
           if (groupFilter === 'all') return true
           if (groupFilter === 'none') return !c.groupId
           return c.groupId === groupFilter
-        }),
+        })
+        .slice()
+        .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned)),
     [state.customers, q, dateRange, groupFilter],
   )
 
@@ -131,15 +190,23 @@ export default function Customers() {
               : t('customer.noGroupMatch')}
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-3 md:space-y-0 md:grid md:grid-cols-2 md:gap-3">
             {filtered.map((c) => {
               const openTasks = c.tasks.filter((t) => t.status !== 'Done').length
               const group = groups.find((g) => g.id === c.groupId)
               return (
                 <li key={c.id}>
                   <Link to={`/customers/${c.id}`} className="card flex gap-3 active:scale-[0.99]">
-                    <div className="w-11 h-11 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center font-bold">
-                      {c.name.charAt(0)}
+                    <div className="w-11 h-11 rounded-xl overflow-hidden bg-brand-50 text-brand-700 flex items-center justify-center font-bold shrink-0">
+                      {hasImage(c.profileImage) ? (
+                        <AuthImage
+                          value={c.profileImage}
+                          alt={c.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        c.name.charAt(0)
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -175,7 +242,11 @@ export default function Customers() {
         groups={groups}
         defaultGroupId={groupFilter !== 'all' && groupFilter !== 'none' ? groupFilter : ''}
         onClose={() => setOpen(false)}
-        onSubmit={(data) => { addCustomer(data); setOpen(false) }}
+        onSubmit={async (data) => {
+          setOpen(false)
+          const profileImage = await persistImageRef(data.profileImage, { entityType: 'customer' })
+          addCustomer({ ...data, profileImage })
+        }}
       />
 
       <CustomerGroupModal
@@ -271,6 +342,7 @@ const EMPTY_CUSTOMER = {
   vatTin: '',
   stage: 'Prospect',
   groupId: '',
+  profileImage: null,
 }
 
 function NewCustomerModal({ open, groups, defaultGroupId, onClose, onSubmit }) {
@@ -293,6 +365,11 @@ function NewCustomerModal({ open, groups, defaultGroupId, onClose, onSubmit }) {
       key={open ? `new-${defaultGroupId || ''}` : 'closed'}
     >
       <form onSubmit={submit} className="space-y-3">
+        <ProfileImagePicker
+          value={form.profileImage}
+          onChange={(img) => setForm((f) => ({ ...f, profileImage: img }))}
+          fallbackInitial={form.name}
+        />
         <div>
           <label className="label">{t('field.companyName')} *</label>
           <input className="input" value={form.name} onChange={change('name')} placeholder="Acme Holdings" autoFocus />

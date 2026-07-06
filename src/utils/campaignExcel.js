@@ -4,6 +4,8 @@
 const HEADER_MAP = {
   postdate: 'postDate',
   date: 'postDate',
+  posttitle: 'concept',
+  title: 'concept',
   postconcept: 'concept',
   concept: 'concept',
   posttype: 'type',
@@ -11,8 +13,6 @@ const HEADER_MAP = {
   channel: 'channel',
   postchannel: 'channel',
   platform: 'channel',
-  keyfeature: 'keyFeature',
-  feature: 'keyFeature',
   caption: 'caption',
   status: 'postStatus',
   poststatus: 'postStatus',
@@ -42,31 +42,28 @@ const STATUS_LABEL = {
 
 const TEMPLATE_HEADERS = [
   'Post Date',
-  'Post Concept',
+  'Post Title',
   'Post Type',
   'Channel',
   'Status',
-  'Key Feature',
   'Caption',
 ]
 
 const TEMPLATE_ROWS = [
   {
     'Post Date': '2026-05-01',
-    'Post Concept': 'Founder story — why we built X',
+    'Post Title': 'Founder story — why we built X',
     'Post Type': 'Reel',
     'Channel': 'Instagram',
     'Status': 'Draft',
-    'Key Feature': 'Authenticity',
     'Caption': 'Hook + benefit + call-to-action goes here.',
   },
   {
     'Post Date': '2026-05-08',
-    'Post Concept': 'Product demo',
+    'Post Title': 'Product demo',
     'Post Type': 'Video',
     'Channel': 'TikTok',
     'Status': 'Scheduled',
-    'Key Feature': 'Speed of flow',
     'Caption': 'Watch us do it in 30 seconds.',
   },
 ]
@@ -94,7 +91,6 @@ function rowToTodo(row) {
     concept: '',
     type: 'Image',
     channel: '',
-    keyFeature: '',
     caption: '',
     artwork: null,
     postStatus: 'draft',
@@ -127,11 +123,10 @@ export async function parsePostsFile(file) {
 
 const COL_WIDTHS = [
   { wch: 12 }, // Post Date
-  { wch: 40 }, // Post Concept
+  { wch: 40 }, // Post Title
   { wch: 12 }, // Post Type
   { wch: 14 }, // Channel
   { wch: 12 }, // Status
-  { wch: 24 }, // Key Feature
   { wch: 60 }, // Caption
 ]
 
@@ -148,11 +143,10 @@ export async function exportPostsExcel(campaign) {
   const XLSX = await import('xlsx')
   const rows = (campaign.todos || []).map((t) => ({
     'Post Date': t.postDate || '',
-    'Post Concept': t.concept || '',
+    'Post Title': t.concept || '',
     'Post Type': t.type || '',
     'Channel': t.channel || '',
     'Status': STATUS_LABEL[t.postStatus] || 'Draft',
-    'Key Feature': t.keyFeature || '',
     'Caption': t.caption || '',
   }))
   const ws = XLSX.utils.json_to_sheet(

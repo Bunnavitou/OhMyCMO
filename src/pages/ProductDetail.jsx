@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import { useParams, Navigate } from 'react-router-dom'
-import { Plus, TrendingUp, TrendingDown, Receipt, Trash2 } from 'lucide-react'
+import { useParams, Navigate, useNavigate } from 'react-router-dom'
+import { Plus, TrendingUp, TrendingDown, Receipt, Trash2, Pencil, Search, Camera, Package } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import { InvoiceForm, MonthlyIncomeList, InvoiceDetail } from '../components/Invoice.jsx'
+import AuthImage from '../components/AuthImage.jsx'
+import { uploadImageRef, hasImage } from '../utils/imageRef.js'
 import { useT } from '../i18n/LanguageContext.jsx'
+
+const LOGO_LIMIT_BYTES = 2 * 1024 * 1024
 
 const TABS = [
   { value: 'Income',   tKey: 'product.tab.income' },
@@ -23,12 +27,22 @@ const EXPENSE_CATEGORIES = [
 
 export default function ProductDetail() {
   const { id } = useParams()
-  const { state, addProductChild, removeProductChild } = useStore()
+  const {
+    state,
+    addProductChild,
+    updateProductChild,
+    removeProductChild,
+    updateProduct,
+    removeProduct,
+  } = useStore()
   const { t } = useT()
+  const navigate = useNavigate()
   const product = state.products.find((p) => p.id === id)
   const [tab, setTab] = useState('Income')
   const [openModal, setOpenModal] = useState(null)
   const [viewingInvoice, setViewingInvoice] = useState(null)
+  const [invoiceQuery, setInvoiceQuery] = useState('')
+  const [invoiceDraft, setInvoiceDraft] = useState(null)
 
   if (!product) return <Navigate to="/products" replace />
 
@@ -36,11 +50,62 @@ export default function ProductDetail() {
   const expense = product.expenses.reduce((s, e) => s + Number(e.amount || 0), 0)
   const net = income - expense
 
+  const handleDelete = async () => {
+    if (!confirm(t('product.delete.confirm'))) return
+    await removeProduct(product.id)
+    navigate('/products', { replace: true })
+  }
+
+  const handleEdit = async (patch) => {
+    await updateProduct(product.id, patch)
+    setOpenModal(null)
+  }
+
   return (
     <>
-      <PageHeader title={product.name} subtitle={product.type} back />
+      <PageHeader
+        subtitle={product.type}
+        action={
+          <>
+            <button
+              type="button"
+              onClick={() => setOpenModal('edit')}
+              className="p-2 rounded-full hover:bg-iron text-graphite"
+              aria-label={t('common.edit')}
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="p-2 rounded-full hover:bg-rose-50 text-rose-600"
+              aria-label={t('common.delete')}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </>
+        }
+      />
 
       <div className="space-y-4">
+        <section className="card !p-3 flex items-center gap-3">
+          {hasImage(product.logo) ? (
+            <AuthImage
+              value={product.logo}
+              alt={`${product.name} logo`}
+              className="w-14 h-14 rounded-xl object-cover border border-shadow bg-iron shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <Package className="w-6 h-6" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="font-bold truncate text-near-black">{product.name}</p>
+            <p className="text-xs text-graphite">{product.type}</p>
+          </div>
+        </section>
+
         <section className="grid grid-cols-3 gap-2">
           <div className="card !p-3">
             <div className="text-xs text-graphite flex items-center gap-1">
@@ -78,13 +143,29 @@ export default function ProductDetail() {
 
         {tab === 'Income' && (
           <div className="space-y-3">
-            <button onClick={() => setOpenModal('income')} className="btn-primary w-full">
+            <button
+              onClick={() => {
+                setInvoiceDraft(null)
+                setOpenModal('income')
+              }}
+              className="btn-primary w-full"
+            >
               <Receipt className="w-4 h-4" /> {t('product.newInvoice')}
             </button>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
+              <input
+                value={invoiceQuery}
+                onChange={(e) => setInvoiceQuery(e.target.value)}
+                placeholder={t('common.search')}
+                className="input pl-9"
+              />
+            </div>
             <MonthlyIncomeList
               items={product.income}
               onTap={(x) => setViewingInvoice(x)}
               productName={product.name}
+              query={invoiceQuery}
             />
           </div>
         )}
@@ -99,11 +180,21 @@ export default function ProductDetail() {
         )}
       </div>
 
-      <Modal open={openModal === 'income'} onClose={() => setOpenModal(null)} title={t('product.newInvoice')}>
+      <Modal
+        open={openModal === 'income'}
+        onClose={() => {
+          setOpenModal(null)
+          setInvoiceDraft(null)
+        }}
+        title={t('product.newInvoice')}
+      >
         <InvoiceForm
+          initial={invoiceDraft || undefined}
+          customers={state.customers}
           onSubmit={(d) => {
             addProductChild(product.id, 'income', d)
             setOpenModal(null)
+            setInvoiceDraft(null)
           }}
         />
       </Modal>
@@ -127,15 +218,187 @@ export default function ProductDetail() {
       >
         <InvoiceDetail
           invoice={viewingInvoice}
+          customers={state.customers}
           onDelete={() => {
             if (viewingInvoice && confirm(t('product.deleteEntry'))) {
               removeProductChild(product.id, 'income', viewingInvoice.id)
               setViewingInvoice(null)
             }
           }}
+          onUpdate={(patch) => {
+            if (!viewingInvoice) return
+            updateProductChild(product.id, 'income', viewingInvoice.id, patch)
+            setViewingInvoice({ ...viewingInvoice, ...patch })
+          }}
+          onDuplicate={(src) => {
+            const { id: _id, ...rest } = src
+            setViewingInvoice(null)
+            setInvoiceDraft({
+              ...rest,
+              date: new Date().toISOString().slice(0, 10),
+              invoiceNo: '',
+              items: Array.isArray(rest.items)
+                ? rest.items.map(({ id: _iid, ...item }) => item)
+                : [],
+            })
+            setOpenModal('income')
+          }}
         />
       </Modal>
+
+      <Modal open={openModal === 'edit'} onClose={() => setOpenModal(null)} title={t('product.modal.edit')}>
+        <EditProductForm product={product} onSubmit={handleEdit} />
+      </Modal>
     </>
+  )
+}
+
+function EditProductForm({ product, onSubmit }) {
+  const { t } = useT()
+  const [form, setForm] = useState({
+    name: product.name || '',
+    type: product.type || 'Product',
+    price: product.price ?? 0,
+    logo: product.logo || null,
+  })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+  const [logoError, setLogoError] = useState('')
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const onLogoFile = async (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    if (f.size > LOGO_LIMIT_BYTES) {
+      setLogoError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — max 2 MB.`)
+      return
+    }
+    setLogoError('')
+    try {
+      const logo = await uploadImageRef(f, {
+        maxDim: 800, quality: 0.85, entityType: 'product', entityId: product.id,
+      })
+      set('logo', logo)
+    } catch {
+      setLogoError('Could not read that image — try a different file.')
+    }
+  }
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim()) return setError('Name is required.')
+    setSubmitting(true)
+    setError(null)
+    try {
+      await onSubmit({
+        name: form.name.trim(),
+        type: form.type,
+        price: Number(form.price) || 0,
+        logo: form.logo,
+      })
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <div>
+        <label className="label">{t('product.field.logo')}</label>
+        {hasImage(form.logo) ? (
+          <div className="flex items-center gap-3 p-2.5 rounded-xl border border-shadow bg-iron">
+            <AuthImage
+              value={form.logo}
+              alt="Logo"
+              className="w-14 h-14 object-cover rounded-md"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm truncate">{form.logo.name || 'logo'}</p>
+            </div>
+            <label className="p-1.5 text-graphite hover:bg-iron rounded cursor-pointer" aria-label="Replace">
+              <Camera className="w-4 h-4" />
+              <input type="file" accept="image/*" className="hidden" onChange={onLogoFile} />
+            </label>
+            <button
+              type="button"
+              onClick={() => set('logo', null)}
+              className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"
+              aria-label="Remove"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite cursor-pointer hover:bg-iron">
+            <Camera className="w-4 h-4" /> {t('product.field.uploadLogo')}
+            <input type="file" accept="image/*" className="hidden" onChange={onLogoFile} />
+          </label>
+        )}
+        {logoError && <p className="text-xs text-rose-600 mt-1">{logoError}</p>}
+      </div>
+
+      <div>
+        <label className="label">{t('field.name')} *</label>
+        <input
+          className="input"
+          autoFocus
+          value={form.name}
+          onChange={(e) => set('name', e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className="label">{t('field.type')}</label>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { value: 'Product', tKey: 'product.type.product' },
+            { value: 'Service', tKey: 'product.type.service' },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => set('type', opt.value)}
+              className={`px-3 py-2 rounded-full border text-sm font-semibold transition-colors ${
+                form.type === opt.value
+                  ? 'bg-mint-bg border-wise-green text-wise-dark'
+                  : 'bg-white border-shadow text-graphite hover:bg-iron'
+              }`}
+            >
+              {t(opt.tKey)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="label">{t('product.field.defaultPrice')}</label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-graphite text-sm">$</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="input pl-7"
+            value={form.price}
+            onChange={(e) => set('price', e.target.value)}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+
+      <button type="submit" disabled={submitting} className="btn-primary w-full mt-2 disabled:opacity-60">
+        {submitting ? t('common.saving') : t('product.save')}
+      </button>
+    </form>
   )
 }
 

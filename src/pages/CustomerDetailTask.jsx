@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Plus, Trash2, Calendar, FolderPlus, ChevronDown, User, Paperclip, Pencil, Download,
 } from 'lucide-react'
@@ -246,9 +246,11 @@ function TaskForm({ initial, groups, onSubmit, onDelete }) {
     },
   )
   const [fileError, setFileError] = useState('')
+  const fileInputRef = useRef(null)
 
   const onFile = (e) => {
     const f = e.target.files?.[0]
+    e.target.value = '' // allow re-uploading the same file
     if (!f) return
     if (f.size > FILE_LIMIT_BYTES) {
       setFileError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — max 1 MB stored locally.`)
@@ -376,11 +378,22 @@ function TaskForm({ initial, groups, onSubmit, onDelete }) {
             </button>
           </div>
         ) : (
-          <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite cursor-pointer hover:bg-iron">
-            <Paperclip className="w-4 h-4" />
-            Attach file (max 1 MB)
-            <input type="file" className="hidden" onChange={onFile} />
-          </label>
+          <>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-graphite text-sm text-graphite cursor-pointer hover:bg-iron"
+            >
+              <Paperclip className="w-4 h-4" />
+              Attach file (max 1 MB)
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={onFile}
+            />
+          </>
         )}
         {fileError && <p className="text-xs text-rose-600 mt-1">{fileError}</p>}
       </div>

@@ -9,7 +9,7 @@ import { useSubUsers } from '../api/subUsers.js'
 
 const ACCESS_MENUS = [
   { key: 'customers', label: 'Customers' },
-  { key: 'products',  label: 'Products & Services' },
+  { key: 'products',  label: 'Billing' },
   { key: 'partners',  label: 'Partners' },
   { key: 'marketing', label: 'Marketing' },
   { key: 'assets',    label: 'Assets Management' },
