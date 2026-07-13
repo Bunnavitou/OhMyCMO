@@ -34,6 +34,8 @@ export default function ProductDetail() {
     removeProductChild,
     updateProduct,
     removeProduct,
+    updateCustomer,
+    appendCustomerLog,
   } = useStore()
   const { t } = useT()
   const navigate = useNavigate()
@@ -59,6 +61,23 @@ export default function ProductDetail() {
   const handleEdit = async (patch) => {
     await updateProduct(product.id, patch)
     setOpenModal(null)
+  }
+
+  // Save the invoice's email settings back onto the customer as their billing
+  // defaults, so the next invoice for that customer pre-fills with them. Only
+  // valid pieces are written, and empty fields never wipe an existing default.
+  const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim())
+  const saveEmailDefaults = (d) => {
+    if (!d?.customerId || !d.email) return
+    const { to, cc, subject, body } = d.email
+    const patch = {}
+    if (isEmail(to)) patch.billingEmail = to.trim()
+    const validCc = (Array.isArray(cc) ? cc : []).filter(isEmail)
+    if (validCc.length) patch.emailCc = validCc
+    if ((subject || '').trim() || (body || '').trim()) {
+      patch.emailTemplate = { subject: subject || '', body: body || '' }
+    }
+    if (Object.keys(patch).length) updateCustomer(d.customerId, patch)
   }
 
   return (
@@ -187,12 +206,14 @@ export default function ProductDetail() {
           setInvoiceDraft(null)
         }}
         title={t('product.newInvoice')}
+        size="2xl"
       >
         <InvoiceForm
           initial={invoiceDraft || undefined}
           customers={state.customers}
           onSubmit={(d) => {
             addProductChild(product.id, 'income', d)
+            saveEmailDefaults(d)
             setOpenModal(null)
             setInvoiceDraft(null)
           }}
@@ -210,6 +231,7 @@ export default function ProductDetail() {
       <Modal
         open={!!viewingInvoice}
         onClose={() => setViewingInvoice(null)}
+        size="2xl"
         title={
           viewingInvoice && Array.isArray(viewingInvoice.items) && viewingInvoice.items.length > 0
             ? t('product.invoice')
@@ -219,6 +241,14 @@ export default function ProductDetail() {
         <InvoiceDetail
           invoice={viewingInvoice}
           customers={state.customers}
+          onLogSend={(meta) => {
+            if (!viewingInvoice?.customerId) return
+            appendCustomerLog(viewingInvoice.customerId, {
+              type: 'invoice.send',
+              message: `Sent invoice ${meta.invoiceNo || ''} report to ${meta.to}`.replace(/\s+/g, ' ').trim(),
+              meta,
+            })
+          }}
           onDelete={() => {
             if (viewingInvoice && confirm(t('product.deleteEntry'))) {
               removeProductChild(product.id, 'income', viewingInvoice.id)
@@ -228,6 +258,7 @@ export default function ProductDetail() {
           onUpdate={(patch) => {
             if (!viewingInvoice) return
             updateProductChild(product.id, 'income', viewingInvoice.id, patch)
+            saveEmailDefaults({ ...viewingInvoice, ...patch })
             setViewingInvoice({ ...viewingInvoice, ...patch })
           }}
           onDuplicate={(src) => {

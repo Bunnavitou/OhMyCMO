@@ -1,11 +1,258 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { Plus, Trash2, TrendingUp, Receipt, Share2, Pencil, Copy, Search, X, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, TrendingUp, Receipt, Share2, Pencil, Copy, Search, X, ChevronDown, Eye, Paperclip, Download, Upload, FileSpreadsheet, Send, Printer, RefreshCw, Loader2, CheckCircle2, AlertCircle, Link2 } from 'lucide-react'
+import Modal from './Modal.jsx'
+import { fmtMoney, isEmail, applyPlaceholders } from '../utils/email.js'
+import { useZohoStatus, sendInvoiceReport } from '../utils/zoho.js'
+
+// Format an ISO timestamp as a short, human date-time (or '—' when absent).
+const fmtWhen = (iso) => {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d)) return '—'
+  return d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+}
 
 const newId = () => Math.random().toString(36).slice(2, 9)
 const blankItem = () => ({ id: newId(), description: '', qty: 1, unitPrice: 0 })
 
-const fmtMoney = (n) =>
-  Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+// Email attachment constraints — spreadsheets only, capped at 10MB.
+const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
+const ATTACHMENT_ACCEPT = '.xlsx,.xls,.csv'
+const ATTACHMENT_EXTS = ['.xlsx', '.xls', '.csv']
+const hasAllowedExt = (name) =>
+  ATTACHMENT_EXTS.some((ext) => String(name || '').toLowerCase().endsWith(ext))
+const fmtBytes = (n) => {
+  const b = Number(n || 0)
+  if (b < 1024) return `${b} B`
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// Invoice email defaults.
+const DEFAULT_EMAIL_SUBJECT = 'Invoice {invoice_no} from {company_name}'
+const DEFAULT_EMAIL_BODY =
+  'Dear {customer_name},\n\nPlease find attached invoice {invoice_no} for a total of {grand_total}.\n\nThank you for your business.'
+
+// Build the per-line attachment rows for the invoice preview / Excel export.
+// Columns mirror the emailed spreadsheet: Description, Qty, Unit price,
+// Total Fee, VAT %, Total Amount.
+const buildAttachmentRows = (items, taxRate) => {
+  const rate = Number(taxRate || 0)
+  const rows = (items || []).map((it) => {
+    const qty = Number(it.qty || 0)
+    const unitPrice = Number(it.unitPrice || 0)
+    const totalFee = qty * unitPrice
+    const vat = totalFee * rate
+    const totalAmount = totalFee + vat
+    return {
+      description: it.description || '',
+      qty,
+      unitPrice,
+      totalFee,
+      vat,
+      totalAmount,
+    }
+  })
+  const totalPay = rows.reduce((s, r) => s + r.totalAmount, 0)
+  return { rows, totalPay, rate }
+}
+
+const invoiceExcelSafeName = (invoice) =>
+  `invoice-${(invoice.invoiceNo || 'invoice').replace(/[^A-Za-z0-9-_]+/g, '_')}.xlsx`
+
+// Build the shared XLSX workbook (single sheet) for an invoice's line items.
+async function buildInvoiceWorkbook(invoice) {
+  const XLSX = await import('xlsx')
+  const { rows, totalPay, rate } = buildAttachmentRows(invoice.items, invoice.taxRate)
+  const vatHeader = `VAT ${(rate * 100).toFixed(rate * 100 % 1 ? 1 : 0)}%`
+  const aoa = [
+    ['Description', 'Qty', 'Unit Price', 'Total Fee', vatHeader, 'Total Amount'],
+    ...rows.map((r) => [r.description, r.qty, r.unitPrice, r.totalFee, r.vat, r.totalAmount]),
+    ['Total Amount Pay', '', '', '', '', totalPay],
+  ]
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = [{ wch: 40 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Invoice')
+  return { XLSX, wb }
+}
+
+// Export a single invoice as an Excel attachment matching the preview table.
+async function exportInvoiceExcel(invoice) {
+  const { XLSX, wb } = await buildInvoiceWorkbook(invoice)
+  XLSX.writeFile(wb, invoiceExcelSafeName(invoice))
+}
+
+// Small Cc editor: chips with remove, plus an input that adds on Enter/comma/blur.
+export function CcEditor({ value, onChange }) {
+  const [draft, setDraft] = useState('')
+  const commit = () => {
+    const addr = draft.trim().replace(/,$/, '').trim()
+    if (addr && !value.includes(addr)) onChange([...value, addr])
+    setDraft('')
+  }
+  return (
+    <div className="input flex flex-wrap items-center gap-1 min-h-[2.5rem] py-1">
+      {value.map((addr) => (
+        <span
+          key={addr}
+          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs ${
+            isEmail(addr) ? 'bg-iron text-near-black' : 'bg-red-100 text-red-700'
+          }`}
+        >
+          {addr}
+          <button
+            type="button"
+            onClick={() => onChange(value.filter((a) => a !== addr))}
+            aria-label={`Remove ${addr}`}
+            className="hover:text-red-600"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </span>
+      ))}
+      <input
+        className="flex-1 min-w-[8rem] bg-transparent outline-none text-sm"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault()
+            commit()
+          } else if (e.key === 'Backspace' && !draft && value.length) {
+            onChange(value.slice(0, -1))
+          }
+        }}
+        onBlur={commit}
+        placeholder={value.length ? '' : 'cc@company.com'}
+      />
+    </div>
+  )
+}
+
+// Read-only preview of the invoice email exactly as it will be sent — including
+// its attachments: any user-uploaded spreadsheets plus the invoice spreadsheet
+// generated from the line items (rendered as a table). Shown in a popup so the
+// sender can confirm everything is correct before sending.
+function EmailPreview({ to, cc, subject, body, items, taxRate, invoiceNo, attachments = [] }) {
+  const { rows, totalPay, rate } = useMemo(
+    () => buildAttachmentRows(items, taxRate),
+    [items, taxRate],
+  )
+  const vatHeader = `VAT ${(rate * 100).toFixed(rate * 100 % 1 ? 1 : 0)}%`
+
+  return (
+    <div className="space-y-3 text-sm">
+      <div className="card !p-3 space-y-1">
+        <div className="flex gap-2">
+          <span className="w-16 shrink-0 text-graphite">To</span>
+          <span className="font-medium break-all">{to || <em className="text-graphite">no recipient</em>}</span>
+        </div>
+        {cc?.length > 0 && (
+          <div className="flex gap-2">
+            <span className="w-16 shrink-0 text-graphite">Cc</span>
+            <span className="break-all">{cc.join(', ')}</span>
+          </div>
+        )}
+        <div className="flex gap-2">
+          <span className="w-16 shrink-0 text-graphite">Subject</span>
+          <span className="font-semibold">{subject || <em className="text-graphite">no subject</em>}</span>
+        </div>
+      </div>
+
+      <div className="card !p-3">
+        <p className="text-xs text-graphite mb-1">Message</p>
+        <p className="whitespace-pre-wrap">{body || <em className="text-graphite">empty body</em>}</p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-graphite">
+          <Paperclip className="w-3.5 h-3.5" /> Attachments{attachments.length ? ` (${attachments.length})` : ''}
+        </p>
+
+        {/* User-uploaded spreadsheets — the only files attached to the email. */}
+        {attachments.length === 0 ? (
+          <p className="text-[11px] text-graphite">No files attached — the invoice table below is embedded in the email body.</p>
+        ) : (
+          attachments.map((att, i) => (
+            <div key={`${att.name}-${i}`} className="card !p-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                <FileSpreadsheet className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{att.name}</p>
+                <p className="text-[11px] text-graphite">{fmtBytes(att.size)} · attached to email</p>
+              </div>
+              {att.dataUrl && (
+                <a
+                  href={att.dataUrl}
+                  download={att.name}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-iron text-graphite hover:bg-mint-bg hover:text-wise-dark transition-colors"
+                >
+                  <Download className="w-3 h-3" /> Download
+                </a>
+              )}
+            </div>
+          ))
+        )}
+
+        {/* Invoice table — rendered inline in the email body, not attached.
+            Download offered as a convenience. */}
+        <div className="flex items-center justify-between pt-1">
+          <span className="inline-flex items-center gap-1.5 text-xs text-graphite">
+            <FileSpreadsheet className="w-3.5 h-3.5" /> Invoice table
+            <span className="text-[10px] uppercase tracking-wider">· in email body</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => exportInvoiceExcel({ items, taxRate, invoiceNo })}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-iron text-graphite hover:bg-mint-bg hover:text-wise-dark transition-colors"
+          >
+            <Download className="w-3 h-3" /> Excel
+          </button>
+        </div>
+        <div className="card !p-0 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-iron text-graphite">
+              <tr>
+                <th className="text-left p-2 font-semibold">Description</th>
+                <th className="text-right p-2 font-semibold">Qty</th>
+                <th className="text-right p-2 font-semibold">Unit price</th>
+                <th className="text-right p-2 font-semibold">Total Fee</th>
+                <th className="text-right p-2 font-semibold whitespace-nowrap">{vatHeader}</th>
+                <th className="text-right p-2 font-semibold">Total Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-3 text-center text-graphite">No line items.</td>
+                </tr>
+              ) : (
+                rows.map((r, i) => (
+                  <tr key={i} className="border-t border-shadow">
+                    <td className="p-2">{r.description || '—'}</td>
+                    <td className="p-2 text-right">{r.qty}</td>
+                    <td className="p-2 text-right">{fmtMoney(r.unitPrice)}</td>
+                    <td className="p-2 text-right">{fmtMoney(r.totalFee)}</td>
+                    <td className="p-2 text-right">{fmtMoney(r.vat)}</td>
+                    <td className="p-2 text-right font-medium">{fmtMoney(r.totalAmount)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-shadow bg-amber-100 text-near-black">
+                <td className="p-2 font-bold" colSpan={5}>Total Amount Pay</td>
+                <td className="p-2 text-right font-bold">${fmtMoney(totalPay)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const monthLabel = (ym) => {
   if (!ym || ym.length < 7) return 'Undated'
@@ -159,6 +406,64 @@ export function InvoiceForm({
     initial?.customerName ?? defaultCustomer.customerName ?? '',
   )
 
+  // Email section — auto-filled from the picked customer's saved billing
+  // defaults, but fully editable here.
+  const [emailTo, setEmailTo] = useState(initial?.email?.to || '')
+  const [emailCc, setEmailCc] = useState(
+    Array.isArray(initial?.email?.cc) ? initial.email.cc : [],
+  )
+  const [emailSubject, setEmailSubject] = useState(initial?.email?.subject || '')
+  const [emailBody, setEmailBody] = useState(initial?.email?.body || '')
+  const [previewOpen, setPreviewOpen] = useState(false)
+
+  // Email attachments — user-uploaded spreadsheets that ride along with the
+  // invoice email. Each stored as { name, size, type, dataUrl }; more than one
+  // is allowed. Accepts the legacy single-`attachment` shape too.
+  const [attachments, setAttachments] = useState(() => {
+    if (Array.isArray(initial?.email?.attachments)) return initial.email.attachments
+    if (initial?.email?.attachment) return [initial.email.attachment]
+    return []
+  })
+  const [attachError, setAttachError] = useState('')
+  const [dragOver, setDragOver] = useState(false)
+  const attachInputRef = useRef(null)
+
+  // Validate + read each dropped/picked file, appending valid ones to the list.
+  const acceptFiles = (fileList) => {
+    const files = Array.from(fileList || [])
+    if (!files.length) return
+    setAttachError('')
+    files.forEach((file) => {
+      if (!hasAllowedExt(file.name)) {
+        setAttachError('Only .xlsx, .xls or .csv files are allowed.')
+        return
+      }
+      if (file.size > ATTACHMENT_MAX_BYTES) {
+        setAttachError(`"${file.name}" is too large (max 10MB).`)
+        return
+      }
+      const reader = new FileReader()
+      reader.onload = () =>
+        setAttachments((prev) => [
+          ...prev,
+          { name: file.name, size: file.size, type: file.type || '', dataUrl: reader.result },
+        ])
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const onAttachPicked = (e) => {
+    acceptFiles(e.target.files)
+    e.target.value = '' // allow re-picking the same file(s)
+  }
+  const onAttachDrop = (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    acceptFiles(e.dataTransfer.files)
+  }
+  const removeAttachment = (idx) =>
+    setAttachments((prev) => prev.filter((_, i) => i !== idx))
+
   const hasCustomerList = Array.isArray(customers) && customers.length > 0
   const sortedCustomers = useMemo(
     () => (hasCustomerList ? [...customers].sort((a, b) => (a.name || '').localeCompare(b.name || '')) : []),
@@ -176,6 +481,20 @@ export function InvoiceForm({
     setCustomerId(c.id)
     setCustomerName(c.name || '')
     setCustomerNo(deriveCustomerNo(c))
+
+    // Auto-fill the email section from this customer's saved email settings.
+    // Priority: invoice-specific billing defaults → the customer's Email tab
+    // settings (taskEmail) → the plain contact email / global templates. This
+    // way anything the user configures on the customer flows into the invoice.
+    // Subject/Body keep their {placeholders}; they're resolved in the preview.
+    const te = c.taskEmail || {}
+    setEmailTo(c.billingEmail || te.to || c.email || '')
+    const cc = Array.isArray(c.emailCc) && c.emailCc.length
+      ? c.emailCc
+      : Array.isArray(te.cc) ? te.cc : []
+    setEmailCc(cc)
+    setEmailSubject(c.emailTemplate?.subject || te.subject || DEFAULT_EMAIL_SUBJECT)
+    setEmailBody(c.emailTemplate?.body || te.body || DEFAULT_EMAIL_BODY)
   }
   const [items, setItems] = useState(
     initial?.items?.length
@@ -191,6 +510,19 @@ export function InvoiceForm({
   )
   const tax = subtotal * Number(taxRate || 0)
   const grandTotal = subtotal + tax
+
+  // Placeholder values for resolving the email subject/body (preview + at save).
+  const emailCtx = useMemo(() => {
+    const c = customerId ? customers.find((x) => x.id === customerId) : null
+    return {
+      invoice_no: invoiceNo.trim() || '—',
+      company_name: customerName.trim(),
+      customer_name: (c?.contact || customerName).trim(),
+      // task_name may appear in templates sourced from the customer's Email tab.
+      task_name: customerName.trim(),
+      grand_total: `$${fmtMoney(grandTotal)}`,
+    }
+  }, [customerId, customers, invoiceNo, customerName, grandTotal])
 
   const updateItem = (id, patch) =>
     setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)))
@@ -221,10 +553,23 @@ export function InvoiceForm({
       grandTotal,
       amount: grandTotal,
       note: note.trim(),
+      email: {
+        to: emailTo.trim(),
+        cc: emailCc.map((s) => s.trim()).filter(Boolean),
+        // Store the raw templates (with placeholders) plus a resolved snapshot
+        // so a later send has both the reusable template and the final text.
+        subject: emailSubject,
+        body: emailBody,
+        resolvedSubject: applyPlaceholders(emailSubject, emailCtx),
+        resolvedBody: applyPlaceholders(emailBody, emailCtx),
+        // User-uploaded spreadsheets attached to the outgoing email (0 or more).
+        attachments,
+      },
     })
   }
 
   return (
+    <>
     <form onSubmit={submit} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -285,6 +630,23 @@ export function InvoiceForm({
           </div>
         </div>
       )}
+
+      {/* Email — auto-filled from the customer's saved defaults. Review the
+          composed email and its attachment in the preview popup before sending. */}
+      {customerName.trim() ? (
+        <div>
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="btn-ghost w-full border border-shadow"
+          >
+            <Eye className="w-4 h-4" /> Preview email
+          </button>
+          <p className="text-[11px] text-graphite text-center mt-1">
+            Opens a popup with the email and its attachment, exactly as it will be sent.
+          </p>
+        </div>
+      ) : null}
 
       <div>
         <label className="label">Line items</label>
@@ -353,6 +715,57 @@ export function InvoiceForm({
         </button>
       </div>
 
+      {/* Attachments — one or more spreadsheets sent with the invoice email. */}
+      <div>
+        <label className="label">Attachments</label>
+        <input
+          ref={attachInputRef}
+          type="file"
+          accept={ATTACHMENT_ACCEPT}
+          multiple
+          onChange={onAttachPicked}
+          className="hidden"
+        />
+        <div className="space-y-2">
+          {attachments.map((att, idx) => (
+            <div key={`${att.name}-${idx}`} className="card !p-3 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{att.name}</p>
+                <p className="text-[11px] text-graphite">{fmtBytes(att.size)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeAttachment(idx)}
+                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                aria-label={`Remove ${att.name}`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => attachInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onAttachDrop}
+            className={`w-full flex flex-col items-center justify-center gap-1.5 py-6 rounded-xl border-2 border-dashed text-center transition-colors ${
+              dragOver ? 'border-brand-500 bg-mint-bg/50' : 'border-graphite/40 hover:bg-iron'
+            }`}
+          >
+            <Upload className="w-5 h-5 text-graphite" />
+            <span className="text-sm font-medium text-near-black">
+              {attachments.length ? 'Add another file' : 'Drag & drop or click to upload'}
+            </span>
+            <span className="text-[11px] text-graphite">.xlsx, .xls or .csv · up to 10MB each</span>
+          </button>
+        </div>
+        {attachError && <p className="text-xs text-red-600 mt-1">{attachError}</p>}
+      </div>
+
       <div className="card !p-3 space-y-2">
         <div className="flex justify-between text-sm">
           <span className="text-graphite">Subtotal</span>
@@ -391,6 +804,25 @@ export function InvoiceForm({
 
       <button className="btn-primary w-full" type="submit">{submitLabel}</button>
     </form>
+
+    <Modal
+      open={previewOpen}
+      onClose={() => setPreviewOpen(false)}
+      title="Email preview"
+      size="2xl"
+    >
+      <EmailPreview
+        to={emailTo.trim()}
+        cc={emailCc.map((s) => s.trim()).filter(Boolean)}
+        subject={applyPlaceholders(emailSubject, emailCtx)}
+        body={applyPlaceholders(emailBody, emailCtx)}
+        items={items}
+        taxRate={taxRate}
+        invoiceNo={invoiceNo.trim()}
+        attachments={attachments}
+      />
+    </Modal>
+    </>
   )
 }
 
@@ -556,10 +988,282 @@ export function MonthlyIncomeList({ items, onTap, productName, query = '' }) {
   )
 }
 
-export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, customers = [] }) {
+const esc = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
+
+// Inline HTML table of the invoice line items, embedded into the email body so
+// recipients see the figures in the message itself (matching the reference
+// invoice email) — not only in the spreadsheet attachment. Uses inline styles
+// because email clients strip <style> blocks. Returns '' when there are no
+// line items (e.g. a plain income entry).
+function invoiceEmailTableHtml(invoice) {
+  const lines = Array.isArray(invoice.items) ? invoice.items : []
+  if (!lines.length) return ''
+  const { rows, totalPay, rate } = buildAttachmentRows(lines, invoice.taxRate)
+  const vatPct = (rate * 100).toFixed(rate * 100 % 1 ? 1 : 0)
+  const cell = 'border:1px solid #cccccc;padding:6px 10px;font-size:13px;'
+  const th = `${cell}background:#f2f2f2;text-align:left;`
+  const thR = `${cell}background:#f2f2f2;text-align:right;`
+  const tdR = `${cell}text-align:right;`
+  const totalCell = `${cell}background:#fff59d;font-weight:bold;`
+  const body = rows
+    .map(
+      (r) => `<tr>
+        <td style="${cell}">${esc(r.description || '')}</td>
+        <td style="${tdR}">${esc(r.qty)}</td>
+        <td style="${tdR}">${fmtMoney(r.unitPrice)}</td>
+        <td style="${tdR}">${fmtMoney(r.totalFee)}</td>
+        <td style="${tdR}">${fmtMoney(r.vat)}</td>
+        <td style="${tdR}">${fmtMoney(r.totalAmount)}</td>
+      </tr>`,
+    )
+    .join('')
+  return `<table style="border-collapse:collapse;margin:16px 0;width:100%;max-width:680px" cellspacing="0" cellpadding="0">
+    <thead><tr>
+      <th style="${th}">Description</th>
+      <th style="${thR}">Qty</th>
+      <th style="${thR}">Unit Price</th>
+      <th style="${thR}">Total Fee</th>
+      <th style="${thR}">VAT ${vatPct}%</th>
+      <th style="${thR}">Total Amount</th>
+    </tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr>
+      <td colspan="5" style="${totalCell}">Total Amount Pay</td>
+      <td style="${totalCell}text-align:right;">$${fmtMoney(totalPay)}</td>
+    </tr></tfoot>
+  </table>`
+}
+
+// Compose the HTML email body: message text with the invoice table inserted.
+// Placement priority:
+//   1. where an explicit {invoice_table} token appears, else
+//   2. just before the signature line (Best regards / Regards / Sincerely…), else
+//   3. appended at the end.
+function composeInvoiceHtmlBody(bodyText, tableHtml) {
+  const nl2br = (s) => esc(s).replace(/\n/g, '<br>')
+  if (!tableHtml) return bodyText ? nl2br(bodyText) : ''
+  const TOKEN = '{invoice_table}'
+  if (bodyText.includes(TOKEN)) {
+    return bodyText.split(TOKEN).map(nl2br).join(tableHtml)
+  }
+  const sig = bodyText.match(/\n\s*(best regards|kind regards|warm regards|sincerely|regards|thank you|thanks)\b/i)
+  if (sig) {
+    return nl2br(bodyText.slice(0, sig.index)) + tableHtml + nl2br(bodyText.slice(sig.index))
+  }
+  return `${nl2br(bodyText)}${tableHtml}`
+}
+
+// Read-only, print-style rendering of the invoice used by the "Preview report"
+// modal. Mirrors the invoice detail data exactly.
+function InvoiceReport({ invoice }) {
+  const lines = Array.isArray(invoice.items) ? invoice.items : []
+  const vatPct = (Number(invoice.taxRate || 0) * 100).toFixed(1)
+  return (
+    <div className="bg-white text-near-black">
+      <div className="flex items-start justify-between gap-4 pb-4 border-b border-shadow">
+        <div>
+          <p className="text-2xl font-bold tracking-tight">INVOICE</p>
+          {invoice.invoiceNo && <p className="text-sm text-graphite mt-0.5">{invoice.invoiceNo}</p>}
+        </div>
+        <div className="text-right text-sm">
+          <p className="text-graphite">Date</p>
+          <p className="font-medium">{invoice.date || '—'}</p>
+        </div>
+      </div>
+
+      <div className="py-4 text-sm">
+        <p className="text-graphite text-xs uppercase tracking-wider mb-1">Bill to</p>
+        <p className="font-semibold">{invoice.customerName || invoice.source || '—'}</p>
+        {invoice.customerNo && <p className="text-graphite">Customer #: {invoice.customerNo}</p>}
+      </div>
+
+      {lines.length > 0 ? (
+        <table className="w-full text-xs border-t border-shadow">
+          <thead className="text-graphite">
+            <tr>
+              <th className="text-left py-2 font-semibold">#</th>
+              <th className="text-left py-2 font-semibold">Description</th>
+              <th className="text-right py-2 font-semibold">Qty</th>
+              <th className="text-right py-2 font-semibold">Unit</th>
+              <th className="text-right py-2 font-semibold">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((it, i) => (
+              <tr key={it.id || i} className="border-t border-shadow">
+                <td className="py-2">{i + 1}</td>
+                <td className="py-2">{it.description || '—'}</td>
+                <td className="py-2 text-right">{it.qty}</td>
+                <td className="py-2 text-right">${fmtMoney(it.unitPrice)}</td>
+                <td className="py-2 text-right font-medium">${fmtMoney(it.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="text-sm border-t border-shadow py-3">
+          Amount: <span className="font-semibold">${fmtMoney(invoice.amount)}</span>
+        </p>
+      )}
+
+      <div className="mt-4 ml-auto max-w-[16rem] text-sm space-y-1">
+        {lines.length > 0 && (
+          <>
+            <Row label="Subtotal" value={`$${fmtMoney(invoice.subtotal)}`} />
+            <Row label={`VAT ${vatPct}%`} value={`$${fmtMoney(invoice.tax)}`} />
+          </>
+        )}
+        <div className="flex justify-between text-base pt-2 border-t border-shadow">
+          <span className="font-bold">Grand total</span>
+          <span className="font-bold">${fmtMoney(invoice.amount)}</span>
+        </div>
+      </div>
+
+      {invoice.note && (
+        <div className="mt-4 pt-3 border-t border-shadow text-sm">
+          <p className="text-graphite text-xs uppercase tracking-wider mb-1">Note</p>
+          <p>{invoice.note}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Open a standalone, print-ready invoice document in a new window and trigger
+// the browser print dialog (which offers "Save as PDF").
+function openInvoiceReport(invoice) {
+  const lines = Array.isArray(invoice.items) ? invoice.items : []
+  const vatPct = (Number(invoice.taxRate || 0) * 100).toFixed(1)
+  const rowsHtml = lines.length
+    ? lines.map((it, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${esc(it.description || '—')}</td>
+          <td class="r">${esc(it.qty)}</td>
+          <td class="r">$${fmtMoney(it.unitPrice)}</td>
+          <td class="r">$${fmtMoney(it.total)}</td>
+        </tr>`).join('')
+    : `<tr><td colspan="5">Amount: $${fmtMoney(invoice.amount)}</td></tr>`
+  const totalsHtml = lines.length
+    ? `<div class="row"><span>Subtotal</span><span>$${fmtMoney(invoice.subtotal)}</span></div>
+       <div class="row"><span>VAT ${vatPct}%</span><span>$${fmtMoney(invoice.tax)}</span></div>`
+    : ''
+  const html = `<!doctype html><html><head><meta charset="utf-8"/>
+    <title>Invoice ${esc(invoice.invoiceNo || '')}</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; color: #0e0f0c; margin: 0; padding: 40px; }
+      .doc { max-width: 720px; margin: 0 auto; }
+      .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #ddd; padding-bottom: 16px; }
+      h1 { font-size: 28px; margin: 0; letter-spacing: -0.5px; }
+      .muted { color: #777; }
+      .billto { padding: 16px 0; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { padding: 8px 4px; border-bottom: 1px solid #eee; text-align: left; }
+      th { color: #777; border-top: 1px solid #ddd; }
+      .r { text-align: right; }
+      .totals { max-width: 260px; margin-left: auto; margin-top: 16px; font-size: 14px; }
+      .row { display: flex; justify-content: space-between; padding: 4px 0; }
+      .grand { display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid #ddd; font-weight: 700; font-size: 16px; }
+      .note { margin-top: 20px; padding-top: 12px; border-top: 1px solid #eee; font-size: 13px; }
+      @media print { body { padding: 0; } }
+    </style></head><body><div class="doc">
+      <div class="head">
+        <div><h1>INVOICE</h1>${invoice.invoiceNo ? `<div class="muted">${esc(invoice.invoiceNo)}</div>` : ''}</div>
+        <div style="text-align:right"><div class="muted">Date</div><div>${esc(invoice.date || '—')}</div></div>
+      </div>
+      <div class="billto"><div class="muted" style="text-transform:uppercase;font-size:11px;letter-spacing:1px">Bill to</div>
+        <div style="font-weight:600">${esc(invoice.customerName || invoice.source || '—')}</div>
+        ${invoice.customerNo ? `<div class="muted">Customer #: ${esc(invoice.customerNo)}</div>` : ''}
+      </div>
+      <table><thead><tr><th>#</th><th>Description</th><th class="r">Qty</th><th class="r">Unit</th><th class="r">Total</th></tr></thead>
+        <tbody>${rowsHtml}</tbody></table>
+      <div class="totals">${totalsHtml}<div class="grand"><span>Grand total</span><span>$${fmtMoney(invoice.amount)}</span></div></div>
+      ${invoice.note ? `<div class="note"><div class="muted" style="text-transform:uppercase;font-size:11px;letter-spacing:1px">Note</div>${esc(invoice.note)}</div>` : ''}
+    </div>
+    <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 200); };</script>
+    </body></html>`
+  const w = window.open('', '_blank')
+  if (!w) return
+  w.document.open()
+  w.document.write(html)
+  w.document.close()
+}
+
+export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, customers = [], onLogSend }) {
   const [editing, setEditing] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
+  const [sendState, setSendState] = useState('idle') // idle | sending | success | error
+  const [sendError, setSendError] = useState('')
+  const [setupOpen, setSetupOpen] = useState(false)
+  const zoho = useZohoStatus()
+
+  const recipient = invoice?.email?.to || ''
+  const ccList = Array.isArray(invoice?.email?.cc) ? invoice.email.cc : []
+
+  // Send the invoice report over Zoho Mail (server-side SMTP). Attaches only
+  // the user-uploaded files (the invoice figures are rendered inline in the
+  // email body), records a send-history entry, and logs an audit entry.
+  const doSend = async () => {
+    if (!recipient || !isEmail(recipient)) {
+      setSendState('error')
+      setSendError('No valid recipient. Set the invoice email address first (edit the invoice).')
+      return
+    }
+    if (!zoho.configured) {
+      setSendState('error')
+      setSendError('Zoho email is not configured on the server yet.')
+      return
+    }
+    setSendState('sending')
+    setSendError('')
+    try {
+      // Attach only the user-uploaded files (the invoice table is embedded in
+      // the email body, so no auto-generated spreadsheet is attached).
+      const attachments = []
+      for (const a of invoice.email?.attachments || []) {
+        const b64 = String(a.dataUrl || '').split(',')[1]
+        if (b64) attachments.push({ filename: a.name, content: b64 })
+      }
+      const subject =
+        invoice.email?.resolvedSubject || invoice.email?.subject || `Invoice ${invoice.invoiceNo || ''}`.trim()
+      const bodyText = invoice.email?.resolvedBody || invoice.email?.body || ''
+      // Inline invoice table placed before the signature (or at {invoice_table}).
+      const html = composeInvoiceHtmlBody(bodyText, invoiceEmailTableHtml(invoice)) || undefined
+      // Plain-text fallback: drop the token (no table in text form).
+      const text = bodyText.split('{invoice_table}').join('').trim()
+
+      await sendInvoiceReport({ to: recipient, cc: ccList, subject, text, html, attachments })
+
+      const ts = new Date().toISOString()
+      onUpdate?.({ sends: [...(invoice.sends || []), { ts, to: recipient, cc: ccList }] })
+      onLogSend?.({
+        to: recipient,
+        cc: ccList,
+        ts,
+        invoiceNo: invoice.invoiceNo || '',
+        amount: invoice.amount || 0,
+      })
+      setSendState('success')
+    } catch (err) {
+      setSendState('error')
+      setSendError(err?.message || 'Failed to send. Please try again.')
+    }
+  }
+
+  const closeSend = () => {
+    setSendOpen(false)
+    setSendState('idle')
+    setSendError('')
+  }
+
   if (!invoice) return null
   const isInvoice = Array.isArray(invoice.items) && invoice.items.length > 0
+  const lastSends = invoice.sends || []
 
   if (editing && onUpdate) {
     return (
@@ -577,6 +1281,43 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
 
   return (
     <div className="space-y-3">
+      {/* Zoho Mail connection status */}
+      {zoho.loading ? (
+        <div className="card !p-3 flex items-center gap-3 text-graphite">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <p className="text-sm">Checking Zoho connection…</p>
+        </div>
+      ) : zoho.configured ? (
+        <div className="card !p-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-near-black">Connected to Zoho Mail</p>
+            <p className="text-[11px] text-graphite truncate">
+              Sending as {zoho.from || 'Zoho mailbox'} · SMTP
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="card !p-3 flex items-center gap-3 border-amber-200 bg-amber-50/60">
+          <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <AlertCircle className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-near-black">Zoho email not configured</p>
+            <p className="text-[11px] text-graphite">Add Zoho Mail SMTP credentials to enable sending.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSetupOpen(true)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-charcoal text-white hover:opacity-90 transition-opacity"
+          >
+            <Link2 className="w-3.5 h-3.5" /> Setup guide
+          </button>
+        </div>
+      )}
+
       <div className="card !p-3 space-y-1 text-sm">
         <Row label="Date" value={invoice.date || '—'} />
         {invoice.invoiceNo && <Row label="Invoice #" value={invoice.invoiceNo} />}
@@ -635,12 +1376,38 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         </div>
       )}
 
+      {/* Report actions */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setReportOpen(true)}
+          className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2"
+        >
+          <Eye className="w-4 h-4" /> Preview report
+        </button>
+        <button
+          type="button"
+          onClick={() => { setSendState('idle'); setSendError(''); setSendOpen(true) }}
+          className="btn-primary w-full"
+        >
+          <Send className="w-4 h-4" /> Send report
+        </button>
+      </div>
+
+      {lastSends.length > 0 && (
+        <p className="text-[11px] text-graphite text-center">
+          Last sent {fmtWhen(lastSends[lastSends.length - 1].ts)} to {lastSends[lastSends.length - 1].to}
+          {lastSends.length > 1 ? ` · ${lastSends.length} sends` : ''}
+        </p>
+      )}
+
+      {/* Existing actions */}
       <div className="grid grid-cols-2 gap-2">
         {onUpdate && (
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="btn-primary w-full"
+            className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2"
           >
             <Pencil className="w-4 h-4" /> Update
           </button>
@@ -663,6 +1430,84 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
       >
         Delete entry
       </button>
+
+      {/* Preview report — print-style rendering */}
+      <Modal open={reportOpen} onClose={() => setReportOpen(false)} title="Invoice report" size="2xl">
+        <div className="space-y-3">
+          <div className="rounded-lg border border-shadow p-4">
+            <InvoiceReport invoice={invoice} />
+          </div>
+          <button
+            type="button"
+            onClick={() => openInvoiceReport(invoice)}
+            className="btn-primary w-full"
+          >
+            <Printer className="w-4 h-4" /> Print / Save as PDF
+          </button>
+        </div>
+      </Modal>
+
+      {/* Send report — confirmation + status */}
+      <Modal open={sendOpen} onClose={closeSend} title="Send invoice report">
+        {sendState === 'success' ? (
+          <div className="text-center py-4 space-y-3">
+            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-semibold">Report sent</p>
+            <p className="text-xs text-graphite">Sent to {recipient}{ccList.length ? ` · Cc ${ccList.length}` : ''}.</p>
+            <button type="button" onClick={closeSend} className="btn-primary w-full">Done</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="card !p-3 space-y-1 text-sm">
+              <Row label="To" value={recipient || '— none —'} />
+              {ccList.length > 0 && <Row label="Cc" value={ccList.join(', ')} />}
+              <Row label="Subject" value={invoice?.email?.resolvedSubject || invoice?.email?.subject || `Invoice ${invoice.invoiceNo || ''}`} />
+              <Row label="Attachments" value={`${(invoice?.email?.attachments || []).length} file(s)`} />
+            </div>
+            {sendState === 'error' && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> {sendError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={doSend}
+              disabled={sendState === 'sending'}
+              className="btn-primary w-full disabled:opacity-60"
+            >
+              {sendState === 'sending'
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
+                : <><Send className="w-4 h-4" /> Send now</>}
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      {/* Zoho Mail setup guide (SMTP is configured server-side, not per-user) */}
+      <Modal open={setupOpen} onClose={() => setSetupOpen(false)} title="Enable Zoho Mail sending">
+        <div className="space-y-3 text-sm">
+          <p className="text-graphite">
+            Invoice reports are sent through your Zoho Mail account over SMTP. An administrator
+            configures this once on the server:
+          </p>
+          <ol className="list-decimal list-inside space-y-1.5 text-near-black">
+            <li>In Zoho Mail, open <span className="font-medium">Settings → Security → App Passwords</span> and generate an app-specific password.</li>
+            <li>Add these to the API <span className="font-mono text-xs">.env</span> and restart:
+              <pre className="mt-1 p-2 rounded-lg bg-iron text-[11px] overflow-x-auto">{`SMTP_HOST=smtp.zoho.com
+SMTP_PORT=465
+SMTP_USER=you@zohomail.com
+SMTP_PASS=<app-password>
+SMTP_FROM=you@zohomail.com`}</pre>
+            </li>
+            <li>Reopen this invoice — the banner will show <span className="font-medium">Connected to Zoho Mail</span>.</li>
+          </ol>
+          <button type="button" onClick={() => { setSetupOpen(false); zoho.refresh() }} className="btn-primary w-full">
+            <RefreshCw className="w-4 h-4" /> Re-check connection
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }
