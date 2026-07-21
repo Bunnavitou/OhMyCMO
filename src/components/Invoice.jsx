@@ -3,6 +3,8 @@ import { Plus, Trash2, TrendingUp, Receipt, Share2, Pencil, Copy, Search, X, Che
 import Modal from './Modal.jsx'
 import { fmtMoney, isEmail, applyPlaceholders } from '../utils/email.js'
 import { useZohoStatus, sendInvoiceReport } from '../utils/zoho.js'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 
 // Format an ISO timestamp as a short, human date-time (or '—' when absent).
 const fmtWhen = (iso) => {
@@ -880,7 +882,28 @@ async function exportMonthlyInvoicesExcel(productName, ym, items) {
   XLSX.writeFile(wb, `accounting-${safeProduct}-${safeMonth}.xlsx`)
 }
 
-export function MonthlyIncomeList({ items, onTap, productName, query = '' }) {
+export function MonthlyIncomeList({ items, onTap, productName, query = '', onBulkDuplicate }) {
+  const { user } = useAuth()
+  const canDuplicate = hasPermission(user, 'billing.duplicate')
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState(() => new Set())
+
+  const toggle = (id) =>
+    setSelected((s) => {
+      const next = new Set(s)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  const exitSelect = () => {
+    setSelectMode(false)
+    setSelected(new Set())
+  }
+  const doBulkDuplicate = () => {
+    const chosen = items.filter((x) => selected.has(x.id))
+    if (chosen.length) onBulkDuplicate?.(chosen)
+    exitSelect()
+  }
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return items
@@ -921,6 +944,40 @@ export function MonthlyIncomeList({ items, onTap, productName, query = '' }) {
 
   return (
     <div className="space-y-4">
+      {onBulkDuplicate && canDuplicate && (
+        <div className="flex items-center justify-between gap-2 px-1">
+          {selectMode ? (
+            <>
+              <span className="text-xs font-semibold text-graphite">{selected.size} selected</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={exitSelect}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-iron text-graphite hover:bg-shadow"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={doBulkDuplicate}
+                  disabled={selected.size === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-wise-dark text-white hover:opacity-90 disabled:opacity-40"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Duplicate ({selected.size})
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSelectMode(true)}
+              className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-iron text-graphite hover:bg-mint-bg hover:text-wise-dark transition-colors"
+            >
+              <Copy className="w-3.5 h-3.5" /> Select to duplicate
+            </button>
+          )}
+        </div>
+      )}
       {grouped.map(([ym, entries]) => {
         const monthTotal = entries.reduce((s, x) => s + Number(x.amount || 0), 0)
         const sorted = [...entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
@@ -953,9 +1010,17 @@ export function MonthlyIncomeList({ items, onTap, productName, query = '' }) {
                 return (
                   <li key={x.id}>
                     <button
-                      onClick={() => onTap(x)}
+                      onClick={() => (selectMode ? toggle(x.id) : onTap(x))}
                       className="w-full text-left flex items-center gap-3 p-3.5 active:bg-iron"
                     >
+                      {selectMode && (
+                        <input
+                          type="checkbox"
+                          readOnly
+                          checked={selected.has(x.id)}
+                          className="w-4 h-4 accent-wise-dark shrink-0"
+                        />
+                      )}
                       <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                         {isInvoice ? <Receipt className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
                       </div>
@@ -1129,6 +1194,10 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
   const [sendError, setSendError] = useState('')
   const [setupOpen, setSetupOpen] = useState(false)
   const zoho = useZohoStatus()
+  const { user } = useAuth()
+  const canSend = hasPermission(user, 'billing.send')
+  const canDelete = hasPermission(user, 'billing.delete')
+  const canDuplicate = hasPermission(user, 'billing.duplicate')
 
   // Resolve the email using the linked customer's CURRENT Email-tab settings so
   // edits made after the invoice was created are honoured at send time. Falls
@@ -1336,7 +1405,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
       )}
 
       {/* Report actions */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className={`grid ${canSend ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
         <button
           type="button"
           onClick={() => setReportOpen(true)}
@@ -1344,13 +1413,15 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         >
           <Eye className="w-4 h-4" /> Preview email
         </button>
-        <button
-          type="button"
-          onClick={() => { setSendState('idle'); setSendError(''); setSendOpen(true) }}
-          className="btn-primary w-full"
-        >
-          <Send className="w-4 h-4" /> Send report
-        </button>
+        {canSend && (
+          <button
+            type="button"
+            onClick={() => { setSendState('idle'); setSendError(''); setSendOpen(true) }}
+            className="btn-primary w-full"
+          >
+            <Send className="w-4 h-4" /> Send report
+          </button>
+        )}
       </div>
 
       {lastSends.length > 0 && (
@@ -1361,34 +1432,38 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
       )}
 
       {/* Existing actions */}
-      <div className="grid grid-cols-2 gap-2">
-        {onUpdate && (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2"
-          >
-            <Pencil className="w-4 h-4" /> Update
-          </button>
-        )}
-        {onDuplicate && (
-          <button
-            type="button"
-            onClick={() => onDuplicate(invoice)}
-            className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2"
-          >
-            <Copy className="w-4 h-4" /> Duplicate
-          </button>
-        )}
-      </div>
+      {(onUpdate || (onDuplicate && canDuplicate)) && (
+        <div className={`grid ${onUpdate && onDuplicate && canDuplicate ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+          {onUpdate && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2"
+            >
+              <Pencil className="w-4 h-4" /> Update
+            </button>
+          )}
+          {onDuplicate && canDuplicate && (
+            <button
+              type="button"
+              onClick={() => onDuplicate(invoice)}
+              className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2"
+            >
+              <Copy className="w-4 h-4" /> Duplicate
+            </button>
+          )}
+        </div>
+      )}
 
-      <button
-        type="button"
-        onClick={onDelete}
-        className="px-4 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 text-sm font-semibold w-full border border-rose-100"
-      >
-        Delete entry
-      </button>
+      {canDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="px-4 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 text-sm font-semibold w-full border border-rose-100"
+        >
+          Delete entry
+        </button>
+      )}
 
       {/* Preview email — exactly as it will be sent */}
       <Modal open={reportOpen} onClose={() => setReportOpen(false)} title="Email preview" size="2xl">

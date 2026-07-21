@@ -3,9 +3,11 @@ import { useParams, Navigate } from 'react-router-dom'
 import {
   Mail, Phone, Plus, Trash2, CheckCircle2, Circle, Calendar,
   Paperclip, Download, DollarSign, Briefcase, Building2,
-  Image as ImageIcon, Maximize2, Pencil, Send, Camera,
+  Image as ImageIcon, Maximize2, Pencil, Send, Camera, Copy, Check,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 import Modal from '../components/Modal.jsx'
 import { TelegramQrPicker } from './Partners.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
@@ -27,6 +29,8 @@ export default function PartnerDetail() {
     removePartner,
     updatePartner,
   } = useStore()
+  const { user } = useAuth()
+  const canDelete = hasPermission(user, 'partners.delete')
   const { t } = useT()
   const partner = state.partners.find((p) => p.id === id)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
@@ -34,6 +38,25 @@ export default function PartnerDetail() {
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false)
   const [editPartnerOpen, setEditPartnerOpen] = useState(false)
   const [qrPreviewOpen, setQrPreviewOpen] = useState(false)
+  const [emailCopied, setEmailCopied] = useState(false)
+
+  const copyEmail = async (email) => {
+    try {
+      await navigator.clipboard.writeText(email)
+    } catch {
+      // Fallback for non-secure contexts where the Clipboard API is blocked.
+      const ta = document.createElement('textarea')
+      ta.value = email
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy') } catch { /* ignore */ }
+      document.body.removeChild(ta)
+    }
+    setEmailCopied(true)
+    setTimeout(() => setEmailCopied(false), 1500)
+  }
 
   if (!partner) return <Navigate to="/partners" replace />
 
@@ -71,18 +94,20 @@ export default function PartnerDetail() {
                 >
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => {
-                    if (confirm(t('partner.confirmDelete', { name: partner.name }))) {
-                      removePartner(partner.id)
-                      history.back()
-                    }
-                  }}
-                  className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
-                  aria-label={t('common.delete')}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canDelete && (
+                  <button
+                    onClick={() => {
+                      if (confirm(t('partner.confirmDelete', { name: partner.name }))) {
+                        removePartner(partner.id)
+                        history.back()
+                      }
+                    }}
+                    className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
+                    aria-label={t('common.delete')}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
             {partner.company && (
@@ -92,10 +117,23 @@ export default function PartnerDetail() {
               </p>
             )}
             {partner.email && (
-              <a href={`mailto:${partner.email}`} className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-graphite shrink-0" />
-                <span className="truncate">{partner.email}</span>
-              </a>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <a href={`mailto:${partner.email}`} className="flex items-center gap-2 min-w-0">
+                  <Mail className="w-4 h-4 text-graphite shrink-0" />
+                  <span className="truncate">{partner.email}</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => copyEmail(partner.email)}
+                  className="p-1 rounded-md text-graphite hover:bg-mint-bg hover:text-wise-dark shrink-0 transition-colors"
+                  aria-label={emailCopied ? t('common.copied') : t('partner.copyEmail')}
+                  title={emailCopied ? t('common.copied') : t('partner.copyEmail')}
+                >
+                  {emailCopied
+                    ? <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
             )}
             {partner.phone && (
               <a href={`tel:${partner.phone}`} className="flex items-center gap-2">

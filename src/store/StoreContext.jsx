@@ -53,13 +53,21 @@ export function StoreProvider({ children }) {
     }
     let cancelled = false
     setBootstrapError(null)
+    // Load each resource independently: a sub-user without a given menu
+    // permission gets a 403 for that resource only — it must NOT wipe the
+    // rest of their data. Missing/blocked resources fall back to an empty list.
+    const safeGet = (path) =>
+      api.get(path).catch((err) => {
+        console.warn(`[store] bootstrap: ${path} unavailable`, err?.status || err?.message || err)
+        return { data: { items: [] } }
+      })
     Promise.all([
-      api.get('/customers'),
-      api.get('/customer-groups'),
-      api.get('/products'),
-      api.get('/partners'),
-      api.get('/campaigns'),
-      api.get('/assets'),
+      safeGet('/customers'),
+      safeGet('/customer-groups'),
+      safeGet('/products'),
+      safeGet('/partners'),
+      safeGet('/campaigns'),
+      safeGet('/assets'),
     ])
       .then(([cust, custGroups, prod, part, camp, ass]) => {
         if (cancelled) return
@@ -236,6 +244,33 @@ export function StoreProvider({ children }) {
           id,
           { files: (c.files || []).filter((x) => x.id !== fileId) },
           { type: 'file.delete', message: `Deleted "${f?.name || ''}"`, meta: { fileId } },
+        )
+      },
+
+      // ── Customer agreements (uploaded agreement documents)
+      addCustomerAgreement: (id, agreement) => {
+        const c = getCustomer(id)
+        if (!c) return
+        const a = {
+          id: agreement.id || uid('ag'),
+          uploadedAt: new Date().toISOString(),
+          description: '',
+          ...agreement,
+        }
+        return patchCustomer(
+          id,
+          { agreements: [a, ...(c.agreements || [])] },
+          { type: 'agreement.create', message: `Added agreement "${a.name || ''}"`, meta: { agreementId: a.id, size: a.size, type: a.type } },
+        )
+      },
+      removeCustomerAgreement: (id, agreementId) => {
+        const c = getCustomer(id)
+        if (!c) return
+        const a = (c.agreements || []).find((x) => x.id === agreementId)
+        return patchCustomer(
+          id,
+          { agreements: (c.agreements || []).filter((x) => x.id !== agreementId) },
+          { type: 'agreement.delete', message: `Deleted agreement "${a?.name || ''}"`, meta: { agreementId } },
         )
       },
 
@@ -588,6 +623,20 @@ export function StoreProvider({ children }) {
           const newItem = { id: uid(field[0]), ...item }
           const res = await api.patch(`/products/${id}`, {
             [field]: [newItem, ...(p[field] || [])],
+          })
+          replaceIn('products', res.data.product)
+        }),
+      // Append several children in ONE patch (safe for bulk actions — looping
+      // addProductChild would race, as each call reads the same base list).
+      addProductChildren: (id, field, newItems) =>
+        run(async () => {
+          const p = getProduct(id)
+          if (!p) return
+          const list = Array.isArray(newItems) ? newItems : []
+          if (!list.length) return
+          const prepared = list.map((item) => ({ id: uid(field[0]), ...item }))
+          const res = await api.patch(`/products/${id}`, {
+            [field]: [...prepared, ...(p[field] || [])],
           })
           replaceIn('products', res.data.product)
         }),

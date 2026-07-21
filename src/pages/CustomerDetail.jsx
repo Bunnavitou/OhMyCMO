@@ -10,15 +10,17 @@ import { useT } from '../i18n/LanguageContext.jsx'
 import CustomerDetailOrg from './CustomerDetailOrg.jsx'
 import CustomerDetailTask from './CustomerDetailTask.jsx'
 import CustomerDetailFile from './CustomerDetailFile.jsx'
+import CustomerDetailAgreement from './CustomerDetailAgreement.jsx'
 import CustomerDetailLog from './CustomerDetailLog.jsx'
 import CustomerDetailEmail from './CustomerDetailEmail.jsx'
 
 const TABS = [
-  { value: 'Tasks',     tKey: 'customer.tab.tasks' },
-  { value: 'Products',  tKey: 'customer.tab.products' },
-  { value: 'Files',     tKey: 'customer.tab.files' },
-  { value: 'Email',     tKey: 'customer.tab.email' },
-  { value: 'Audit Log', tKey: 'customer.tab.audit' },
+  { value: 'Tasks',      tKey: 'customer.tab.tasks' },
+  { value: 'Products',   tKey: 'customer.tab.products' },
+  { value: 'Files',      tKey: 'customer.tab.files' },
+  { value: 'Agreements', tKey: 'customer.tab.agreements' },
+  { value: 'Email',      tKey: 'customer.tab.email' },
+  { value: 'Audit Log',  tKey: 'customer.tab.audit' },
 ]
 
 export default function CustomerDetail() {
@@ -68,6 +70,7 @@ export default function CustomerDetail() {
           />
         )}
         {tab === 'Files' && <CustomerDetailFile customer={customer} />}
+        {tab === 'Agreements' && <CustomerDetailAgreement customer={customer} />}
         {tab === 'Email' && <CustomerDetailEmail customer={customer} />}
         {tab === 'Audit Log' && <CustomerDetailLog logs={customer.logs || []} />}
       </div>

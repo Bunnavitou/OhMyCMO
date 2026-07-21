@@ -89,6 +89,8 @@ export const messages = {
     'common.no':           'No',
     'common.done':         'Done',
     'common.viewAll':      'View all',
+    'common.copied':       'Copied',
+    'partner.copyEmail':   'Copy email',
     'common.noResults':    'No matches.',
 
     // Common field labels
@@ -161,6 +163,7 @@ export const messages = {
     'customer.tab.overview':     'Overview',
     'customer.tab.tasks':        'Tasks',
     'customer.tab.files':        'Files',
+    'customer.tab.agreements':   'Agreements',
     'customer.tab.logs':         'Logs',
     'customer.tab.org':          'Company',
     'customer.tab.products':     'Products',
@@ -476,6 +479,8 @@ export const messages = {
     'common.no':           '아니오',
     'common.done':         '완료',
     'common.viewAll':      '전체 보기',
+    'common.copied':       '복사됨',
+    'partner.copyEmail':   '이메일 복사',
     'common.noResults':    '검색 결과가 없습니다.',
 
     'field.name':         '이름',
@@ -542,6 +547,7 @@ export const messages = {
     'customer.tab.overview':     '개요',
     'customer.tab.tasks':        '업무',
     'customer.tab.files':        '파일',
+    'customer.tab.agreements':   '계약서',
     'customer.tab.logs':         '로그',
     'customer.tab.org':          '회사',
     'customer.tab.products':     '제품',

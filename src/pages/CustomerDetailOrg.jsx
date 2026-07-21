@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import { Mail, Phone, MapPin, Hash, Building2, Pencil, Trash2, Users, ChevronRight } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 import Modal from '../components/Modal.jsx'
 import { ProfileImagePicker } from './Customers.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
@@ -12,6 +14,8 @@ const stages = ['Prospect', 'Active', 'On hold', 'Churned']
 
 export default function CustomerDetailOrg({ customer }) {
   const { state, updateCustomer, removeCustomer } = useStore()
+  const { user } = useAuth()
+  const canDelete = hasPermission(user, 'customers.delete')
   const { t } = useT()
   const [editing, setEditing] = useState(false)
   const groups = state.customerGroups || []
@@ -63,13 +67,15 @@ export default function CustomerDetailOrg({ customer }) {
               >
                 <Pencil className="w-4 h-4" />
               </button>
-              <button
-                onClick={onDelete}
-                className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
-                aria-label="Delete customer"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {canDelete && (
+                <button
+                  onClick={onDelete}
+                  className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
+                  aria-label="Delete customer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
           {customer.email ? (

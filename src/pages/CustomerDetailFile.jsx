@@ -4,6 +4,8 @@ import {
   FileText, FileImage, FileSpreadsheet, FileVideo, FileArchive, FileCode,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 
 const FILE_LIMIT_BYTES = 1024 * 1024 // 1 MB
 
@@ -25,6 +27,8 @@ const fileIconFor = (mime = '') => {
 
 export default function CustomerDetailFile({ customer }) {
   const { addCustomerFile, removeCustomerFile } = useStore()
+  const { user } = useAuth()
+  const canDelete = hasPermission(user, 'customers.delete')
   const [error, setError] = useState('')
 
   const items = customer.files || []
@@ -107,13 +111,15 @@ export default function CustomerDetailFile({ customer }) {
                     <Download className="w-4 h-4" />
                   </a>
                 )}
-                <button
-                  onClick={() => handleDelete(f.id)}
-                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"
-                  aria-label="Delete file"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canDelete && (
+                  <button
+                    onClick={() => handleDelete(f.id)}
+                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"
+                    aria-label="Delete file"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </li>
             )
           })}

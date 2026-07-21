@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useParams, Navigate, useNavigate } from 'react-router-dom'
 import { Plus, TrendingUp, TrendingDown, Receipt, Trash2, Pencil, Search, Camera, Package } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import { InvoiceForm, MonthlyIncomeList, InvoiceDetail } from '../components/Invoice.jsx'
@@ -30,6 +32,7 @@ export default function ProductDetail() {
   const {
     state,
     addProductChild,
+    addProductChildren,
     updateProductChild,
     removeProductChild,
     updateProduct,
@@ -37,6 +40,8 @@ export default function ProductDetail() {
     updateCustomer,
     appendCustomerLog,
   } = useStore()
+  const { user } = useAuth()
+  const canDelete = hasPermission(user, 'billing.delete')
   const { t } = useT()
   const navigate = useNavigate()
   const product = state.products.find((p) => p.id === id)
@@ -67,6 +72,22 @@ export default function ProductDetail() {
   // defaults, so the next invoice for that customer pre-fills with them. Only
   // valid pieces are written, and empty fields never wipe an existing default.
   const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim())
+  // Build a fresh copy of an invoice for duplication: new date, blank invoice
+  // number, fresh line-item ids, and no carried-over send history.
+  const duplicateInvoiceData = (src) => {
+    const copy = { ...src, date: new Date().toISOString().slice(0, 10), invoiceNo: '' }
+    delete copy.id
+    delete copy.sends
+    copy.items = Array.isArray(src.items)
+      ? src.items.map((it) => {
+          const item = { ...it }
+          delete item.id
+          return item
+        })
+      : []
+    return copy
+  }
+
   const saveEmailDefaults = (d) => {
     if (!d?.customerId || !d.email) return
     const { to, cc, subject, body } = d.email
@@ -94,14 +115,16 @@ export default function ProductDetail() {
             >
               <Pencil className="w-4 h-4" />
             </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="p-2 rounded-full hover:bg-rose-50 text-rose-600"
-              aria-label={t('common.delete')}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="p-2 rounded-full hover:bg-rose-50 text-rose-600"
+                aria-label={t('common.delete')}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </>
         }
       />
@@ -185,6 +208,11 @@ export default function ProductDetail() {
               onTap={(x) => setViewingInvoice(x)}
               productName={product.name}
               query={invoiceQuery}
+              onBulkDuplicate={(list) => {
+                if (!list.length) return
+                if (!confirm(`Duplicate ${list.length} invoice${list.length > 1 ? 's' : ''}?`)) return
+                addProductChildren(product.id, 'income', list.map(duplicateInvoiceData))
+              }}
             />
           </div>
         )}
@@ -262,16 +290,8 @@ export default function ProductDetail() {
             setViewingInvoice({ ...viewingInvoice, ...patch })
           }}
           onDuplicate={(src) => {
-            const { id: _id, ...rest } = src
             setViewingInvoice(null)
-            setInvoiceDraft({
-              ...rest,
-              date: new Date().toISOString().slice(0, 10),
-              invoiceNo: '',
-              items: Array.isArray(rest.items)
-                ? rest.items.map(({ id: _iid, ...item }) => item)
-                : [],
-            })
+            setInvoiceDraft(duplicateInvoiceData(src))
             setOpenModal('income')
           }}
         />

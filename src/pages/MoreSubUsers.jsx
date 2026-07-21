@@ -16,6 +16,29 @@ const ACCESS_MENUS = [
   { key: 'subUsers',  label: 'Sub user Management' },
 ]
 
+// Per-menu action abilities (opt-OUT: allowed by default, turned off to
+// restrict). Shown nested under their parent menu. Keys are menu-scoped.
+const MENU_ABILITIES = {
+  customers: [
+    { key: 'customers.agreements', label: 'Manage agreements' },
+    { key: 'customers.delete',     label: 'Delete records' },
+  ],
+  products: [
+    { key: 'billing.send',      label: 'Send invoice emails' },
+    { key: 'billing.duplicate', label: 'Duplicate bills' },
+    { key: 'billing.delete',    label: 'Delete bills' },
+  ],
+  partners: [
+    { key: 'partners.delete', label: 'Delete partners' },
+  ],
+  marketing: [
+    { key: 'marketing.delete', label: 'Delete campaigns' },
+  ],
+  assets: [
+    { key: 'assets.delete', label: 'Delete assets' },
+  ],
+}
+
 const accessSummary = (access = {}) => {
   const granted = ACCESS_MENUS.filter((m) => access?.[m.key]).map((m) => m.label)
   if (granted.length === 0) return 'No access'
@@ -175,6 +198,7 @@ function SubUserForm({ initial, submitting, error, onSubmit, onDelete }) {
     marketing: true,
     assets: false,
     subUsers: false,
+    // Abilities are opt-out (allowed unless explicitly false) — no defaults.
   }
   const [username, setUsername] = useState(initial?.username || '')
   const [password, setPassword] = useState('')
@@ -188,6 +212,9 @@ function SubUserForm({ initial, submitting, error, onSubmit, onDelete }) {
   const [err, setErr] = useState('')
 
   const togglePermission = (k) => setPermissions((a) => ({ ...a, [k]: !a[k] }))
+  // Abilities are opt-out: allowed unless explicitly false. Flipping the
+  // effective state (absent/true → false, false → true).
+  const toggleAbility = (k) => setPermissions((a) => ({ ...a, [k]: a[k] === false }))
 
   const handleSelectAll = () => {
     const allOn = ACCESS_MENUS.every((m) => permissions[m.key])
@@ -272,27 +299,57 @@ function SubUserForm({ initial, submitting, error, onSubmit, onDelete }) {
             {ACCESS_MENUS.every((m) => permissions[m.key]) ? 'Clear all' : 'Select all'}
           </button>
         </div>
-        <div className="card !p-0 divide-y divide-shadow">
+        <p className="text-[11px] text-graphite mb-2 -mt-1">
+          Turn a menu on for access. Its functions below are allowed by default —
+          switch any off to restrict it for this user.
+        </p>
+        <div className="space-y-2">
           {ACCESS_MENUS.map((m) => {
             const on = !!permissions[m.key]
+            const abilities = MENU_ABILITIES[m.key] || []
             return (
-              <label
-                key={m.key}
-                className="flex items-center gap-3 p-3 cursor-pointer hover:bg-iron"
-              >
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => togglePermission(m.key)}
-                  className="w-4 h-4 accent-wise-green"
-                />
-                <span className="flex-1 text-sm text-near-black">{m.label}</span>
-                <span
-                  className={`pill ${on ? 'bg-wise-green text-wise-dark' : 'bg-iron text-graphite'}`}
-                >
-                  {on ? 'Allowed' : 'Hidden'}
-                </span>
-              </label>
+              <div key={m.key} className="card !p-0 overflow-hidden">
+                <label className="flex items-center gap-3 p-3 cursor-pointer hover:bg-iron">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() => togglePermission(m.key)}
+                    className="w-4 h-4 accent-wise-green"
+                  />
+                  <span className="flex-1 text-sm font-semibold text-near-black">{m.label}</span>
+                  <span
+                    className={`pill ${on ? 'bg-wise-green text-wise-dark' : 'bg-iron text-graphite'}`}
+                  >
+                    {on ? 'Allowed' : 'Hidden'}
+                  </span>
+                </label>
+                {on && abilities.length > 0 && (
+                  <div className="border-t border-shadow divide-y divide-shadow bg-iron/30">
+                    {abilities.map((a) => {
+                      const aon = permissions[a.key] !== false
+                      return (
+                        <label
+                          key={a.key}
+                          className="flex items-center gap-3 py-2 pl-9 pr-3 cursor-pointer hover:bg-iron"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={aon}
+                            onChange={() => toggleAbility(a.key)}
+                            className="w-4 h-4 accent-wise-green"
+                          />
+                          <span className="flex-1 text-[13px] text-near-black">{a.label}</span>
+                          <span
+                            className={`pill ${aon ? 'bg-wise-green text-wise-dark' : 'bg-rose-100 text-rose-700'}`}
+                          >
+                            {aon ? 'Allowed' : 'Restricted'}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
