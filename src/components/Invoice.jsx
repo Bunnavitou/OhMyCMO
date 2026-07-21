@@ -33,6 +33,21 @@ const DEFAULT_EMAIL_SUBJECT = 'Invoice {invoice_no} from {company_name}'
 const DEFAULT_EMAIL_BODY =
   'Dear {customer_name},\n\nPlease find attached invoice {invoice_no} for a total of {grand_total}.\n\nThank you for your business.'
 
+// Resolve a customer's invoice-email template (raw, with {placeholders}). The
+// customer's Email tab (taskEmail) is the single source of truth, then the
+// invoice billing defaults, then the provided snapshot / global defaults. Used
+// for the form prefill, the customer picker, and the send — so all three agree.
+function resolveEmailTemplate(customer, snapshot = {}) {
+  const te = customer?.taskEmail || {}
+  const to = te.to || customer?.billingEmail || customer?.email || snapshot.to || ''
+  const cc = Array.isArray(te.cc) && te.cc.length ? te.cc
+    : Array.isArray(customer?.emailCc) && customer.emailCc.length ? customer.emailCc
+    : Array.isArray(snapshot.cc) ? snapshot.cc : []
+  const subject = te.subject || customer?.emailTemplate?.subject || snapshot.subject || DEFAULT_EMAIL_SUBJECT
+  const body = te.body || customer?.emailTemplate?.body || snapshot.body || DEFAULT_EMAIL_BODY
+  return { to, cc, subject, body }
+}
+
 // Build the per-line attachment rows for the invoice preview / Excel export.
 // Columns mirror the emailed spreadsheet: Description, Qty, Unit price,
 // Total Fee, VAT %, Total Amount.
@@ -134,12 +149,14 @@ export function CcEditor({ value, onChange }) {
 // its attachments: any user-uploaded spreadsheets plus the invoice spreadsheet
 // generated from the line items (rendered as a table). Shown in a popup so the
 // sender can confirm everything is correct before sending.
-function EmailPreview({ to, cc, subject, body, items, taxRate, invoiceNo, attachments = [] }) {
-  const { rows, totalPay, rate } = useMemo(
-    () => buildAttachmentRows(items, taxRate),
-    [items, taxRate],
+export function EmailPreview({ to, cc, subject, body, items = [], taxRate, invoiceNo, attachments = [] }) {
+  // Render the message exactly as the send will build it: the invoice table is
+  // injected at the {invoice_table} token (or just before the signature) using
+  // the same helper doSend uses, so the preview matches the delivered email.
+  const composedHtml = useMemo(
+    () => composeInvoiceHtmlBody(body || '', invoiceEmailTableHtml({ items, taxRate })),
+    [body, items, taxRate],
   )
-  const vatHeader = `VAT ${(rate * 100).toFixed(rate * 100 % 1 ? 1 : 0)}%`
 
   return (
     <div className="space-y-3 text-sm">
@@ -162,9 +179,17 @@ function EmailPreview({ to, cc, subject, body, items, taxRate, invoiceNo, attach
 
       <div className="card !p-3">
         <p className="text-xs text-graphite mb-1">Message</p>
-        <p className="whitespace-pre-wrap">{body || <em className="text-graphite">empty body</em>}</p>
+        {composedHtml ? (
+          <div
+            className="text-sm leading-relaxed overflow-x-auto"
+            dangerouslySetInnerHTML={{ __html: composedHtml }}
+          />
+        ) : (
+          <em className="text-graphite">empty body</em>
+        )}
       </div>
 
+      {(items.length > 0 || attachments.length > 0) && (
       <div className="space-y-2">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-graphite">
           <Paperclip className="w-3.5 h-3.5" /> Attachments{attachments.length ? ` (${attachments.length})` : ''}
@@ -172,7 +197,7 @@ function EmailPreview({ to, cc, subject, body, items, taxRate, invoiceNo, attach
 
         {/* User-uploaded spreadsheets — the only files attached to the email. */}
         {attachments.length === 0 ? (
-          <p className="text-[11px] text-graphite">No files attached — the invoice table below is embedded in the email body.</p>
+          <p className="text-[11px] text-graphite">No files attached — the invoice table is embedded in the message above.</p>
         ) : (
           attachments.map((att, i) => (
             <div key={`${att.name}-${i}`} className="card !p-3 flex items-center gap-3">
@@ -196,60 +221,25 @@ function EmailPreview({ to, cc, subject, body, items, taxRate, invoiceNo, attach
           ))
         )}
 
-        {/* Invoice table — rendered inline in the email body, not attached.
-            Download offered as a convenience. */}
-        <div className="flex items-center justify-between pt-1">
-          <span className="inline-flex items-center gap-1.5 text-xs text-graphite">
-            <FileSpreadsheet className="w-3.5 h-3.5" /> Invoice table
-            <span className="text-[10px] uppercase tracking-wider">· in email body</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => exportInvoiceExcel({ items, taxRate, invoiceNo })}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-iron text-graphite hover:bg-mint-bg hover:text-wise-dark transition-colors"
-          >
-            <Download className="w-3 h-3" /> Excel
-          </button>
-        </div>
-        <div className="card !p-0 overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-iron text-graphite">
-              <tr>
-                <th className="text-left p-2 font-semibold">Description</th>
-                <th className="text-right p-2 font-semibold">Qty</th>
-                <th className="text-right p-2 font-semibold">Unit price</th>
-                <th className="text-right p-2 font-semibold">Total Fee</th>
-                <th className="text-right p-2 font-semibold whitespace-nowrap">{vatHeader}</th>
-                <th className="text-right p-2 font-semibold">Total Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-3 text-center text-graphite">No line items.</td>
-                </tr>
-              ) : (
-                rows.map((r, i) => (
-                  <tr key={i} className="border-t border-shadow">
-                    <td className="p-2">{r.description || '—'}</td>
-                    <td className="p-2 text-right">{r.qty}</td>
-                    <td className="p-2 text-right">{fmtMoney(r.unitPrice)}</td>
-                    <td className="p-2 text-right">{fmtMoney(r.totalFee)}</td>
-                    <td className="p-2 text-right">{fmtMoney(r.vat)}</td>
-                    <td className="p-2 text-right font-medium">{fmtMoney(r.totalAmount)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-shadow bg-amber-100 text-near-black">
-                <td className="p-2 font-bold" colSpan={5}>Total Amount Pay</td>
-                <td className="p-2 text-right font-bold">${fmtMoney(totalPay)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        {/* The invoice table renders inline in the message above; the
+            spreadsheet is offered here as a download convenience. */}
+        {items.length > 0 && (
+          <div className="flex items-center justify-between pt-1">
+            <span className="inline-flex items-center gap-1.5 text-xs text-graphite">
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Invoice table
+              <span className="text-[10px] uppercase tracking-wider">· shown in message</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => exportInvoiceExcel({ items, taxRate, invoiceNo })}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-iron text-graphite hover:bg-mint-bg hover:text-wise-dark transition-colors"
+            >
+              <Download className="w-3 h-3" /> Excel
+            </button>
+          </div>
+        )}
       </div>
+      )}
     </div>
   )
 }
@@ -406,14 +396,24 @@ export function InvoiceForm({
     initial?.customerName ?? defaultCustomer.customerName ?? '',
   )
 
-  // Email section — auto-filled from the picked customer's saved billing
-  // defaults, but fully editable here.
-  const [emailTo, setEmailTo] = useState(initial?.email?.to || '')
-  const [emailCc, setEmailCc] = useState(
-    Array.isArray(initial?.email?.cc) ? initial.email.cc : [],
-  )
-  const [emailSubject, setEmailSubject] = useState(initial?.email?.subject || '')
-  const [emailBody, setEmailBody] = useState(initial?.email?.body || '')
+  // Email section — the linked customer's Email tab is the source of truth, so
+  // editing an existing invoice always prefills with the customer's LATEST
+  // template (falling back to the invoice's stored snapshot). Fully editable.
+  const initialCustomer = (initial?.customerId || defaultCustomer.customerId)
+    ? customers.find((c) => c.id === (initial?.customerId || defaultCustomer.customerId))
+    : null
+  const initialEmail = initialCustomer
+    ? resolveEmailTemplate(initialCustomer, initial?.email || {})
+    : {
+        to: initial?.email?.to || '',
+        cc: Array.isArray(initial?.email?.cc) ? initial.email.cc : [],
+        subject: initial?.email?.subject || '',
+        body: initial?.email?.body || '',
+      }
+  const [emailTo, setEmailTo] = useState(initialEmail.to)
+  const [emailCc, setEmailCc] = useState(initialEmail.cc)
+  const [emailSubject, setEmailSubject] = useState(initialEmail.subject)
+  const [emailBody, setEmailBody] = useState(initialEmail.body)
   const [previewOpen, setPreviewOpen] = useState(false)
 
   // Email attachments — user-uploaded spreadsheets that ride along with the
@@ -482,19 +482,13 @@ export function InvoiceForm({
     setCustomerName(c.name || '')
     setCustomerNo(deriveCustomerNo(c))
 
-    // Auto-fill the email section from this customer's saved email settings.
-    // Priority: invoice-specific billing defaults → the customer's Email tab
-    // settings (taskEmail) → the plain contact email / global templates. This
-    // way anything the user configures on the customer flows into the invoice.
-    // Subject/Body keep their {placeholders}; they're resolved in the preview.
-    const te = c.taskEmail || {}
-    setEmailTo(c.billingEmail || te.to || c.email || '')
-    const cc = Array.isArray(c.emailCc) && c.emailCc.length
-      ? c.emailCc
-      : Array.isArray(te.cc) ? te.cc : []
-    setEmailCc(cc)
-    setEmailSubject(c.emailTemplate?.subject || te.subject || DEFAULT_EMAIL_SUBJECT)
-    setEmailBody(c.emailTemplate?.body || te.body || DEFAULT_EMAIL_BODY)
+    // Auto-fill the email section from the customer's Email tab (the source of
+    // truth). Subject/Body keep their {placeholders}; resolved in the preview.
+    const email = resolveEmailTemplate(c)
+    setEmailTo(email.to)
+    setEmailCc(email.cc)
+    setEmailSubject(email.subject)
+    setEmailBody(email.body)
   }
   const [items, setItems] = useState(
     initial?.items?.length
@@ -1040,96 +1034,30 @@ function invoiceEmailTableHtml(invoice) {
 // Compose the HTML email body: message text with the invoice table inserted.
 // Placement priority:
 //   1. where an explicit {invoice_table} token appears, else
-//   2. just before the signature line (Best regards / Regards / Sincerely…), else
+//   2. at the start of the closing block — the paragraph containing the sign-off
+//      (Best regards / Regards / Sincerely…) — so any note the user writes just
+//      above the sign-off stays BELOW the table, else
 //   3. appended at the end.
 function composeInvoiceHtmlBody(bodyText, tableHtml) {
   const nl2br = (s) => esc(s).replace(/\n/g, '<br>')
-  if (!tableHtml) return bodyText ? nl2br(bodyText) : ''
   const TOKEN = '{invoice_table}'
+  const table = tableHtml || ''
+  // Honour an explicit token first — joining with '' cleanly drops the token
+  // when there's no table (e.g. previewing the template with no invoice).
   if (bodyText.includes(TOKEN)) {
-    return bodyText.split(TOKEN).map(nl2br).join(tableHtml)
+    return bodyText.split(TOKEN).map(nl2br).join(table)
   }
+  if (!table) return bodyText ? nl2br(bodyText) : ''
   const sig = bodyText.match(/\n\s*(best regards|kind regards|warm regards|sincerely|regards|thank you|thanks)\b/i)
   if (sig) {
-    return nl2br(bodyText.slice(0, sig.index)) + tableHtml + nl2br(bodyText.slice(sig.index))
+    // Walk back to the blank line that starts the sign-off's paragraph so the
+    // table separates the message from the whole closing block, not just the
+    // sign-off word.
+    const para = bodyText.lastIndexOf('\n\n', sig.index)
+    const cut = para === -1 ? sig.index : para
+    return nl2br(bodyText.slice(0, cut)) + tableHtml + nl2br(bodyText.slice(cut))
   }
   return `${nl2br(bodyText)}${tableHtml}`
-}
-
-// Read-only, print-style rendering of the invoice used by the "Preview report"
-// modal. Mirrors the invoice detail data exactly.
-function InvoiceReport({ invoice }) {
-  const lines = Array.isArray(invoice.items) ? invoice.items : []
-  const vatPct = (Number(invoice.taxRate || 0) * 100).toFixed(1)
-  return (
-    <div className="bg-white text-near-black">
-      <div className="flex items-start justify-between gap-4 pb-4 border-b border-shadow">
-        <div>
-          <p className="text-2xl font-bold tracking-tight">INVOICE</p>
-          {invoice.invoiceNo && <p className="text-sm text-graphite mt-0.5">{invoice.invoiceNo}</p>}
-        </div>
-        <div className="text-right text-sm">
-          <p className="text-graphite">Date</p>
-          <p className="font-medium">{invoice.date || '—'}</p>
-        </div>
-      </div>
-
-      <div className="py-4 text-sm">
-        <p className="text-graphite text-xs uppercase tracking-wider mb-1">Bill to</p>
-        <p className="font-semibold">{invoice.customerName || invoice.source || '—'}</p>
-        {invoice.customerNo && <p className="text-graphite">Customer #: {invoice.customerNo}</p>}
-      </div>
-
-      {lines.length > 0 ? (
-        <table className="w-full text-xs border-t border-shadow">
-          <thead className="text-graphite">
-            <tr>
-              <th className="text-left py-2 font-semibold">#</th>
-              <th className="text-left py-2 font-semibold">Description</th>
-              <th className="text-right py-2 font-semibold">Qty</th>
-              <th className="text-right py-2 font-semibold">Unit</th>
-              <th className="text-right py-2 font-semibold">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map((it, i) => (
-              <tr key={it.id || i} className="border-t border-shadow">
-                <td className="py-2">{i + 1}</td>
-                <td className="py-2">{it.description || '—'}</td>
-                <td className="py-2 text-right">{it.qty}</td>
-                <td className="py-2 text-right">${fmtMoney(it.unitPrice)}</td>
-                <td className="py-2 text-right font-medium">${fmtMoney(it.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className="text-sm border-t border-shadow py-3">
-          Amount: <span className="font-semibold">${fmtMoney(invoice.amount)}</span>
-        </p>
-      )}
-
-      <div className="mt-4 ml-auto max-w-[16rem] text-sm space-y-1">
-        {lines.length > 0 && (
-          <>
-            <Row label="Subtotal" value={`$${fmtMoney(invoice.subtotal)}`} />
-            <Row label={`VAT ${vatPct}%`} value={`$${fmtMoney(invoice.tax)}`} />
-          </>
-        )}
-        <div className="flex justify-between text-base pt-2 border-t border-shadow">
-          <span className="font-bold">Grand total</span>
-          <span className="font-bold">${fmtMoney(invoice.amount)}</span>
-        </div>
-      </div>
-
-      {invoice.note && (
-        <div className="mt-4 pt-3 border-t border-shadow text-sm">
-          <p className="text-graphite text-xs uppercase tracking-wider mb-1">Note</p>
-          <p>{invoice.note}</p>
-        </div>
-      )}
-    </div>
-  )
 }
 
 // Open a standalone, print-ready invoice document in a new window and trigger
@@ -1202,8 +1130,40 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
   const [setupOpen, setSetupOpen] = useState(false)
   const zoho = useZohoStatus()
 
-  const recipient = invoice?.email?.to || ''
-  const ccList = Array.isArray(invoice?.email?.cc) ? invoice.email.cc : []
+  // Resolve the email using the linked customer's CURRENT Email-tab settings so
+  // edits made after the invoice was created are honoured at send time. Falls
+  // back to the invoice's stored snapshot when no linked customer is found.
+  const liveEmail = useMemo(() => {
+    const snap = invoice?.email || {}
+    const fallback = {
+      to: snap.to || '',
+      cc: Array.isArray(snap.cc) ? snap.cc : [],
+      subject: snap.resolvedSubject || snap.subject || `Invoice ${invoice?.invoiceNo || ''}`.trim(),
+      body: snap.resolvedBody || snap.body || '',
+    }
+    const c = invoice?.customerId ? customers.find((x) => x.id === invoice.customerId) : null
+    if (!c) return fallback
+
+    // The customer's Email tab (taskEmail) is the source of truth; the invoice
+    // snapshot is only a fallback. Same resolver the form uses, so all agree.
+    const tpl = resolveEmailTemplate(c, snap)
+    const ctx = {
+      invoice_no: (invoice?.invoiceNo || '').trim() || '—',
+      company_name: (invoice?.customerName || c.name || '').trim(),
+      customer_name: (c.contact || invoice?.customerName || c.name || '').trim(),
+      task_name: (invoice?.customerName || c.name || '').trim(),
+      grand_total: `$${fmtMoney(invoice?.grandTotal ?? invoice?.amount ?? 0)}`,
+    }
+    return {
+      to: tpl.to,
+      cc: tpl.cc,
+      subject: applyPlaceholders(tpl.subject, ctx),
+      body: applyPlaceholders(tpl.body, ctx),
+    }
+  }, [invoice, customers])
+
+  const recipient = liveEmail.to
+  const ccList = liveEmail.cc
 
   // Send the invoice report over Zoho Mail (server-side SMTP). Attaches only
   // the user-uploaded files (the invoice figures are rendered inline in the
@@ -1229,9 +1189,8 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         const b64 = String(a.dataUrl || '').split(',')[1]
         if (b64) attachments.push({ filename: a.name, content: b64 })
       }
-      const subject =
-        invoice.email?.resolvedSubject || invoice.email?.subject || `Invoice ${invoice.invoiceNo || ''}`.trim()
-      const bodyText = invoice.email?.resolvedBody || invoice.email?.body || ''
+      const subject = liveEmail.subject || `Invoice ${invoice.invoiceNo || ''}`.trim()
+      const bodyText = liveEmail.body || ''
       // Inline invoice table placed before the signature (or at {invoice_table}).
       const html = composeInvoiceHtmlBody(bodyText, invoiceEmailTableHtml(invoice)) || undefined
       // Plain-text fallback: drop the token (no table in text form).
@@ -1383,7 +1342,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
           onClick={() => setReportOpen(true)}
           className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2"
         >
-          <Eye className="w-4 h-4" /> Preview report
+          <Eye className="w-4 h-4" /> Preview email
         </button>
         <button
           type="button"
@@ -1431,16 +1390,23 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         Delete entry
       </button>
 
-      {/* Preview report — print-style rendering */}
-      <Modal open={reportOpen} onClose={() => setReportOpen(false)} title="Invoice report" size="2xl">
+      {/* Preview email — exactly as it will be sent */}
+      <Modal open={reportOpen} onClose={() => setReportOpen(false)} title="Email preview" size="2xl">
         <div className="space-y-3">
-          <div className="rounded-lg border border-shadow p-4">
-            <InvoiceReport invoice={invoice} />
-          </div>
+          <EmailPreview
+            to={recipient}
+            cc={ccList}
+            subject={liveEmail.subject}
+            body={liveEmail.body}
+            items={invoice.items}
+            taxRate={invoice.taxRate}
+            invoiceNo={invoice.invoiceNo}
+            attachments={invoice.email?.attachments || []}
+          />
           <button
             type="button"
             onClick={() => openInvoiceReport(invoice)}
-            className="btn-primary w-full"
+            className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2"
           >
             <Printer className="w-4 h-4" /> Print / Save as PDF
           </button>
@@ -1463,7 +1429,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
             <div className="card !p-3 space-y-1 text-sm">
               <Row label="To" value={recipient || '— none —'} />
               {ccList.length > 0 && <Row label="Cc" value={ccList.join(', ')} />}
-              <Row label="Subject" value={invoice?.email?.resolvedSubject || invoice?.email?.subject || `Invoice ${invoice.invoiceNo || ''}`} />
+              <Row label="Subject" value={liveEmail.subject || `Invoice ${invoice.invoiceNo || ''}`} />
               <Row label="Attachments" value={`${(invoice?.email?.attachments || []).length} file(s)`} />
             </div>
             {sendState === 'error' && (

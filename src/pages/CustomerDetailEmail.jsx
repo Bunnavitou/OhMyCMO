@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Mail, Save, RotateCcw } from 'lucide-react'
+import { Mail, Save, RotateCcw, Eye } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
-import { CcEditor } from '../components/Invoice.jsx'
+import { CcEditor, EmailPreview } from '../components/Invoice.jsx'
+import Modal from '../components/Modal.jsx'
 import { isEmail, applyPlaceholders } from '../utils/email.js'
 
 // Per-customer email settings for task update mails. Stored on the customer as
@@ -29,6 +30,7 @@ export default function CustomerDetailEmail({ customer }) {
   const [subject, setSubject] = useState(saved.subject)
   const [body, setBody] = useState(saved.body)
   const [savedFlash, setSavedFlash] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   // Placeholders resolved for the live preview.
   const ctx = useMemo(
@@ -111,7 +113,7 @@ export default function CustomerDetailEmail({ customer }) {
       <div>
         <label className="label">{t('customer.email.body')}</label>
         <textarea
-          className="input min-h-[130px]"
+          className="input min-h-[280px]"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={DEFAULT_BODY}
@@ -125,13 +127,14 @@ export default function CustomerDetailEmail({ customer }) {
         </p>
       </div>
 
-      {(subject.includes('{') || body.includes('{')) && (
-        <div className="rounded-lg bg-iron/60 px-3 py-2">
-          <p className="text-xs font-medium text-graphite mb-1">{t('customer.email.preview')}</p>
-          <p className="text-sm font-medium">{applyPlaceholders(subject, ctx)}</p>
-          <p className="text-sm whitespace-pre-wrap mt-1">{applyPlaceholders(body, ctx)}</p>
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={() => setPreviewOpen(true)}
+        disabled={!to.trim() && !subject.trim() && !body.trim()}
+        className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2 disabled:opacity-40"
+      >
+        <Eye className="w-4 h-4" /> {t('customer.email.preview')}
+      </button>
 
       {savedFlash && (
         <p className="text-xs text-emerald-700 text-center">{t('customer.email.saved')}</p>
@@ -155,6 +158,15 @@ export default function CustomerDetailEmail({ customer }) {
           <RotateCcw className="w-4 h-4" /> {t('common.cancel')}
         </button>
       </div>
+
+      <Modal open={previewOpen} onClose={() => setPreviewOpen(false)} title={t('customer.email.preview')} size="2xl">
+        <EmailPreview
+          to={to}
+          cc={cc}
+          subject={applyPlaceholders(subject, ctx)}
+          body={applyPlaceholders(body, ctx)}
+        />
+      </Modal>
     </div>
   )
 }
