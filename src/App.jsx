@@ -5,6 +5,7 @@ import RequireAuth from './auth/RequireAuth.jsx'
 import Login from './pages/Login.jsx'
 
 const Home = lazy(() => import('./pages/Home.jsx'))
+const Tasks = lazy(() => import('./pages/Tasks.jsx'))
 const Customers = lazy(() => import('./pages/Customers.jsx'))
 const CustomerDetail = lazy(() => import('./pages/CustomerDetail.jsx'))
 const CustomerStaff = lazy(() => import('./pages/CustomerStaff.jsx'))
@@ -44,6 +45,7 @@ export default function App() {
           }
         >
           <Route index element={<Home />} />
+          <Route path="tasks" element={<Tasks />} />
           <Route path="customers" element={<Customers />} />
           <Route path="customers/:id" element={<CustomerDetail />} />
           <Route path="customers/:id/staff" element={<CustomerStaff />} />

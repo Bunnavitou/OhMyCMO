@@ -33,6 +33,8 @@ const EMPTY_STATE = {
   // subUsers are managed separately via /api/sub-users; keep an empty list
   // here so legacy reads of state.subUsers don't crash.
   subUsers: [],
+  // Tenant roster (owner + sub-users) for assigning tasks and scoping "my tasks".
+  team: [],
 }
 
 export function StoreProvider({ children }) {
@@ -68,8 +70,9 @@ export function StoreProvider({ children }) {
       safeGet('/partners'),
       safeGet('/campaigns'),
       safeGet('/assets'),
+      safeGet('/users/team'),
     ])
-      .then(([cust, custGroups, prod, part, camp, ass]) => {
+      .then(([cust, custGroups, prod, part, camp, ass, team]) => {
         if (cancelled) return
         setState({
           customers: cust.data.items,
@@ -79,6 +82,7 @@ export function StoreProvider({ children }) {
           campaigns: camp.data.items,
           assets: ass.data.items,
           subUsers: [],
+          team: team.data.items,
         })
         setBootstrapped(true)
       })
@@ -501,9 +505,13 @@ export function StoreProvider({ children }) {
           registerDate: new Date().toISOString().slice(0, 10),
           description: '',
           status: 'Todo',
+          priority: '',
           file: null,
           due: '',
           assignee: '',
+          assigneeId: '',
+          createdById: '',
+          createdByName: '',
           groupId: null,
           ...task,
         }

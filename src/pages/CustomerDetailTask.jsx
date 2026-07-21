@@ -3,19 +3,16 @@ import {
   Plus, Trash2, Calendar, FolderPlus, ChevronDown, User, Paperclip, Pencil, Download,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
 import Modal from '../components/Modal.jsx'
+import { statusStyle, priorityStyle, TASK_PRIORITIES, memberName } from '../utils/tasks.js'
 
 const STATUS_OPTIONS = ['Todo', 'In Progress', 'Done', 'Blocked']
 const FILE_LIMIT_BYTES = 1024 * 1024
 
-const statusStyle = (s) =>
-  s === 'Done' ? 'bg-emerald-100 text-emerald-700'
-  : s === 'In Progress' ? 'bg-brand-100 text-brand-700'
-  : s === 'Blocked' ? 'bg-rose-100 text-rose-700'
-  : 'bg-iron text-graphite'
-
 export default function CustomerDetailTask({ customer }) {
   const {
+    state,
     addCustomerTask,
     updateCustomerTask,
     removeCustomerTask,
@@ -23,6 +20,8 @@ export default function CustomerDetailTask({ customer }) {
     renameCustomerTaskGroup,
     removeCustomerTaskGroup,
   } = useStore()
+  const { user } = useAuth()
+  const team = state.team || []
   const [openModal, setOpenModal] = useState(null) // 'task' | 'group'
   const [editingTask, setEditingTask] = useState(null)
   const [editingGroup, setEditingGroup] = useState(null)
@@ -130,6 +129,11 @@ export default function CustomerDetailTask({ customer }) {
                                 >
                                   {t.name}
                                 </p>
+                                {t.priority && (
+                                  <span className={`pill shrink-0 ${priorityStyle(t.priority)}`}>
+                                    {t.priority}
+                                  </span>
+                                )}
                                 <span className={`pill shrink-0 ${statusStyle(t.status)}`}>
                                   {t.status}
                                 </span>
@@ -151,6 +155,11 @@ export default function CustomerDetailTask({ customer }) {
                                 {t.file && (
                                   <span className="flex items-center gap-1">
                                     <Paperclip className="w-3 h-3" /> {t.file.name}
+                                  </span>
+                                )}
+                                {t.createdByName && (
+                                  <span className="flex items-center gap-1 text-ash">
+                                    <Pencil className="w-3 h-3" /> by {t.createdByName}
                                   </span>
                                 )}
                               </div>
@@ -194,6 +203,7 @@ export default function CustomerDetailTask({ customer }) {
           key={editingTask?.id || 'new'}
           initial={editingTask}
           groups={customer.taskGroups}
+          team={team}
           onDelete={
             editingTask
               ? () => {
@@ -206,7 +216,11 @@ export default function CustomerDetailTask({ customer }) {
           }
           onSubmit={(data) => {
             if (editingTask) updateCustomerTask(customer.id, editingTask.id, data)
-            else addCustomerTask(customer.id, data)
+            else addCustomerTask(customer.id, {
+              ...data,
+              createdById: user?.id || '',
+              createdByName: memberName(user),
+            })
             closeAll()
           }}
         />
@@ -231,7 +245,7 @@ export default function CustomerDetailTask({ customer }) {
   )
 }
 
-function TaskForm({ initial, groups, onSubmit, onDelete }) {
+function TaskForm({ initial, groups, team = [], onSubmit, onDelete }) {
   const today = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState(
     initial || {
@@ -239,9 +253,11 @@ function TaskForm({ initial, groups, onSubmit, onDelete }) {
       registerDate: today,
       description: '',
       status: 'Todo',
+      priority: '',
       file: null,
       due: '',
       assignee: '',
+      assigneeId: '',
       groupId: groups[0]?.id || null,
     },
   )
@@ -309,6 +325,20 @@ function TaskForm({ initial, groups, onSubmit, onDelete }) {
           </select>
         </div>
         <div>
+          <label className="label">Priority</label>
+          <select
+            className="input"
+            value={form.priority || ''}
+            onChange={(e) => setForm({ ...form, priority: e.target.value })}
+          >
+            <option value="">None</option>
+            {TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
           <label className="label">Group</label>
           <select
             className="input"
@@ -344,15 +374,12 @@ function TaskForm({ initial, groups, onSubmit, onDelete }) {
         </div>
       </div>
 
-      <div>
-        <label className="label">Person in charge</label>
-        <input
-          className="input"
-          value={form.assignee}
-          onChange={(e) => setForm({ ...form, assignee: e.target.value })}
-          placeholder="Sara Lim"
-        />
-      </div>
+      <AssigneeField
+        team={team}
+        assigneeId={form.assigneeId}
+        assignee={form.assignee}
+        onChange={(patch) => setForm((s) => ({ ...s, ...patch }))}
+      />
 
       <div>
         <label className="label">File attachment</label>
@@ -413,6 +440,46 @@ function TaskForm({ initial, groups, onSubmit, onDelete }) {
         </button>
       </div>
     </form>
+  )
+}
+
+// Assign a task to a real team member (linked by id) or fall back to a
+// free-text name for people who aren't accounts.
+function AssigneeField({ team, assigneeId, assignee, onChange }) {
+  const isCustom = !assigneeId && !!assignee
+  const selectValue = assigneeId || (isCustom ? '__custom' : '')
+
+  const onSelect = (v) => {
+    if (v === '') onChange({ assigneeId: '', assignee: '' })
+    else if (v === '__custom') onChange({ assigneeId: '', assignee: assignee || '' })
+    else {
+      const m = team.find((x) => x.id === v)
+      onChange({ assigneeId: v, assignee: m ? memberName(m) : '' })
+    }
+  }
+
+  return (
+    <div>
+      <label className="label">Person in charge</label>
+      <select className="input" value={selectValue} onChange={(e) => onSelect(e.target.value)}>
+        <option value="">Unassigned</option>
+        {team.map((m) => (
+          <option key={m.id} value={m.id}>
+            {memberName(m)}{m.role === 'ADMIN' ? ' (Admin)' : ''}
+          </option>
+        ))}
+        <option value="__custom">Other (type a name)…</option>
+      </select>
+      {selectValue === '__custom' && (
+        <input
+          className="input mt-2"
+          value={assignee}
+          onChange={(e) => onChange({ assignee: e.target.value, assigneeId: '' })}
+          placeholder="Sara Lim"
+          autoFocus
+        />
+      )}
+    </div>
   )
 }
 

@@ -1,7 +1,7 @@
 import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom'
 import {
   Home, Users, Package, Handshake, Megaphone, MoreHorizontal,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ListChecks,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
@@ -10,6 +10,7 @@ import { useT } from '../i18n/LanguageContext.jsx'
 
 const ALL_TABS = [
   { to: '/',          icon: Home,           labelKey: 'nav.home',      mobileLabelKey: 'nav.home',           isActive: (p) => p === '/',                                            perm: null },
+  { to: '/tasks',     icon: ListChecks,     labelKey: 'nav.tasks',     mobileLabelKey: 'nav.tasks',          isActive: (p) => p.startsWith('/tasks'),                               perm: null },
   { to: '/customers', icon: Users,          labelKey: 'nav.customers', mobileLabelKey: 'nav.customers',      isActive: (p) => p.startsWith('/customers'),                           perm: 'customers' },
   { to: '/products',  icon: Package,        labelKey: 'nav.products',  mobileLabelKey: 'nav.products.short', isActive: (p) => p.startsWith('/products'),                            perm: 'products' },
   { to: '/partners',  icon: Handshake,      labelKey: 'nav.partners',  mobileLabelKey: 'nav.partners',       isActive: (p) => p.startsWith('/partners'),                            perm: 'partners' },
@@ -34,6 +35,8 @@ function useNavMeta() {
 
   if (segs.length === 0) {
     crumbs.push({ label: t('nav.home'), to: '/' })
+  } else if (segs[0] === 'tasks') {
+    crumbs.push({ label: t('nav.tasks'), to: '/tasks' })
   } else if (segs[0] === 'customers') {
     crumbs.push({ label: t('nav.customers'), to: '/customers' })
     if (segs[1]) {

@@ -2,9 +2,11 @@ import { Link } from 'react-router-dom'
 import {
   Users, Package, Handshake, Megaphone, Boxes,
   TrendingUp, TrendingDown, ArrowRight, CheckCircle2, Circle, ArrowUpRight,
+  AlertTriangle, Clock, Loader2, Ban,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import { collectTasks, dueBucket, dueTextStyle } from '../utils/tasks.js'
 
 const fmtMoney = (n) => `$${Number(n || 0).toLocaleString()}`
 
@@ -21,6 +23,26 @@ export default function Home() {
     0,
   )
   const net = totalIncome - totalExpense
+
+  const taskStats = (() => {
+    const s = { overdue: 0, today: 0, inProgress: 0, blocked: 0 }
+    for (const task of collectTasks(state)) {
+      if (task.status === 'Done') continue
+      const b = dueBucket(task.due, task.status)
+      if (b === 'overdue') s.overdue++
+      if (b === 'today') s.today++
+      if (task.status === 'In Progress') s.inProgress++
+      if (task.status === 'Blocked') s.blocked++
+    }
+    return s
+  })()
+
+  const taskTiles = [
+    { key: 'overdue',    icon: AlertTriangle, value: taskStats.overdue,    labelKey: 'tasks.stat.overdue',    bg: '#FFE4E6', fg: '#9F1239' },
+    { key: 'today',      icon: Clock,         value: taskStats.today,      labelKey: 'tasks.stat.today',      bg: '#FEF3C7', fg: '#92400E' },
+    { key: 'inProgress', icon: Loader2,       value: taskStats.inProgress, labelKey: 'tasks.stat.inProgress', bg: '#E2F6D5', fg: '#166534' },
+    { key: 'blocked',    icon: Ban,           value: taskStats.blocked,    labelKey: 'tasks.stat.blocked',    bg: '#F1F5F9', fg: '#334155' },
+  ]
 
   const allTasks = [
     ...state.customers.flatMap((c) =>
@@ -129,6 +151,44 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Task pulse */}
+      <section>
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-graphite">
+              {t('home.tasks.kicker')}
+            </p>
+            <h2 className="display text-3xl md:text-5xl text-near-black mt-1">
+              {t('home.tasksH')}
+            </h2>
+          </div>
+          <Link
+            to="/tasks"
+            className="text-sm font-semibold text-wise-dark hover:underline flex items-center gap-1"
+          >
+            {t('home.tasks.viewBoard')} <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {taskTiles.map((tile) => (
+            <Link
+              key={tile.key}
+              to="/tasks"
+              className="block p-5 transition-transform hover:scale-[1.02]"
+              style={{ backgroundColor: tile.bg, color: tile.fg, borderRadius: '30px' }}
+            >
+              <div className="flex items-center justify-between">
+                <tile.icon className="w-5 h-5" strokeWidth={2.2} />
+                <span className="display text-3xl md:text-4xl">{tile.value}</span>
+              </div>
+              <p className="text-xs font-bold mt-3" style={{ opacity: 0.85 }}>
+                {t(tile.labelKey)}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* Workspaces */}
       <section>
         <div className="flex items-end justify-between mb-4">
@@ -209,8 +269,13 @@ export default function Home() {
                     <p className="text-sm md:text-base font-semibold text-near-black truncate">
                       {task.title}
                     </p>
-                    <p className="text-xs text-graphite truncate mt-0.5">
-                      {task.owner}{task.due ? ` · ${t('home.dueOn', { date: task.due })}` : ''}
+                    <p className="text-xs truncate mt-0.5">
+                      <span className="text-graphite">{task.owner}</span>
+                      {task.due && (
+                        <span className={dueTextStyle(dueBucket(task.due))}>
+                          {' · '}{t('home.dueOn', { date: task.due })}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <ArrowUpRight className="w-4 h-4 text-graphite shrink-0" />
