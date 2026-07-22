@@ -8,6 +8,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import { useSubUsers } from '../api/subUsers.js'
 
 const ACCESS_MENUS = [
+  { key: 'tasks',     label: 'Tasks' },
   { key: 'customers', label: 'Customers' },
   { key: 'products',  label: 'Billing' },
   { key: 'partners',  label: 'Partners' },
@@ -19,6 +20,10 @@ const ACCESS_MENUS = [
 // Per-menu action abilities (opt-OUT: allowed by default, turned off to
 // restrict). Shown nested under their parent menu. Keys are menu-scoped.
 const MENU_ABILITIES = {
+  tasks: [
+    { key: 'tasks.team',   label: 'View team tasks' },
+    { key: 'tasks.delete', label: 'Delete tasks' },
+  ],
   customers: [
     { key: 'customers.agreements', label: 'Manage agreements' },
     { key: 'customers.delete',     label: 'Delete records' },
@@ -192,6 +197,7 @@ export default function MoreSubUsers() {
 
 function SubUserForm({ initial, submitting, error, onSubmit, onDelete }) {
   const defaultPermissions = {
+    tasks: true,
     customers: true,
     products: true,
     partners: true,

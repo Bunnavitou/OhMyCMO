@@ -17,6 +17,7 @@ import {
 import { api } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import { memberName } from '../utils/tasks.js'
 
 const StoreContext = createContext(null)
 
@@ -38,7 +39,7 @@ const EMPTY_STATE = {
 }
 
 export function StoreProvider({ children }) {
-  const { status } = useAuth()
+  const { status, user } = useAuth()
   const { t } = useT()
   const [state, setState] = useState(EMPTY_STATE)
   const [bootstrapped, setBootstrapped] = useState(false)
@@ -138,6 +139,19 @@ export function StoreProvider({ children }) {
         return customer
       })
 
+    // Same as patchCustomer, for partners.
+    const patchPartner = (id, body, log) =>
+      run(async () => {
+        const res = await api.patch(`/partners/${id}`, body)
+        let partner = res.data.partner
+        if (log) {
+          const r2 = await api.post(`/partners/${id}/logs`, log)
+          partner = { ...partner, logs: [r2.data.log, ...(partner.logs || [])] }
+        }
+        replaceIn('partners', partner)
+        return partner
+      })
+
     // ────────────────────────────────────────────────────────────────────
 
     return {
@@ -168,6 +182,7 @@ export function StoreProvider({ children }) {
           {
             type: nextPinned ? 'customer.pin' : 'customer.unpin',
             message: nextPinned ? `Pinned "${c.name}"` : `Unpinned "${c.name}"`,
+            meta: { by: user?.id, byName: memberName(user) },
           },
         )
       },
@@ -521,7 +536,10 @@ export function StoreProvider({ children }) {
           {
             type: 'task.create',
             message: `Created task "${newTask.name}"`,
-            meta: { taskId: newTask.id, status: newTask.status, assignee: newTask.assignee },
+            meta: {
+              taskId: newTask.id, status: newTask.status, assignee: newTask.assignee,
+              by: user?.id, byName: memberName(user),
+            },
           },
         )
       },
@@ -546,7 +564,7 @@ export function StoreProvider({ children }) {
         return patchCustomer(
           id,
           { tasks: (c.tasks || []).map((t) => (t.id === taskId ? after : t)) },
-          { type, message, meta: { taskId, changed } },
+          { type, message, meta: { taskId, changed, by: user?.id, byName: memberName(user) } },
         )
       },
       removeCustomerTask: (id, taskId) => {
@@ -556,7 +574,11 @@ export function StoreProvider({ children }) {
         return patchCustomer(
           id,
           { tasks: (c.tasks || []).filter((t) => t.id !== taskId) },
-          { type: 'task.delete', message: `Deleted task "${removed?.name || 'Untitled'}"`, meta: { taskId } },
+          {
+            type: 'task.delete',
+            message: `Deleted task "${removed?.name || 'Untitled'}"`,
+            meta: { taskId, by: user?.id, byName: memberName(user) },
+          },
         )
       },
 
@@ -675,11 +697,7 @@ export function StoreProvider({ children }) {
           prependTo('partners', res.data.partner)
           return res.data.partner
         }),
-      updatePartner: (id, patch) =>
-        run(async () => {
-          const res = await api.patch(`/partners/${id}`, patch)
-          replaceIn('partners', res.data.partner)
-        }),
+      updatePartner: (id, patch) => patchPartner(id, patch),
       removePartner: (id) =>
         run(async () => {
           await api.delete(`/partners/${id}`)
@@ -695,49 +713,64 @@ export function StoreProvider({ children }) {
           })
           replaceIn('partners', res.data.partner)
         }),
-      togglePartnerTask: (id, taskId) =>
-        run(async () => {
-          const p = stateRef.current.partners.find((x) => x.id === id)
-          if (!p) return
-          const tasks = (p.tasks || []).map((t) =>
-            t.id === taskId ? { ...t, done: !t.done } : t,
-          )
-          const res = await api.patch(`/partners/${id}`, { tasks })
-          replaceIn('partners', res.data.partner)
-        }),
-      addPartnerTask: (id, task) =>
-        run(async () => {
-          const p = stateRef.current.partners.find((x) => x.id === id)
-          if (!p) return
-          const newTask = {
-            id: uid('pt'),
-            name: '', setDate: new Date().toISOString().slice(0, 10),
-            description: '', expense: 0, file: null, due: '', done: false,
-            ...task,
-          }
-          const res = await api.patch(`/partners/${id}`, {
-            tasks: [newTask, ...(p.tasks || [])],
-          })
-          replaceIn('partners', res.data.partner)
-        }),
-      updatePartnerTask: (id, taskId, patch) =>
-        run(async () => {
-          const p = stateRef.current.partners.find((x) => x.id === id)
-          if (!p) return
-          const tasks = (p.tasks || []).map((t) =>
-            t.id === taskId ? { ...t, ...patch } : t,
-          )
-          const res = await api.patch(`/partners/${id}`, { tasks })
-          replaceIn('partners', res.data.partner)
-        }),
-      removePartnerTask: (id, taskId) =>
-        run(async () => {
-          const p = stateRef.current.partners.find((x) => x.id === id)
-          if (!p) return
-          const tasks = (p.tasks || []).filter((t) => t.id !== taskId)
-          const res = await api.patch(`/partners/${id}`, { tasks })
-          replaceIn('partners', res.data.partner)
-        }),
+      addPartnerTask: (id, task) => {
+        const p = stateRef.current.partners.find((x) => x.id === id)
+        if (!p) return
+        const newTask = {
+          id: uid('pt'),
+          name: '', setDate: new Date().toISOString().slice(0, 10),
+          description: '', expense: 0, file: null, due: '', status: 'Todo',
+          assignee: '', assigneeId: '', createdById: '', createdByName: '',
+          ...task,
+        }
+        return patchPartner(
+          id,
+          { tasks: [newTask, ...(p.tasks || [])] },
+          {
+            type: 'task.create',
+            message: `Created task "${newTask.name}"`,
+            meta: { taskId: newTask.id, status: newTask.status, by: user?.id, byName: memberName(user) },
+          },
+        )
+      },
+      updatePartnerTask: (id, taskId, patch) => {
+        const p = stateRef.current.partners.find((x) => x.id === id)
+        if (!p) return
+        const before = (p.tasks || []).find((t) => t.id === taskId)
+        if (!before) return
+        const after = { ...before, ...patch }
+        const changed = Object.keys(patch).filter(
+          (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+        )
+        if (changed.length === 0) return
+        let type = 'task.update'
+        let message
+        if (changed.length === 1 && changed[0] === 'status') {
+          type = 'task.status'
+          message = `Task "${after.name}": ${before.status} → ${after.status}`
+        } else {
+          message = `Updated task "${after.name}" (${changed.join(', ')})`
+        }
+        return patchPartner(
+          id,
+          { tasks: (p.tasks || []).map((t) => (t.id === taskId ? after : t)) },
+          { type, message, meta: { taskId, changed, by: user?.id, byName: memberName(user) } },
+        )
+      },
+      removePartnerTask: (id, taskId) => {
+        const p = stateRef.current.partners.find((x) => x.id === id)
+        if (!p) return
+        const removed = (p.tasks || []).find((t) => t.id === taskId)
+        return patchPartner(
+          id,
+          { tasks: (p.tasks || []).filter((t) => t.id !== taskId) },
+          {
+            type: 'task.delete',
+            message: `Deleted task "${removed?.name || 'Untitled'}"`,
+            meta: { taskId, by: user?.id, byName: memberName(user) },
+          },
+        )
+      },
 
       // ── Assets
       addAsset: (data) =>
@@ -827,7 +860,7 @@ export function StoreProvider({ children }) {
           replaceIn('campaigns', res.data.campaign)
         }),
     }
-  }, [state, bootstrapped, bootstrapError])
+  }, [state, bootstrapped, bootstrapError, user])
 
   // While auth is pending or we are loading the initial bundle, show a tiny
   // splash. Pages assume state is populated, so we must not render them

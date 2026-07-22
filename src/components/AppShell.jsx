@@ -10,7 +10,7 @@ import { useT } from '../i18n/LanguageContext.jsx'
 
 const ALL_TABS = [
   { to: '/',          icon: Home,           labelKey: 'nav.home',      mobileLabelKey: 'nav.home',           isActive: (p) => p === '/',                                            perm: null },
-  { to: '/tasks',     icon: ListChecks,     labelKey: 'nav.tasks',     mobileLabelKey: 'nav.tasks',          isActive: (p) => p.startsWith('/tasks'),                               perm: null },
+  { to: '/tasks',     icon: ListChecks,     labelKey: 'nav.tasks',     mobileLabelKey: 'nav.tasks',          isActive: (p) => p.startsWith('/tasks'),                               perm: 'tasks' },
   { to: '/customers', icon: Users,          labelKey: 'nav.customers', mobileLabelKey: 'nav.customers',      isActive: (p) => p.startsWith('/customers'),                           perm: 'customers' },
   { to: '/products',  icon: Package,        labelKey: 'nav.products',  mobileLabelKey: 'nav.products.short', isActive: (p) => p.startsWith('/products'),                            perm: 'products' },
   { to: '/partners',  icon: Handshake,      labelKey: 'nav.partners',  mobileLabelKey: 'nav.partners',       isActive: (p) => p.startsWith('/partners'),                            perm: 'partners' },

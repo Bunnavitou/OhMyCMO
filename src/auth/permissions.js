@@ -1,5 +1,6 @@
 // Menu access (opt-in): a sub-user sees a menu only if its key is true.
 export const PERMISSION_KEYS = [
+  'tasks',
   'customers',
   'products',
   'partners',

@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom'
 import {
   Users, Package, Handshake, Megaphone, Boxes,
-  TrendingUp, TrendingDown, ArrowRight, CheckCircle2, Circle, ArrowUpRight,
+  TrendingUp, TrendingDown, ArrowRight, Circle, ArrowUpRight,
   AlertTriangle, Clock, Loader2, Ban,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
-import { collectTasks, dueBucket, dueTextStyle } from '../utils/tasks.js'
+import { collectTasks, dueBucket, dueTextStyle, sourceStyle } from '../utils/tasks.js'
 
 const fmtMoney = (n) => `$${Number(n || 0).toLocaleString()}`
 
@@ -38,36 +38,22 @@ export default function Home() {
   })()
 
   const taskTiles = [
-    { key: 'overdue',    icon: AlertTriangle, value: taskStats.overdue,    labelKey: 'tasks.stat.overdue',    bg: '#FFE4E6', fg: '#9F1239' },
-    { key: 'today',      icon: Clock,         value: taskStats.today,      labelKey: 'tasks.stat.today',      bg: '#FEF3C7', fg: '#92400E' },
-    { key: 'inProgress', icon: Loader2,       value: taskStats.inProgress, labelKey: 'tasks.stat.inProgress', bg: '#E2F6D5', fg: '#166534' },
-    { key: 'blocked',    icon: Ban,           value: taskStats.blocked,    labelKey: 'tasks.stat.blocked',    bg: '#F1F5F9', fg: '#334155' },
+    { key: 'overdue',    icon: AlertTriangle, value: taskStats.overdue,    labelKey: 'tasks.stat.overdue',    bg: '#FFE4E6', fg: '#9F1239', to: '/tasks?due=overdue' },
+    { key: 'today',      icon: Clock,         value: taskStats.today,      labelKey: 'tasks.stat.today',      bg: '#FEF3C7', fg: '#92400E', to: '/tasks?due=today' },
+    { key: 'inProgress', icon: Loader2,       value: taskStats.inProgress, labelKey: 'tasks.stat.inProgress', bg: '#E2F6D5', fg: '#166534', to: '/tasks?status=In+Progress' },
+    { key: 'blocked',    icon: Ban,           value: taskStats.blocked,    labelKey: 'tasks.stat.blocked',    bg: '#F1F5F9', fg: '#334155', to: '/tasks?status=Blocked' },
   ]
 
-  const allTasks = [
-    ...state.customers.flatMap((c) =>
-      c.tasks
-        .filter((task) => task.status !== 'Done')
-        .map((task) => ({
-          title: task.name,
-          due: task.due,
-          done: task.status === 'Done',
-          owner: c.name,
-          link: `/customers/${c.id}`,
-        })),
-    ),
-    ...state.partners.flatMap((p) =>
-      p.tasks
-        .filter((task) => !task.done)
-        .map((task) => ({
-          title: task.name || task.title,
-          due: task.due,
-          done: task.done,
-          owner: p.name,
-          link: `/partners/${p.id}`,
-        })),
-    ),
-  ]
+  const allTasks = collectTasks(state)
+    .filter((task) => task.status !== 'Done')
+    .map((task) => ({
+      title: task.name,
+      due: task.due,
+      owner: task.ownerName,
+      link: task.link,
+      source: task.source,
+      sourceLabel: task.ownerLabel,
+    }))
     .sort((a, b) => (a.due || '').localeCompare(b.due || ''))
     .slice(0, 5)
 
@@ -173,7 +159,7 @@ export default function Home() {
           {taskTiles.map((tile) => (
             <Link
               key={tile.key}
-              to="/tasks"
+              to={tile.to}
               className="block p-5 transition-transform hover:scale-[1.02]"
               style={{ backgroundColor: tile.bg, color: tile.fg, borderRadius: '30px' }}
             >
@@ -260,19 +246,16 @@ export default function Home() {
                   to={task.link}
                   className="card flex items-center gap-3 transition-transform hover:scale-[1.01]"
                 >
-                  {task.done ? (
-                    <CheckCircle2 className="w-5 h-5 text-wise-dark shrink-0" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-ash shrink-0" />
-                  )}
+                  <Circle className="w-5 h-5 text-ash shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm md:text-base font-semibold text-near-black truncate">
                       {task.title}
                     </p>
-                    <p className="text-xs truncate mt-0.5">
-                      <span className="text-graphite">{task.owner}</span>
+                    <p className="text-xs truncate mt-0.5 flex items-center gap-1.5">
+                      <span className={`pill shrink-0 text-[10px] ${sourceStyle(task.source)}`}>{task.sourceLabel}</span>
+                      <span className="text-graphite truncate">{task.owner}</span>
                       {task.due && (
-                        <span className={dueTextStyle(dueBucket(task.due))}>
+                        <span className={`shrink-0 ${dueTextStyle(dueBucket(task.due))}`}>
                           {' · '}{t('home.dueOn', { date: task.due })}
                         </span>
                       )}

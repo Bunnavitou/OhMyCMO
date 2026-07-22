@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import {
-  Mail, Phone, Plus, Trash2, CheckCircle2, Circle, Calendar,
+  Mail, Phone, Plus, Trash2, Calendar, User, UserPlus,
   Paperclip, Download, DollarSign, Briefcase, Building2,
   Image as ImageIcon, Maximize2, Pencil, Send, Camera, Copy, Check,
 } from 'lucide-react'
@@ -9,10 +9,12 @@ import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 import Modal from '../components/Modal.jsx'
+import AssigneeField from '../components/AssigneeField.jsx'
 import { TelegramQrPicker } from './Partners.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import AuthImage from '../components/AuthImage.jsx'
 import { uploadImageRef, hasImage } from '../utils/imageRef.js'
+import { TASK_STATUSES, statusStyle, memberName } from '../utils/tasks.js'
 
 const CARD_LIMIT_BYTES = 2 * 1024 * 1024
 
@@ -22,7 +24,6 @@ export default function PartnerDetail() {
   const { id } = useParams()
   const {
     state,
-    togglePartnerTask,
     addPartnerTask,
     updatePartnerTask,
     removePartnerTask,
@@ -31,8 +32,14 @@ export default function PartnerDetail() {
   } = useStore()
   const { user } = useAuth()
   const canDelete = hasPermission(user, 'partners.delete')
+  const isOwner = !!user && !user.ownerId
+  // Mirrors the backend guard in assertOwnTaskChangesOnly (OhMyCMO_API/src/utils/tenant.js):
+  // sub-users may only change tasks assigned to them.
+  const canEditTask = (task) => isOwner || !task.assigneeId || task.assigneeId === user?.id
+  const canDeleteTask = (task) => canEditTask(task) && hasPermission(user, 'tasks.delete')
   const { t } = useT()
   const partner = state.partners.find((p) => p.id === id)
+  const team = state.team || []
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false)
@@ -221,56 +228,58 @@ export default function PartnerDetail() {
             ) : (
               <ul className="card divide-y divide-shadow p-0">
                 {partner.tasks.map((task) => (
-                  <li key={task.id} className="flex items-start gap-3 p-3">
-                    <button
-                      onClick={() => togglePartnerTask(partner.id, task.id)}
-                      className="pt-0.5 shrink-0"
-                      aria-label={t('partner.task.toggleDone')}
-                    >
-                      {task.done ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-graphite" />
-                      )}
-                    </button>
+                  <li key={task.id} className="p-3.5">
                     <button
                       onClick={() => { setEditingTask(task); setTaskModalOpen(true) }}
-                      className="flex-1 min-w-0 text-left"
+                      className="w-full text-left flex items-start gap-3"
                     >
-                      <p
-                        className={`text-sm font-semibold ${
-                          task.done ? 'line-through text-graphite' : ''
-                        }`}
-                      >
-                        {task.name}
-                      </p>
-                      {task.description && (
-                        <p className="text-xs text-graphite line-clamp-2 mt-0.5">
-                          {task.description}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-graphite">
-                        {task.setDate && (
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-start gap-2">
+                          <p
+                            className={`text-sm font-semibold flex-1 min-w-0 ${
+                              task.status === 'Done' ? 'line-through text-graphite' : ''
+                            }`}
+                          >
+                            {task.name}
+                          </p>
+                          <span className={`pill shrink-0 ${statusStyle(task.status)}`}>{task.status}</span>
+                        </div>
+                        {task.description && (
+                          <p className="text-xs text-graphite line-clamp-2">
+                            {task.description}
+                          </p>
+                        )}
+                        <div className="flex flex-col gap-1 text-[11px] text-graphite pt-0.5">
+                          {task.setDate && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" /> {t('partner.task.fields.setOn', { date: task.setDate })}
+                            </span>
+                          )}
+                          {task.due && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" /> {t('partner.task.fields.dueOn', { date: task.due })}
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> {t('partner.task.fields.setOn', { date: task.setDate })}
+                            <User className="w-3 h-3" /> In charge: {task.assignee || 'N/A'}
                           </span>
-                        )}
-                        {task.due && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> {t('partner.task.fields.dueOn', { date: task.due })}
-                          </span>
-                        )}
-                        {Number(task.expense) > 0 && (
-                          <span className="flex items-center gap-1 text-rose-700 font-medium">
-                            <DollarSign className="w-3 h-3" />
-                            {Number(task.expense).toLocaleString()}
-                          </span>
-                        )}
-                        {task.file && (
-                          <span className="flex items-center gap-1">
-                            <Paperclip className="w-3 h-3" /> {task.file.name}
-                          </span>
-                        )}
+                          {task.createdByName && (
+                            <span className="flex items-center gap-1 text-ash">
+                              <UserPlus className="w-3 h-3" /> Created by {task.createdByName}
+                            </span>
+                          )}
+                          {Number(task.expense) > 0 && (
+                            <span className="flex items-center gap-1 text-rose-700 font-medium">
+                              <DollarSign className="w-3 h-3" />
+                              {Number(task.expense).toLocaleString()}
+                            </span>
+                          )}
+                          {task.file && (
+                            <span className="flex items-center gap-1">
+                              <Paperclip className="w-3 h-3" /> {task.file.name}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </button>
                   </li>
@@ -288,8 +297,10 @@ export default function PartnerDetail() {
         <TaskForm
           key={editingTask?.id || 'new'}
           initial={editingTask}
+          team={team}
+          currentUser={user}
           onDelete={
-            editingTask
+            editingTask && canDeleteTask(editingTask)
               ? () => {
                   if (confirm(t('partner.task.delete'))) {
                     removePartnerTask(partner.id, editingTask.id)
@@ -300,7 +311,11 @@ export default function PartnerDetail() {
           }
           onSubmit={(data) => {
             if (editingTask) updatePartnerTask(partner.id, editingTask.id, data)
-            else addPartnerTask(partner.id, data)
+            else addPartnerTask(partner.id, {
+              ...data,
+              createdById: user?.id || '',
+              createdByName: memberName(user),
+            })
             closeTaskModal()
           }}
         />
@@ -520,19 +535,42 @@ function EditPartnerForm({ partner, onSubmit }) {
   )
 }
 
-function TaskForm({ initial, onSubmit, onDelete }) {
+function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
   const { t } = useT()
   const today = new Date().toISOString().slice(0, 10)
+  // Default person in charge to the creator — they're usually the one
+  // responsible. Prefer the roster entry so the dropdown shows them selected;
+  // fall back to a free-text name if they're not in the roster. Still editable.
+  const me = currentUser ? team.find((m) => m.id === currentUser.id) : null
+  const defaultAssignee = me
+    ? { assigneeId: me.id, assignee: memberName(me) }
+    : currentUser
+      ? { assigneeId: '', assignee: memberName(currentUser) }
+      : { assigneeId: '', assignee: '' }
+  // When editing a task whose assignee was stored as a free-text name (no
+  // linked account), match it back to a roster member so the dropdown shows
+  // them selected instead of falling into the "Other (type a name)" box.
+  const normalizedInitial = (() => {
+    if (!initial) return null
+    if (initial.assigneeId || !initial.assignee) return initial
+    const match = team.find((m) => memberName(m) === initial.assignee)
+    return match ? { ...initial, assigneeId: match.id } : initial
+  })()
   const [form, setForm] = useState(
-    initial || {
-      name: '',
-      setDate: today,
-      description: '',
-      expense: '',
-      file: null,
-      due: '',
-      done: false,
-    },
+    normalizedInitial
+      // Older tasks only stored a `done` boolean — normalize to `status` so
+      // the select below always has a valid value.
+      ? { ...normalizedInitial, status: normalizedInitial.status || (normalizedInitial.done ? 'Done' : 'Todo') }
+      : {
+          name: '',
+          setDate: today,
+          description: '',
+          expense: '',
+          file: null,
+          due: '',
+          status: 'Todo',
+          ...defaultAssignee,
+        },
   )
   const [fileError, setFileError] = useState('')
 
@@ -589,13 +627,14 @@ function TaskForm({ initial, onSubmit, onDelete }) {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">{t('partner.task.fields.setDate')}</label>
-          <input
+          <label className="label">{t('field.status')}</label>
+          <select
             className="input"
-            type="date"
-            value={form.setDate}
-            onChange={(e) => setForm({ ...form, setDate: e.target.value })}
-          />
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+          >
+            {TASK_STATUSES.map((s) => <option key={s}>{s}</option>)}
+          </select>
         </div>
         <div>
           <label className="label">{t('field.dueDate')}</label>
@@ -607,6 +646,23 @@ function TaskForm({ initial, onSubmit, onDelete }) {
           />
         </div>
       </div>
+
+      <div>
+        <label className="label">{t('partner.task.fields.setDate')}</label>
+        <input
+          className="input"
+          type="date"
+          value={form.setDate}
+          onChange={(e) => setForm({ ...form, setDate: e.target.value })}
+        />
+      </div>
+
+      <AssigneeField
+        team={team}
+        assigneeId={form.assigneeId}
+        assignee={form.assignee}
+        onChange={(patch) => setForm((s) => ({ ...s, ...patch }))}
+      />
 
       <div>
         <label className="label">{t('partner.task.fields.expense')}</label>

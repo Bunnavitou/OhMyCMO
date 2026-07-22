@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react'
 import {
-  Plus, Trash2, Calendar, FolderPlus, ChevronDown, User, Paperclip, Pencil, Download,
+  Plus, Trash2, Calendar, FolderPlus, ChevronDown, User, UserPlus, Paperclip, Pencil, Download,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 import Modal from '../components/Modal.jsx'
+import AssigneeField from '../components/AssigneeField.jsx'
 import { statusStyle, priorityStyle, TASK_PRIORITIES, memberName } from '../utils/tasks.js'
 
 const STATUS_OPTIONS = ['Todo', 'In Progress', 'Done', 'Blocked']
@@ -21,6 +23,11 @@ export default function CustomerDetailTask({ customer }) {
     removeCustomerTaskGroup,
   } = useStore()
   const { user } = useAuth()
+  const isOwner = !!user && !user.ownerId
+  // Mirrors the backend guard in assertOwnTaskChangesOnly (OhMyCMO_API/src/utils/tenant.js):
+  // sub-users may only change tasks assigned to them.
+  const canEditTask = (t) => isOwner || !t.assigneeId || t.assigneeId === user?.id
+  const canDeleteTask = (t) => canEditTask(t) && hasPermission(user, 'tasks.delete')
   const team = state.team || []
   const [openModal, setOpenModal] = useState(null) // 'task' | 'group'
   const [editingTask, setEditingTask] = useState(null)
@@ -141,15 +148,18 @@ export default function CustomerDetailTask({ customer }) {
                               {t.description && (
                                 <p className="text-xs text-graphite line-clamp-2">{t.description}</p>
                               )}
-                              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-graphite pt-0.5">
+                              <div className="flex flex-col gap-1 text-[11px] text-graphite pt-0.5">
                                 {t.due && (
                                   <span className="flex items-center gap-1">
                                     <Calendar className="w-3 h-3" /> {t.due}
                                   </span>
                                 )}
-                                {t.assignee && (
-                                  <span className="flex items-center gap-1">
-                                    <User className="w-3 h-3" /> {t.assignee}
+                                <span className="flex items-center gap-1">
+                                  <User className="w-3 h-3" /> In charge: {t.assignee || 'N/A'}
+                                </span>
+                                {t.createdByName && (
+                                  <span className="flex items-center gap-1 text-ash">
+                                    <UserPlus className="w-3 h-3" /> Created by {t.createdByName}
                                   </span>
                                 )}
                                 {t.file && (
@@ -157,32 +167,9 @@ export default function CustomerDetailTask({ customer }) {
                                     <Paperclip className="w-3 h-3" /> {t.file.name}
                                   </span>
                                 )}
-                                {t.createdByName && (
-                                  <span className="flex items-center gap-1 text-ash">
-                                    <Pencil className="w-3 h-3" /> by {t.createdByName}
-                                  </span>
-                                )}
                               </div>
                             </div>
                           </button>
-                          <div className="flex gap-1 mt-2 pl-0">
-                            {STATUS_OPTIONS.map((s) => (
-                              <button
-                                key={s}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  updateCustomerTask(customer.id, t.id, { status: s })
-                                }}
-                                className={`px-2 py-0.5 rounded-md text-[10px] font-medium border transition ${
-                                  t.status === s
-                                    ? `${statusStyle(s)} border-transparent`
-                                    : 'border-shadow text-graphite hover:bg-iron'
-                                }`}
-                              >
-                                {s}
-                              </button>
-                            ))}
-                          </div>
                         </li>
                       ))}
                     </ul>
@@ -204,8 +191,9 @@ export default function CustomerDetailTask({ customer }) {
           initial={editingTask}
           groups={customer.taskGroups}
           team={team}
+          currentUser={user}
           onDelete={
-            editingTask
+            editingTask && canDeleteTask(editingTask)
               ? () => {
                   if (confirm('Delete this task?')) {
                     removeCustomerTask(customer.id, editingTask.id)
@@ -245,10 +233,28 @@ export default function CustomerDetailTask({ customer }) {
   )
 }
 
-function TaskForm({ initial, groups, team = [], onSubmit, onDelete }) {
+function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete }) {
   const today = new Date().toISOString().slice(0, 10)
+  // Default person in charge to the creator — they're usually the one
+  // responsible. Prefer the roster entry so the dropdown shows them selected;
+  // fall back to a free-text name if they're not in the roster. Still editable.
+  const me = currentUser ? team.find((m) => m.id === currentUser.id) : null
+  const defaultAssignee = me
+    ? { assigneeId: me.id, assignee: memberName(me) }
+    : currentUser
+      ? { assigneeId: '', assignee: memberName(currentUser) }
+      : { assigneeId: '', assignee: '' }
+  // When editing a task whose assignee was stored as a free-text name (no
+  // linked account), match it back to a roster member so the dropdown shows
+  // them selected instead of falling into the "Other (type a name)" box.
+  const normalizedInitial = (() => {
+    if (!initial) return null
+    if (initial.assigneeId || !initial.assignee) return initial
+    const match = team.find((m) => memberName(m) === initial.assignee)
+    return match ? { ...initial, assigneeId: match.id } : initial
+  })()
   const [form, setForm] = useState(
-    initial || {
+    normalizedInitial || {
       name: '',
       registerDate: today,
       description: '',
@@ -256,8 +262,7 @@ function TaskForm({ initial, groups, team = [], onSubmit, onDelete }) {
       priority: '',
       file: null,
       due: '',
-      assignee: '',
-      assigneeId: '',
+      ...defaultAssignee,
       groupId: groups[0]?.id || null,
     },
   )
@@ -440,46 +445,6 @@ function TaskForm({ initial, groups, team = [], onSubmit, onDelete }) {
         </button>
       </div>
     </form>
-  )
-}
-
-// Assign a task to a real team member (linked by id) or fall back to a
-// free-text name for people who aren't accounts.
-function AssigneeField({ team, assigneeId, assignee, onChange }) {
-  const isCustom = !assigneeId && !!assignee
-  const selectValue = assigneeId || (isCustom ? '__custom' : '')
-
-  const onSelect = (v) => {
-    if (v === '') onChange({ assigneeId: '', assignee: '' })
-    else if (v === '__custom') onChange({ assigneeId: '', assignee: assignee || '' })
-    else {
-      const m = team.find((x) => x.id === v)
-      onChange({ assigneeId: v, assignee: m ? memberName(m) : '' })
-    }
-  }
-
-  return (
-    <div>
-      <label className="label">Person in charge</label>
-      <select className="input" value={selectValue} onChange={(e) => onSelect(e.target.value)}>
-        <option value="">Unassigned</option>
-        {team.map((m) => (
-          <option key={m.id} value={m.id}>
-            {memberName(m)}{m.role === 'ADMIN' ? ' (Admin)' : ''}
-          </option>
-        ))}
-        <option value="__custom">Other (type a name)…</option>
-      </select>
-      {selectValue === '__custom' && (
-        <input
-          className="input mt-2"
-          value={assignee}
-          onChange={(e) => onChange({ assignee: e.target.value, assigneeId: '' })}
-          placeholder="Sara Lim"
-          autoFocus
-        />
-      )}
-    </div>
   )
 }
 

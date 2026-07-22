@@ -17,6 +17,11 @@ export const priorityStyle = (p) =>
   : p === 'Low' ? 'bg-sky-100 text-sky-700'
   : 'bg-iron text-graphite'
 
+// Distinguishes customer vs. partner tasks when both mix in one list (the
+// global Tasks board, Home's upcoming-tasks widget).
+export const sourceStyle = (source) =>
+  source === 'partner' ? 'bg-violet-100 text-violet-700' : 'bg-sky-100 text-sky-700'
+
 export const todayStr = () => new Date().toISOString().slice(0, 10)
 
 // Classify a task's due date relative to today: 'overdue' | 'today' | 'soon'
@@ -81,7 +86,9 @@ export function collectTasks(state) {
         taskId: t.id,
         name: t.name || t.title || 'Untitled',
         description: t.description || '',
-        status: t.done ? 'Done' : 'Todo',
+        // Older partner tasks only stored a `done` boolean; newer ones carry
+        // the same 4-value `status` as customer tasks.
+        status: t.status || (t.done ? 'Done' : 'Todo'),
         due: t.due || '',
         assignee: t.assignee || '',
         assigneeId: t.assigneeId || '',

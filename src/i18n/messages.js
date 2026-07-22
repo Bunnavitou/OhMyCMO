@@ -150,6 +150,7 @@ export const messages = {
     'tasks.search':              'Search tasks, owners, people…',
     'tasks.filter.allAssignees': 'All assignees',
     'tasks.filter.unassigned':   'Unassigned',
+    'tasks.filter.allStatuses':  'All statuses',
     'tasks.filter.allSources':   'All sources',
     'tasks.filter.customers':    'Customers',
     'tasks.filter.partners':     'Partners',
@@ -177,6 +178,7 @@ export const messages = {
     'tasks.col.status':          'Status',
     'tasks.activity':            'Team activity',
     'tasks.activity.empty':      'No recent activity yet.',
+    'tasks.activity.viewMore':   'View more',
 
     // ───────────── Customer ─────────────
     'customer.title':            'Customers',
@@ -344,7 +346,6 @@ export const messages = {
     'partner.task.delete':       'Delete this task?',
     'partner.task.totalExpense': 'Total expense',
     'partner.task.empty':        'No tasks yet.',
-    'partner.task.toggleDone':   'Toggle done',
     'partner.task.fields.name':  'Task name',
     'partner.task.fields.setDate':'Task set date',
     'partner.task.fields.expense':'Expense amount (USD)',
@@ -576,6 +577,7 @@ export const messages = {
     'tasks.search':              '업무, 담당처, 담당자 검색…',
     'tasks.filter.allAssignees': '모든 담당자',
     'tasks.filter.unassigned':   '미지정',
+    'tasks.filter.allStatuses':  '모든 상태',
     'tasks.filter.allSources':   '모든 출처',
     'tasks.filter.customers':    '고객사',
     'tasks.filter.partners':     '협력사',
@@ -603,6 +605,7 @@ export const messages = {
     'tasks.col.status':          '상태',
     'tasks.activity':            '팀 활동',
     'tasks.activity.empty':      '최근 활동이 없습니다.',
+    'tasks.activity.viewMore':   '더 보기',
 
     'customer.title':            '고객',
     'customer.search':           '고객·업종·담당자 검색',
@@ -764,7 +767,6 @@ export const messages = {
     'partner.task.delete':       '이 업무를 삭제하시겠습니까?',
     'partner.task.totalExpense': '총 지출',
     'partner.task.empty':        '아직 업무가 없습니다.',
-    'partner.task.toggleDone':   '완료 토글',
     'partner.task.fields.name':  '업무명',
     'partner.task.fields.setDate':'배정일',
     'partner.task.fields.expense':'지출 금액 (USD)',
