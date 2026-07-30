@@ -128,6 +128,48 @@ const normalize = (report, t) => {
   return { headers, rows }
 }
 
+// Whether a given (year, month) is fully finished relative to today. The
+// current, in-progress month — and any future month — is NOT complete, so it
+// does not roll into '26 until it ends.
+const monthComplete = (year, month) => {
+  const now = new Date()
+  const cy = now.getFullYear()
+  const cm = now.getMonth() + 1
+  return year < cy || (year === cy && month < cm)
+}
+
+// Year-to-date auto totals for the '26 (current-year) column: for one
+// account+year, the running sum of each COMPLETED month's weekly Total (per row
+// label) through `uptoMonth`. The current in-progress month is excluded until
+// it finishes. This is added on top of any typed prior/opening amount.
+// `excludeId` skips one report — the editor passes its own id so it can add the
+// live, unsaved weekly totals on top of the rest.
+const ytdByLabel = (reports, account, year, uptoMonth, t, excludeId) => {
+  const acc = {}
+  for (const r of reports || []) {
+    if (r.account !== account || r.year !== year || r.month > uptoMonth) continue
+    if (r.id === excludeId || r.data?.imported) continue
+    if (!monthComplete(r.year, r.month)) continue // in-progress month waits for month-end
+    for (const row of normalize(r, t).rows) {
+      const tot = weekTotal(row.weeks)
+      if (tot == null) continue
+      const label = row.label || '—'
+      acc[label] = (acc[label] || 0) + tot
+    }
+  }
+  return acc
+}
+
+// The '26 value actually shown. A typed value is a prior/opening amount (e.g.
+// months not tracked week-by-week); the auto weekly YTD sum is ADDED on top of
+// it. Empty typed field → pure auto sum. Both empty → blank.
+const effectiveYear = (row, ytd) => {
+  const base = isNum(row.currentYear) ? Number(row.currentYear) : null
+  const auto = ytd?.[row.label || '—'] ?? null
+  if (base == null && auto == null) return null
+  return (base || 0) + (auto || 0)
+}
+
 // Build the combined "all years" table for one account by reading every report
 // of that account: each report contributes its current-year figure (year N) and
 // its previous-year figure (year N-1), so the full history is reconstructed and
@@ -151,13 +193,14 @@ const buildCombined = (reports, account, t) => {
 
   for (const r of sorted) {
     const { rows } = normalize(r, t)
+    const ytd = ytdByLabel(reports, account, r.year, r.month, t)
     for (const row of rows) {
       const label = row.label || '—'
       if (!(label in money)) {
         money[label] = row.money
         order.push(label)
       }
-      put(label, r.year, row.currentYear, 2)
+      put(label, r.year, effectiveYear(row, ytd), 2)
       put(label, r.year - 1, row.prevYear, 1)
       // Older years carried on the row (e.g. an imported 2024 column).
       for (const [y, v] of Object.entries(row.extra || {})) put(label, Number(y), v, 1)
@@ -211,7 +254,7 @@ function CombinedTable({ years, rows }) {
 }
 
 // ── Presentational grid (read-only or editable) ────────────────────────────
-function ReportGrid({ headers, rows, editable = false, on = {} }) {
+function ReportGrid({ headers, rows, editable = false, on = {}, yearMap }) {
   const headBlue = 'bg-sky-100 text-near-black'
   const hInput =
     'w-full min-w-[70px] bg-transparent text-center font-bold outline-none focus:bg-white rounded px-1 py-0.5'
@@ -287,6 +330,10 @@ function ReportGrid({ headers, rows, editable = false, on = {} }) {
         <tbody>
           {rows.map((row) => {
             const total = weekTotal(row.weeks)
+            // '26 = a typed prior/opening amount PLUS the auto year-to-date sum.
+            const yDerived = yearMap ? yearMap[row.label || '—'] ?? null : null
+            const yBase = isNum(row.currentYear) ? Number(row.currentYear) : null
+            const yEff = yBase == null && yDerived == null ? null : (yBase || 0) + (yDerived || 0)
             return (
               <tr key={row.id}>
                 {/* Row label (+ format toggle + delete in edit mode) */}
@@ -329,13 +376,30 @@ function ReportGrid({ headers, rows, editable = false, on = {} }) {
                   strong
                   muted
                 />
-                <NumCell
-                  editable={editable}
-                  raw={row.currentYear}
-                  display={fmtFull(row.currentYear, row.money)}
-                  onChange={(v) => on.row(row.id, { currentYear: v })}
-                  strong
-                />
+                {editable ? (
+                  <td className="border border-shadow p-0 align-top">
+                    <input
+                      type="number"
+                      step="any"
+                      value={row.currentYear ?? ''}
+                      placeholder={yDerived == null ? '' : String(yDerived)}
+                      title={
+                        yDerived == null
+                          ? 'Prior/opening amount for the year (optional)'
+                          : `Weekly year-to-date is ${fmtFull(yDerived, row.money)}. Type a prior/opening amount to add on top; clear to use the weekly total only.`
+                      }
+                      onChange={(e) => on.row(row.id, { currentYear: e.target.value === '' ? null : Number(e.target.value) })}
+                      className="w-full min-w-[84px] px-2 py-1.5 text-right font-bold tabular-nums bg-transparent outline-none placeholder:font-normal placeholder:text-graphite/50 focus:bg-brand-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    {yBase != null && yDerived != null && (
+                      <div className="-mt-0.5 px-2 pb-1 text-right text-[10px] font-semibold text-blue-700 whitespace-nowrap tabular-nums">
+                        = {fmtFull(yEff, row.money)}
+                      </div>
+                    )}
+                  </td>
+                ) : (
+                  <NumCell editable={false} raw={yEff} display={fmtFull(yEff, row.money)} strong />
+                )}
                 {row.weeks.map((w, i) => (
                   <NumCell
                     key={i}
@@ -413,13 +477,64 @@ export default function Reports() {
     [state.reports],
   )
 
-  // The monthly list hides imported annual-history reports (they live in the
-  // "All years" view instead). `reports` (all) still feeds All-years.
-  const visibleReports = useMemo(() => reports.filter((r) => !r.data?.imported), [reports])
+  // One card per account: only the latest (current) month is shown. Finished
+  // months are NOT rendered, but their reports are kept in the DB so their
+  // totals still roll into '26 (and into the All-years view / export). Imported
+  // annual-history reports are excluded here. `reports` (all) still feeds '26.
+  const accountCards = useMemo(() => {
+    const map = new Map()
+    for (const r of reports) {
+      if (r.data?.imported) continue
+      if (!map.has(r.account)) map.set(r.account, r) // pre-sorted desc → first = current
+    }
+    return [...map.values()]
+  }, [reports])
 
   const editing = editingId ? reports.find((r) => r.id === editingId) : null
   const previewing = previewId ? reports.find((r) => r.id === previewId) : null
   const charting = chartReportId ? reports.find((r) => r.id === chartReportId) : null
+
+  // Auto-roll to the current calendar month. For every account with any prior
+  // report, ensure a card exists for the current month with empty W1–W4 (row
+  // labels / money flags carried from the latest report). Across a YEAR boundary
+  // it also carries the finished prior year's total into the new prev-year
+  // column — e.g. on the first 2027 card the '26 column is prefilled with 2026's
+  // final total (still editable). Accounts never used are left alone.
+  const autoRolled = useRef(new Set())
+  useEffect(() => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth() + 1
+    for (const account of ACCOUNTS) {
+      const mine = (state.reports || []).filter((r) => r.account === account && !r.data?.imported)
+      if (!mine.length) continue // never used this account → nothing to roll from
+      if (mine.some((r) => r.year === y && r.month === m)) continue // current month already there
+      const key = `${account}-${y}-${m}`
+      if (autoRolled.current.has(key)) continue
+      autoRolled.current.add(key)
+
+      const sameYear = mine.filter((r) => r.year === y)
+      const crossingYear = sameYear.length === 0 // this is the first card of a new year
+      const pool = crossingYear ? mine : sameYear
+      const template = [...pool].sort((a, b) => b.year - a.year || b.month - a.month)[0]
+      // Starting a new year: the prev-year column = the prior year's finished
+      // total (all its months are complete now), per row.
+      const priorYtd = crossingYear ? ytdByLabel(state.reports, account, template.year, 12, t) : null
+
+      const rows = normalize(template, t).rows.map((row) => ({
+        id: newId(),
+        label: row.label,
+        money: row.money,
+        prevYear: crossingYear ? effectiveYear(row, priorYtd) : row.prevYear ?? null,
+        // Within a year, carry the '26 opening baseline forward so the running
+        // total stays continuous (completed months keep adding on top). A new
+        // year starts its own '26 fresh (the prior total went to prevYear above).
+        currentYear: crossingYear ? null : row.currentYear ?? null,
+        weeks: Array(DEFAULT_WEEKS).fill(null),
+      }))
+      addReport({ account, year: y, month: m, data: { headers: defaultHeaders(y, m, t), rows } }).catch(() => {})
+    }
+  }, [state.reports, addReport, t])
 
   const onCreate = async ({ account, year, month, data }) => {
     // Only one report per account+year+month. Refuse to override an existing
@@ -527,7 +642,7 @@ export default function Reports() {
         </div>
       )}
 
-      {view === 'usage' && (visibleReports.length === 0 ? (
+      {view === 'usage' && (accountCards.length === 0 ? (
         <EmptyState
           icon={FileBarChart}
           title={t('report.title')}
@@ -540,10 +655,11 @@ export default function Reports() {
         />
       ) : (
         <div className="space-y-6">
-          {visibleReports.map((r) => {
+          {accountCards.map((r) => {
             const { headers, rows } = normalize(r, t)
+            const yearMap = ytdByLabel(reports, r.account, r.year, r.month, t)
             return (
-              <section key={r.id} className="space-y-2">
+              <section key={r.account} className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-base md:text-lg font-bold">
                     {t(`report.account.${r.account}`)}{' '}
@@ -594,7 +710,7 @@ export default function Reports() {
                     </button>
                   </div>
                 </div>
-                <ReportGrid headers={headers} rows={rows} />
+                <ReportGrid headers={headers} rows={rows} yearMap={yearMap} />
               </section>
             )
           })}
@@ -616,7 +732,7 @@ export default function Reports() {
 
       {editing && (
         <Modal open onClose={() => setEditingId(null)} title={t(`report.account.${editing.account}`)} size="4xl">
-          <ReportEditor key={editing.id} report={editing} onSave={onSave} onDelete={() => onDelete(editing)} />
+          <ReportEditor key={editing.id} report={editing} reports={reports} onSave={onSave} onDelete={() => onDelete(editing)} />
         </Modal>
       )}
 
@@ -1277,11 +1393,33 @@ function CreateForm({ onSubmit, onTemplate }) {
   )
 }
 
-function ReportEditor({ report, onSave, onDelete }) {
+function ReportEditor({ report, reports, onSave, onDelete }) {
   const { t } = useT()
   const [form, setForm] = useState(() => normalize(report, t))
   const [busy, setBusy] = useState(false)
   const [saveErr, setSaveErr] = useState('')
+
+  // Live '26 year-to-date: sibling months (this report excluded) plus the
+  // weekly totals being edited right now, so the auto value updates as you type.
+  const base = useMemo(
+    () => ytdByLabel(reports, report.account, report.year, report.month, t, report.id),
+    [reports, report.account, report.year, report.month, report.id, t],
+  )
+  // The month being edited only contributes to '26 once it's complete; while
+  // it's the current in-progress month, its live weeks show in Total but not '26.
+  const thisComplete = monthComplete(report.year, report.month)
+  const yearMap = useMemo(() => {
+    const m = { ...base }
+    if (thisComplete) {
+      for (const row of form.rows) {
+        const tot = weekTotal(row.weeks)
+        if (tot == null) continue
+        const label = row.label || '—'
+        m[label] = (m[label] ?? 0) + tot
+      }
+    }
+    return m
+  }, [base, form.rows, thisComplete])
 
   const save = async () => {
     setSaveErr('')
@@ -1319,7 +1457,7 @@ function ReportEditor({ report, onSave, onDelete }) {
 
   return (
     <div className="space-y-3">
-      <ReportGrid headers={form.headers} rows={form.rows} editable on={on} />
+      <ReportGrid headers={form.headers} rows={form.rows} editable on={on} yearMap={yearMap} />
 
       <button
         type="button"

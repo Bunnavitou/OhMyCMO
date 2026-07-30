@@ -579,13 +579,18 @@ export function StoreProvider({ children }) {
           (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
         )
         if (changed.length === 0) return
+        // `doneAt` is an internal completion timestamp stamped alongside a
+        // Done transition — it shouldn't surface as a user-facing change.
+        const meaningful = changed.filter((k) => k !== 'doneAt')
         let type = 'task.update'
         let message
-        if (changed.length === 1 && changed[0] === 'status') {
+        if (meaningful.length === 1 && meaningful[0] === 'status') {
           type = 'task.status'
           message = `Task "${after.name}": ${before.status} → ${after.status}`
+        } else if (meaningful.length === 0) {
+          message = `Updated task "${after.name}"`
         } else {
-          message = `Updated task "${after.name}" (${changed.join(', ')})`
+          message = `Updated task "${after.name}" (${meaningful.join(', ')})`
         }
         return patchCustomer(
           id,
@@ -769,13 +774,18 @@ export function StoreProvider({ children }) {
           (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
         )
         if (changed.length === 0) return
+        // `doneAt` is an internal completion timestamp stamped alongside a
+        // Done transition — it shouldn't surface as a user-facing change.
+        const meaningful = changed.filter((k) => k !== 'doneAt')
         let type = 'task.update'
         let message
-        if (changed.length === 1 && changed[0] === 'status') {
+        if (meaningful.length === 1 && meaningful[0] === 'status') {
           type = 'task.status'
           message = `Task "${after.name}": ${before.status} → ${after.status}`
+        } else if (meaningful.length === 0) {
+          message = `Updated task "${after.name}"`
         } else {
-          message = `Updated task "${after.name}" (${changed.join(', ')})`
+          message = `Updated task "${after.name}" (${meaningful.join(', ')})`
         }
         return patchPartner(
           id,
@@ -916,14 +926,17 @@ export function StoreProvider({ children }) {
             ? Object.keys(patch).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
             : []
           const body = { todos }
+          const meaningful = changed.filter((k) => k !== 'doneAt')
           if (changed.length) {
             let type = 'task.update'
             let message
-            if (changed.length === 1 && changed[0] === 'postStatus') {
+            if (meaningful.length === 1 && meaningful[0] === 'postStatus') {
               type = 'task.status'
               message = `Post "${after.concept || 'Untitled'}": ${before.postStatus || 'draft'} → ${after.postStatus}`
+            } else if (meaningful.length === 0) {
+              message = `Updated post "${after.concept || 'Untitled'}"`
             } else {
-              message = `Updated post "${after.concept || 'Untitled'}" (${changed.join(', ')})`
+              message = `Updated post "${after.concept || 'Untitled'}" (${meaningful.join(', ')})`
             }
             body.logs = [campaignLogEntry(type, message, { taskId: todoId, changed }), ...(c.logs || [])]
           }

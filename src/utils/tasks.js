@@ -94,6 +94,7 @@ export function collectTasks(state) {
         createdByName: t.createdByName || '',
         priority: t.priority || '',
         groupName: groups.find((g) => g.id === t.groupId)?.name || '',
+        doneAt: t.doneAt || '',
       })
     }
   }
@@ -118,6 +119,7 @@ export function collectTasks(state) {
         createdByName: t.createdByName || '',
         priority: t.priority || '',
         groupName: '',
+        doneAt: t.doneAt || '',
       })
     }
   }
@@ -142,6 +144,7 @@ export function collectTasks(state) {
         createdByName: '',
         priority: '',
         groupName: t.channel || '',
+        doneAt: t.doneAt || '',
       })
     }
   }

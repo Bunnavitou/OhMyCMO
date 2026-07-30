@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   LayoutGrid, List, Search, Calendar, User, UserPlus, AlertTriangle, Clock,
   Loader2, Ban, ArrowUpRight, Activity as ActivityIcon, Pencil, Trash2,
+  ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
@@ -54,6 +55,41 @@ export default function Tasks() {
   const [source, setSource] = useState('all') // 'all' | 'customer' | 'partner'
   const [draggingKey, setDraggingKey] = useState(null)
   const [dragOverCol, setDragOverCol] = useState(null)
+
+  // Done/Blocked are "reference" states — collapse them to a slim strip by
+  // default so the board stays focused on Todo → In Progress. Remembered
+  // per-browser so a user's preference survives reloads.
+  const [collapsedCols, setCollapsedCols] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('omcmo.tasks.collapsedCols') || 'null')
+      if (saved && typeof saved === 'object') return saved
+    } catch { /* ignore */ }
+    return { Done: true, Blocked: true }
+  })
+  const toggleCol = (status) => {
+    setCollapsedCols((prev) => {
+      const next = { ...prev, [status]: !prev[status] }
+      try { localStorage.setItem('omcmo.tasks.collapsedCols', JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
+
+  // The Done column only shows tasks completed in the last 10 days by default;
+  // older ones stay one click away (and always in Table view / search). A task
+  // "completed" is its doneAt, falling back to its due date for legacy tasks
+  // stamped before doneAt existed.
+  const DONE_WINDOW_DAYS = 10
+  const [showOlderDone, setShowOlderDone] = useState(false)
+  const doneWindowStart = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - DONE_WINDOW_DAYS)
+    return d.toISOString().slice(0, 10)
+  }, [])
+  const isOlderDone = (task) => {
+    if (task.status !== 'Done') return false
+    const when = (task.doneAt ? task.doneAt.slice(0, 10) : task.due) || ''
+    return !when || when < doneWindowStart
+  }
   const [activityCount, setActivityCount] = useState(ACTIVITY_PAGE_SIZE)
   const [editingKey, setEditingKey] = useState(null)
 
@@ -140,9 +176,12 @@ export default function Tasks() {
   const setStatus = (task, status) => {
     if (task.status === status) return
     if (!canEditTask(task)) return
-    if (task.source === 'customer') updateCustomerTask(task.ownerId, task.taskId, { status })
-    else if (task.source === 'partner') updatePartnerTask(task.ownerId, task.taskId, { status })
-    else updateCampaignTodo(task.ownerId, task.taskId, { postStatus: TASK_TO_POST_STATUS[status] || 'draft' })
+    // Stamp a completion time when a task enters Done (so the board can age
+    // old Done cards out of view); clear it when it leaves Done.
+    const stamp = { doneAt: status === 'Done' ? new Date().toISOString() : null }
+    if (task.source === 'customer') updateCustomerTask(task.ownerId, task.taskId, { status, ...stamp })
+    else if (task.source === 'partner') updatePartnerTask(task.ownerId, task.taskId, { status, ...stamp })
+    else updateCampaignTodo(task.ownerId, task.taskId, { postStatus: TASK_TO_POST_STATUS[status] || 'draft', ...stamp })
   }
 
   const onDrop = (status) => {
@@ -288,30 +327,69 @@ export default function Tasks() {
           <div className={`grid grid-cols-1 gap-3 ${statusFilter === 'all' ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-1'}`}>
             {TASK_STATUSES.filter((status) => statusFilter === 'all' || status === statusFilter).map((status) => {
               const items = filtered.filter((task) => task.status === status)
+              // Collapse hides the card list (a vertical/accordion collapse) so
+              // every column keeps the same width whether open or closed.
+              const collapsed = statusFilter === 'all' && collapsedCols[status]
+              const isOver = dragOverCol === status
+
+              // Done column: hide tasks completed >14 days ago behind a toggle.
+              const isDoneCol = status === 'Done' && statusFilter === 'all'
+              const olderCount = isDoneCol ? items.filter(isOlderDone).length : 0
+              const visibleItems = isDoneCol && !showOlderDone
+                ? items.filter((task) => !isOlderDone(task))
+                : items
+
               return (
                 <div
                   key={status}
                   onDragOver={(e) => { e.preventDefault(); setDragOverCol(status) }}
                   onDragLeave={() => setDragOverCol((c) => (c === status ? null : c))}
                   onDrop={() => onDrop(status)}
-                  className={`rounded-3xl p-3 transition ${dragOverCol === status ? 'bg-brand-50 ring-2 ring-brand-300' : 'bg-iron'}`}
+                  className={`self-start rounded-3xl p-3 transition ${isOver ? 'bg-brand-50 ring-2 ring-brand-300' : 'bg-iron'}`}
                 >
-                  <div className="flex items-center justify-between px-1 mb-2">
+                  <div className="flex items-center justify-between px-1">
                     <span className={`pill ${statusStyle(status)}`}>{status}</span>
-                    <span className="text-xs font-bold text-graphite">{items.length}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-bold text-graphite">{items.length}</span>
+                      {statusFilter === 'all' && (
+                        <button
+                          type="button"
+                          onClick={() => toggleCol(status)}
+                          title={collapsed ? t('tasks.col.expand', { status }) : t('tasks.col.collapse', { status })}
+                          className="p-0.5 -m-0.5 text-graphite hover:text-wise-dark"
+                        >
+                          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2 min-h-[40px]">
-                    {items.map((task) => (
-                      <TaskCard
-                        key={task.key}
-                        task={task}
-                        canEdit={canEditTask(task)}
-                        onEdit={() => setEditingKey(task.key)}
-                        onDragStart={() => setDraggingKey(task.key)}
-                        onDragEnd={() => { setDraggingKey(null); setDragOverCol(null) }}
-                      />
-                    ))}
-                  </div>
+                  {!collapsed && (
+                    <>
+                      <div className="space-y-2 min-h-[40px] mt-2">
+                        {visibleItems.map((task) => (
+                          <TaskCard
+                            key={task.key}
+                            task={task}
+                            canEdit={canEditTask(task)}
+                            onEdit={() => setEditingKey(task.key)}
+                            onDragStart={() => setDraggingKey(task.key)}
+                            onDragEnd={() => { setDraggingKey(null); setDragOverCol(null) }}
+                          />
+                        ))}
+                      </div>
+                      {isDoneCol && olderCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowOlderDone((v) => !v)}
+                          className="mt-2 w-full text-xs font-semibold text-graphite hover:text-wise-dark py-1.5 rounded-xl hover:bg-shadow/20 transition"
+                        >
+                          {showOlderDone
+                            ? t('tasks.done.hideOlder')
+                            : t('tasks.done.showOlder', { n: olderCount })}
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               )
             })}
@@ -535,23 +613,27 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
   const submit = (e) => {
     e.preventDefault()
     if (!canEdit || !form.name.trim()) return
+    // Keep doneAt in sync with the status: stamp on entering Done (preserving
+    // any existing timestamp so a later edit doesn't reset the clock), clear
+    // on leaving Done. Marketing "published" maps to the board's Done column.
+    const doneAt = form.status === 'Done' ? (raw.doneAt || new Date().toISOString()) : null
     const patch = isCustomer
       ? {
           name: form.name.trim(), description: form.description, status: form.status,
           due: form.due, assignee: form.assignee, assigneeId: form.assigneeId,
-          priority: form.priority, groupId: form.groupId || null,
+          priority: form.priority, groupId: form.groupId || null, doneAt,
         }
       : isMarketing
       ? {
           concept: form.name.trim(), caption: form.description,
           postStatus: TASK_TO_POST_STATUS[form.status] || 'draft',
           postDate: form.due, channel: form.channel, type: form.type,
-          assignee: form.assignee, assigneeId: form.assigneeId,
+          assignee: form.assignee, assigneeId: form.assigneeId, doneAt,
         }
       : {
           name: form.name.trim(), description: form.description, status: form.status,
           due: form.due, assignee: form.assignee, assigneeId: form.assigneeId,
-          expense: Number(form.expense) || 0,
+          expense: Number(form.expense) || 0, doneAt,
         }
     onSave(patch)
     onClose()
