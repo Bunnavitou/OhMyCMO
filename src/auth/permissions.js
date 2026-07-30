@@ -6,6 +6,7 @@ export const PERMISSION_KEYS = [
   'partners',
   'marketing',
   'assets',
+  'reports',
   'subUsers',
 ]
 

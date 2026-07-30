@@ -67,6 +67,14 @@ export function AuthProvider({ children }) {
     return res.data.user
   }, [])
 
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    const res = await api.post('/auth/change-password', { currentPassword, newPassword })
+    // Backend rotates tokens on success; keep this session authenticated.
+    if (res?.data?.accessToken) setAccessToken(res.data.accessToken)
+    if (res?.data?.user) setUser(res.data.user)
+    return res.data
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout')
@@ -79,8 +87,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, status, login, register, logout }),
-    [user, status, login, register, logout],
+    () => ({ user, status, login, register, logout, changePassword }),
+    [user, status, login, register, logout, changePassword],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

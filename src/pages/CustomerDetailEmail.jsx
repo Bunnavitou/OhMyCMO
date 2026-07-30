@@ -4,7 +4,7 @@ import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { CcEditor, EmailPreview } from '../components/Invoice.jsx'
 import Modal from '../components/Modal.jsx'
-import { isEmail, applyPlaceholders } from '../utils/email.js'
+import { isEmail, applyPlaceholders, parseRecipients } from '../utils/email.js'
 
 // Per-customer email settings for task update mails. Stored on the customer as
 // `taskEmail: { to, cc, subject, body }` and pre-filled with a default template.
@@ -14,7 +14,9 @@ const DEFAULT_BODY =
 
 // Snapshot the saved state (or defaults) so Save/Cancel have a baseline.
 const snapshotFrom = (customer) => ({
-  to: customer.taskEmail?.to || customer.email || '',
+  // `to` supports multiple recipients (chip list), same as `cc`. Legacy data
+  // stored a single string — normalize either shape into an array.
+  to: parseRecipients(customer.taskEmail?.to ?? customer.email ?? ''),
   cc: Array.isArray(customer.taskEmail?.cc) ? customer.taskEmail.cc : [],
   subject: customer.taskEmail?.subject || DEFAULT_SUBJECT,
   body: customer.taskEmail?.body || DEFAULT_BODY,
@@ -43,12 +45,13 @@ export default function CustomerDetailEmail({ customer }) {
   )
 
   const dirty =
-    to !== saved.to ||
+    JSON.stringify(to) !== JSON.stringify(saved.to) ||
     subject !== saved.subject ||
     body !== saved.body ||
     JSON.stringify(cc) !== JSON.stringify(saved.cc)
 
-  const toValid = isEmail(to)
+  // At least one recipient, and every entered address is valid.
+  const toValid = to.length > 0 && to.every(isEmail)
   const canSave = dirty && toValid
 
   const reset = () => {
@@ -62,7 +65,7 @@ export default function CustomerDetailEmail({ customer }) {
     if (!canSave) return
     updateCustomer(customer.id, {
       taskEmail: {
-        to: to.trim(),
+        to: to.map((s) => s.trim()).filter(isEmail),
         cc: cc.map((s) => s.trim()).filter(isEmail),
         subject,
         body,
@@ -83,14 +86,8 @@ export default function CustomerDetailEmail({ customer }) {
 
       <div>
         <label className="label">{t('customer.email.to')} *</label>
-        <input
-          className="input"
-          type="email"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          placeholder="customer@company.com"
-        />
-        {to.trim() && !toValid && (
+        <CcEditor value={to} onChange={setTo} />
+        {to.length > 0 && !toValid && (
           <p className="text-xs text-red-600 mt-1">{t('customer.email.invalid')}</p>
         )}
       </div>
@@ -130,7 +127,7 @@ export default function CustomerDetailEmail({ customer }) {
       <button
         type="button"
         onClick={() => setPreviewOpen(true)}
-        disabled={!to.trim() && !subject.trim() && !body.trim()}
+        disabled={to.length === 0 && !subject.trim() && !body.trim()}
         className="px-4 py-2.5 rounded-xl bg-iron hover:bg-mint-bg hover:text-wise-dark text-sm font-semibold w-full border border-shadow inline-flex items-center justify-center gap-2 disabled:opacity-40"
       >
         <Eye className="w-4 h-4" /> {t('customer.email.preview')}

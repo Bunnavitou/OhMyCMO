@@ -12,6 +12,7 @@ import Modal from '../components/Modal.jsx'
 import { CAMPAIGN_STATUS, statusStyle, formatDateRange } from './Marketing.jsx'
 import { parsePostsFile, downloadTemplate, exportPostsExcel } from '../utils/campaignExcel.js'
 import AuthImage from '../components/AuthImage.jsx'
+import AssigneeField from '../components/AssigneeField.jsx'
 import { persistImageRef, fileContentPath } from '../utils/imageRef.js'
 import { getBlob } from '../api/client.js'
 
@@ -307,6 +308,7 @@ export default function MarketingCampaignDetail() {
                     <th className="px-3 py-2 min-w-[180px]">Post title</th>
                     <th className="px-3 py-2 whitespace-nowrap">Type</th>
                     <th className="px-3 py-2 whitespace-nowrap">Channel</th>
+                    <th className="px-3 py-2 whitespace-nowrap">In charge</th>
                     <th className="px-3 py-2 min-w-[260px]">Caption</th>
                     <th className="px-3 py-2 whitespace-nowrap">Artwork</th>
                     <th className="px-3 py-2 w-10" aria-label="Actions"></th>
@@ -361,6 +363,9 @@ export default function MarketingCampaignDetail() {
                           ) : (
                             <span className="text-xs text-graphite">—</span>
                           )}
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-graphite whitespace-nowrap">
+                          {t.assignee || '—'}
                         </td>
                         <td className="px-3 py-2.5 text-xs text-graphite">
                           {t.caption ? (
@@ -429,6 +434,7 @@ export default function MarketingCampaignDetail() {
         <TodoForm
           key={editingTodo?.id || 'new'}
           initial={editingTodo}
+          team={state.team || []}
           onDelete={
             editingTodo
               ? () => {
@@ -513,7 +519,7 @@ function CampaignForm({ initial, products, onSubmit }) {
   )
 }
 
-function TodoForm({ initial, onSubmit, onDelete }) {
+function TodoForm({ initial, team = [], onSubmit, onDelete }) {
   const [form, setForm] = useState(() => {
     const base = initial || {
       postDate: new Date().toISOString().slice(0, 10),
@@ -522,6 +528,8 @@ function TodoForm({ initial, onSubmit, onDelete }) {
       channel: '',
       caption: '',
       postStatus: 'draft',
+      assignee: '',
+      assigneeId: '',
     }
     return { ...base, artworks: normalizeArtworks(base) }
   })
@@ -653,6 +661,13 @@ function TodoForm({ initial, onSubmit, onDelete }) {
           placeholder="Hook + benefit + CTA"
         />
       </div>
+
+      <AssigneeField
+        team={team}
+        assigneeId={form.assigneeId}
+        assignee={form.assignee}
+        onChange={(v) => setForm((s) => ({ ...s, ...v }))}
+      />
 
       <div>
         <label className="label">

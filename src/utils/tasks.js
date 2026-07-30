@@ -5,6 +5,27 @@
 export const TASK_STATUSES = ['Todo', 'In Progress', 'Done', 'Blocked']
 export const TASK_PRIORITIES = ['High', 'Medium', 'Low']
 
+// Marketing campaign posts (campaign.todos) use their own status vocabulary.
+// We map them onto the 4 board columns so they sit alongside customer/partner
+// tasks, and map back when the status is changed from the Tasks board.
+export const POST_STATUS_TO_TASK = {
+  draft: 'Todo',
+  scheduled: 'In Progress',
+  published: 'Done',
+  cancelled: 'Blocked',
+}
+export const TASK_TO_POST_STATUS = {
+  Todo: 'draft',
+  'In Progress': 'scheduled',
+  Done: 'published',
+  Blocked: 'cancelled',
+}
+export const MARKETING_POST_TYPES = ['Image', 'Video', 'Carousel', 'Reel', 'Story', 'Article', 'Other']
+export const MARKETING_POST_CHANNELS = [
+  'Facebook', 'Instagram', 'TikTok', 'YouTube',
+  'LinkedIn', 'X (Twitter)', 'Threads', 'Telegram', 'Other',
+]
+
 export const statusStyle = (s) =>
   s === 'Done' ? 'bg-emerald-100 text-emerald-700'
   : s === 'In Progress' ? 'bg-brand-100 text-brand-700'
@@ -20,7 +41,9 @@ export const priorityStyle = (p) =>
 // Distinguishes customer vs. partner tasks when both mix in one list (the
 // global Tasks board, Home's upcoming-tasks widget).
 export const sourceStyle = (source) =>
-  source === 'partner' ? 'bg-violet-100 text-violet-700' : 'bg-sky-100 text-sky-700'
+  source === 'partner' ? 'bg-violet-100 text-violet-700'
+  : source === 'marketing' ? 'bg-amber-100 text-amber-700'
+  : 'bg-sky-100 text-sky-700'
 
 export const todayStr = () => new Date().toISOString().slice(0, 10)
 
@@ -95,6 +118,30 @@ export function collectTasks(state) {
         createdByName: t.createdByName || '',
         priority: t.priority || '',
         groupName: '',
+      })
+    }
+  }
+  // Marketing campaign posts, treated as tasks. Their native post-status is
+  // mapped onto the board columns; the channel shows in place of a group.
+  for (const cam of state.campaigns || []) {
+    for (const t of cam.todos || []) {
+      out.push({
+        key: `m:${cam.id}:${t.id}`,
+        source: 'marketing',
+        ownerId: cam.id,
+        ownerName: cam.name,
+        ownerLabel: 'Marketing',
+        link: `/marketing/${cam.id}`,
+        taskId: t.id,
+        name: t.concept || t.caption || 'Untitled post',
+        description: t.caption || '',
+        status: POST_STATUS_TO_TASK[t.postStatus] || 'Todo',
+        due: t.postDate || '',
+        assignee: t.assignee || '',
+        assigneeId: t.assigneeId || '',
+        createdByName: '',
+        priority: '',
+        groupName: t.channel || '',
       })
     }
   }

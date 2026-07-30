@@ -17,6 +17,7 @@ const PartnerDetail = lazy(() => import('./pages/PartnerDetail.jsx'))
 const Assets = lazy(() => import('./pages/Assets.jsx'))
 const Marketing = lazy(() => import('./pages/Marketing.jsx'))
 const MarketingCampaignDetail = lazy(() => import('./pages/MarketingCampaignDetail.jsx'))
+const Reports = lazy(() => import('./pages/Reports.jsx'))
 const More = lazy(() => import('./pages/More.jsx'))
 const MoreProfile = lazy(() => import('./pages/MoreProfile.jsx'))
 const MoreSubUsers = lazy(() => import('./pages/MoreSubUsers.jsx'))
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="assets" element={<Assets />} />
           <Route path="marketing" element={<Marketing />} />
           <Route path="marketing/:id" element={<MarketingCampaignDetail />} />
+          <Route path="reports" element={<Reports />} />
           <Route path="more" element={<More />} />
           <Route path="more/profile" element={<MoreProfile />} />
           <Route path="more/sub-users" element={<MoreSubUsers />} />

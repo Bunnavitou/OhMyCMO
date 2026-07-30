@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { Plus, Trash2, TrendingUp, Receipt, Share2, Pencil, Copy, Search, X, ChevronDown, Eye, Paperclip, Download, Upload, FileSpreadsheet, Send, Printer, RefreshCw, Loader2, CheckCircle2, AlertCircle, Link2 } from 'lucide-react'
 import Modal from './Modal.jsx'
-import { fmtMoney, isEmail, applyPlaceholders } from '../utils/email.js'
+import { fmtMoney, isEmail, applyPlaceholders, parseRecipients, validRecipients, recipientsText } from '../utils/email.js'
 import { useZohoStatus, sendInvoiceReport } from '../utils/zoho.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
@@ -41,7 +41,10 @@ const DEFAULT_EMAIL_BODY =
 // for the form prefill, the customer picker, and the send — so all three agree.
 function resolveEmailTemplate(customer, snapshot = {}) {
   const te = customer?.taskEmail || {}
-  const to = te.to || customer?.billingEmail || customer?.email || snapshot.to || ''
+  // `to` is a list of recipients (legacy data may be a single string).
+  const toSource = (te.to && (Array.isArray(te.to) ? te.to.length : true) && te.to)
+    || customer?.billingEmail || customer?.email || snapshot.to || ''
+  const to = parseRecipients(toSource)
   const cc = Array.isArray(te.cc) && te.cc.length ? te.cc
     : Array.isArray(customer?.emailCc) && customer.emailCc.length ? customer.emailCc
     : Array.isArray(snapshot.cc) ? snapshot.cc : []
@@ -165,7 +168,7 @@ export function EmailPreview({ to, cc, subject, body, items = [], taxRate, invoi
       <div className="card !p-3 space-y-1">
         <div className="flex gap-2">
           <span className="w-16 shrink-0 text-graphite">To</span>
-          <span className="font-medium break-all">{to || <em className="text-graphite">no recipient</em>}</span>
+          <span className="font-medium break-all">{recipientsText(to) || <em className="text-graphite">no recipient</em>}</span>
         </div>
         {cc?.length > 0 && (
           <div className="flex gap-2">
@@ -407,7 +410,7 @@ export function InvoiceForm({
   const initialEmail = initialCustomer
     ? resolveEmailTemplate(initialCustomer, initial?.email || {})
     : {
-        to: initial?.email?.to || '',
+        to: parseRecipients(initial?.email?.to),
         cc: Array.isArray(initial?.email?.cc) ? initial.email.cc : [],
         subject: initial?.email?.subject || '',
         body: initial?.email?.body || '',
@@ -550,7 +553,7 @@ export function InvoiceForm({
       amount: grandTotal,
       note: note.trim(),
       email: {
-        to: emailTo.trim(),
+        to: parseRecipients(emailTo),
         cc: emailCc.map((s) => s.trim()).filter(Boolean),
         // Store the raw templates (with placeholders) plus a resolved snapshot
         // so a later send has both the reusable template and the final text.
@@ -808,7 +811,7 @@ export function InvoiceForm({
       size="2xl"
     >
       <EmailPreview
-        to={emailTo.trim()}
+        to={emailTo}
         cc={emailCc.map((s) => s.trim()).filter(Boolean)}
         subject={applyPlaceholders(emailSubject, emailCtx)}
         body={applyPlaceholders(emailBody, emailCtx)}
@@ -1205,7 +1208,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
   const liveEmail = useMemo(() => {
     const snap = invoice?.email || {}
     const fallback = {
-      to: snap.to || '',
+      to: parseRecipients(snap.to),
       cc: Array.isArray(snap.cc) ? snap.cc : [],
       subject: snap.resolvedSubject || snap.subject || `Invoice ${invoice?.invoiceNo || ''}`.trim(),
       body: snap.resolvedBody || snap.body || '',
@@ -1231,14 +1234,17 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
     }
   }, [invoice, customers])
 
-  const recipient = liveEmail.to
+  // `to` may hold multiple recipients (array); keep a valid subset for sending
+  // and a display string for the UI.
+  const recipients = validRecipients(liveEmail.to)
+  const recipientsLabel = recipientsText(liveEmail.to)
   const ccList = liveEmail.cc
 
   // Send the invoice report over Zoho Mail (server-side SMTP). Attaches only
   // the user-uploaded files (the invoice figures are rendered inline in the
   // email body), records a send-history entry, and logs an audit entry.
   const doSend = async () => {
-    if (!recipient || !isEmail(recipient)) {
+    if (!recipients.length) {
       setSendState('error')
       setSendError('No valid recipient. Set the invoice email address first (edit the invoice).')
       return
@@ -1265,12 +1271,12 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
       // Plain-text fallback: drop the token (no table in text form).
       const text = bodyText.split('{invoice_table}').join('').trim()
 
-      await sendInvoiceReport({ to: recipient, cc: ccList, subject, text, html, attachments })
+      await sendInvoiceReport({ to: recipients, cc: ccList, subject, text, html, attachments })
 
       const ts = new Date().toISOString()
-      onUpdate?.({ sends: [...(invoice.sends || []), { ts, to: recipient, cc: ccList }] })
+      onUpdate?.({ sends: [...(invoice.sends || []), { ts, to: recipientsLabel, cc: ccList }] })
       onLogSend?.({
-        to: recipient,
+        to: recipientsLabel,
         cc: ccList,
         ts,
         invoiceNo: invoice.invoiceNo || '',
@@ -1469,7 +1475,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
       <Modal open={reportOpen} onClose={() => setReportOpen(false)} title="Email preview" size="2xl">
         <div className="space-y-3">
           <EmailPreview
-            to={recipient}
+            to={liveEmail.to}
             cc={ccList}
             subject={liveEmail.subject}
             body={liveEmail.body}
@@ -1496,13 +1502,13 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <p className="text-sm font-semibold">Report sent</p>
-            <p className="text-xs text-graphite">Sent to {recipient}{ccList.length ? ` · Cc ${ccList.length}` : ''}.</p>
+            <p className="text-xs text-graphite">Sent to {recipientsLabel}{ccList.length ? ` · Cc ${ccList.length}` : ''}.</p>
             <button type="button" onClick={closeSend} className="btn-primary w-full">Done</button>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="card !p-3 space-y-1 text-sm">
-              <Row label="To" value={recipient || '— none —'} />
+              <Row label="To" value={recipientsLabel || '— none —'} />
               {ccList.length > 0 && <Row label="Cc" value={ccList.join(', ')} />}
               <Row label="Subject" value={liveEmail.subject || `Invoice ${invoice.invoiceNo || ''}`} />
               <Row label="Attachments" value={`${(invoice?.email?.attachments || []).length} file(s)`} />

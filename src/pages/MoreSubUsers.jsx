@@ -14,6 +14,7 @@ const ACCESS_MENUS = [
   { key: 'partners',  label: 'Partners' },
   { key: 'marketing', label: 'Marketing' },
   { key: 'assets',    label: 'Assets Management' },
+  { key: 'reports',   label: 'Reports' },
   { key: 'subUsers',  label: 'Sub user Management' },
 ]
 
@@ -41,6 +42,9 @@ const MENU_ABILITIES = {
   ],
   assets: [
     { key: 'assets.delete', label: 'Delete assets' },
+  ],
+  reports: [
+    { key: 'reports.delete', label: 'Delete reports' },
   ],
 }
 

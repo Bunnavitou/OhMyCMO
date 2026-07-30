@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, Mail, Briefcase, LogOut, AtSign } from 'lucide-react'
+import { User, Mail, Briefcase, LogOut, AtSign, KeyRound, Check, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 
@@ -45,6 +46,8 @@ export default function MoreProfile() {
         <Row icon={Briefcase} label={t('profile.role')} value={role} />
       </section>
 
+      <ChangePassword />
+
       <button
         onClick={handleLogout}
         className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-near-black text-white font-semibold py-2.5 text-sm"
@@ -57,6 +60,138 @@ export default function MoreProfile() {
         {t('profile.note')}
       </p>
     </div>
+  )
+}
+
+// Password input with a show/hide toggle.
+function PasswordInput({ label, value, onChange, autoComplete, required, minLength }) {
+  const { t } = useT()
+  const [show, setShow] = useState(false)
+  return (
+    <div className="space-y-1">
+      <label className="text-[11px] uppercase tracking-wider text-graphite font-semibold">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          className="input pr-10"
+          type={show ? 'text' : 'password'}
+          autoComplete={autoComplete}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          minLength={minLength}
+        />
+        <button
+          type="button"
+          onClick={() => setShow((s) => !s)}
+          aria-label={show ? t('profile.hidePassword') : t('profile.showPassword')}
+          title={show ? t('profile.hidePassword') : t('profile.showPassword')}
+          className="absolute inset-y-0 right-0 flex items-center px-3 text-graphite hover:text-near-black"
+        >
+          {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ChangePassword() {
+  const { changePassword } = useAuth()
+  const { t } = useT()
+  const [open, setOpen] = useState(false)
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [ok, setOk] = useState(false)
+
+  function reset() {
+    setCurrent(''); setNext(''); setConfirm(''); setError(''); setOk(false)
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    setError(''); setOk(false)
+    if (next.length < 8) { setError(t('profile.passwordTooShort')); return }
+    if (next !== confirm) { setError(t('profile.passwordMismatch')); return }
+    if (next === current) { setError(t('profile.passwordSame')); return }
+    setBusy(true)
+    try {
+      await changePassword(current, next)
+      setOk(true)
+      setCurrent(''); setNext(''); setConfirm('')
+    } catch (err) {
+      setError(err?.message || t('profile.passwordMismatch'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => { reset(); setOpen(true) }}
+        className="w-full card flex items-center gap-3 text-left hover:bg-iron transition-colors"
+      >
+        <KeyRound className="w-4 h-4 text-graphite shrink-0" />
+        <span className="flex-1 text-sm md:text-base font-semibold">{t('profile.changePassword')}</span>
+      </button>
+    )
+  }
+
+  return (
+    <form onSubmit={submit} className="card space-y-3">
+      <div className="flex items-center gap-2">
+        <KeyRound className="w-4 h-4 text-graphite" />
+        <h3 className="text-sm md:text-base font-bold">{t('profile.changePassword')}</h3>
+      </div>
+
+      <PasswordInput
+        label={t('profile.currentPassword')}
+        value={current} onChange={setCurrent}
+        autoComplete="current-password" required
+      />
+
+      <PasswordInput
+        label={t('profile.newPassword')}
+        value={next} onChange={setNext}
+        autoComplete="new-password" required minLength={8}
+      />
+
+      <PasswordInput
+        label={t('profile.confirmPassword')}
+        value={confirm} onChange={setConfirm}
+        autoComplete="new-password" required minLength={8}
+      />
+
+      {error && (
+        <p className="flex items-center gap-1.5 text-xs text-red-600">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
+        </p>
+      )}
+      {ok && (
+        <p className="flex items-center gap-1.5 text-xs text-green-600">
+          <Check className="w-3.5 h-3.5 shrink-0" />{t('profile.passwordUpdated')}
+        </p>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        <button
+          type="submit" disabled={busy}
+          className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-near-black text-white font-semibold py-2.5 text-sm disabled:opacity-60"
+        >
+          {busy ? t('common.saving') : t('profile.updatePassword')}
+        </button>
+        <button
+          type="button" onClick={() => { reset(); setOpen(false) }}
+          className="rounded-full border border-shadow font-semibold py-2.5 px-4 text-sm"
+        >
+          {t('common.cancel')}
+        </button>
+      </div>
+    </form>
   )
 }
 

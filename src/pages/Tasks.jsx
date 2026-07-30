@@ -2,14 +2,17 @@ import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   LayoutGrid, List, Search, Calendar, User, UserPlus, AlertTriangle, Clock,
-  Loader2, Ban, ArrowUpRight, Activity as ActivityIcon,
+  Loader2, Ban, ArrowUpRight, Activity as ActivityIcon, Pencil, Trash2,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 import { useT } from '../i18n/LanguageContext.jsx'
+import Modal from '../components/Modal.jsx'
+import AssigneeField from '../components/AssigneeField.jsx'
 import {
-  TASK_STATUSES, statusStyle, priorityStyle, sourceStyle, dueBucket, dueTextStyle, collectTasks, memberName,
+  TASK_STATUSES, TASK_PRIORITIES, statusStyle, priorityStyle, sourceStyle, dueBucket, dueTextStyle, collectTasks, memberName,
+  POST_STATUS_TO_TASK, TASK_TO_POST_STATUS, MARKETING_POST_TYPES, MARKETING_POST_CHANNELS,
 } from '../utils/tasks.js'
 
 const DUE_FILTERS = ['all', 'overdue', 'today', 'soon', 'open', 'none']
@@ -25,7 +28,11 @@ const formatLogTime = (ts) => {
 }
 
 export default function Tasks() {
-  const { state, updateCustomerTask, updatePartnerTask } = useStore()
+  const {
+    state, updateCustomerTask, updatePartnerTask,
+    removeCustomerTask, removePartnerTask,
+    updateCampaignTodo, removeCampaignTodo,
+  } = useStore()
   const { user } = useAuth()
   const { t } = useT()
 
@@ -48,6 +55,7 @@ export default function Tasks() {
   const [draggingKey, setDraggingKey] = useState(null)
   const [dragOverCol, setDragOverCol] = useState(null)
   const [activityCount, setActivityCount] = useState(ACTIVITY_PAGE_SIZE)
+  const [editingKey, setEditingKey] = useState(null)
 
   const allTasks = useMemo(() => collectTasks(state), [state])
 
@@ -115,8 +123,11 @@ export default function Tasks() {
     for (const p of state.partners || []) {
       for (const l of p.logs || []) logs.push({ ...l, ownerName: p.name, link: `/partners/${p.id}`, actorName: actorName(l) })
     }
+    for (const cam of state.campaigns || []) {
+      for (const l of cam.logs || []) logs.push({ ...l, ownerName: cam.name, link: `/marketing/${cam.id}`, actorName: actorName(l) })
+    }
     return logs.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''))
-  }, [state.customers, state.partners, state.team])
+  }, [state.customers, state.partners, state.campaigns, state.team])
 
   const visibleActivity = activity.slice(0, activityCount)
 
@@ -124,12 +135,14 @@ export default function Tasks() {
   // account owner can change any task. Mirrors the backend guard in
   // assertOwnTaskChangesOnly (OhMyCMO_API/src/utils/tenant.js).
   const canEditTask = (task) => isOwner || !task.assigneeId || task.assigneeId === user?.id
+  const canDeleteTask = (task) => canEditTask(task) && hasPermission(user, 'tasks.delete')
 
   const setStatus = (task, status) => {
     if (task.status === status) return
     if (!canEditTask(task)) return
     if (task.source === 'customer') updateCustomerTask(task.ownerId, task.taskId, { status })
-    else updatePartnerTask(task.ownerId, task.taskId, { status })
+    else if (task.source === 'partner') updatePartnerTask(task.ownerId, task.taskId, { status })
+    else updateCampaignTodo(task.ownerId, task.taskId, { postStatus: TASK_TO_POST_STATUS[status] || 'draft' })
   }
 
   const onDrop = (status) => {
@@ -138,6 +151,40 @@ export default function Tasks() {
     setDraggingKey(null)
     setDragOverCol(null)
   }
+
+  // Resolve the currently-edited task down to its raw stored object + parent so
+  // the modal can edit every field (collectTasks only exposes a summary shape).
+  const editing = useMemo(() => {
+    if (!editingKey) return null
+    const flat = allTasks.find((x) => x.key === editingKey)
+    if (!flat) return null
+    const list = flat.source === 'customer' ? state.customers
+      : flat.source === 'partner' ? state.partners
+      : state.campaigns
+    const parent = (list || []).find((e) => e.id === flat.ownerId)
+    const items = flat.source === 'marketing' ? parent?.todos : parent?.tasks
+    const raw = (items || []).find((tk) => tk.id === flat.taskId)
+    if (!raw) return null
+    return { flat, parent, raw }
+  }, [editingKey, allTasks, state.customers, state.partners, state.campaigns])
+
+  const saveTask = (patch) => {
+    if (!editing) return
+    const { source, ownerId, taskId } = editing.flat
+    if (source === 'customer') updateCustomerTask(ownerId, taskId, patch)
+    else if (source === 'partner') updatePartnerTask(ownerId, taskId, patch)
+    else updateCampaignTodo(ownerId, taskId, patch)
+  }
+
+  const deleteTask = () => {
+    if (!editing) return
+    const { source, ownerId, taskId } = editing.flat
+    if (source === 'customer') removeCustomerTask(ownerId, taskId)
+    else if (source === 'partner') removePartnerTask(ownerId, taskId)
+    else removeCampaignTodo(ownerId, taskId)
+    setEditingKey(null)
+  }
+
 
   const statTiles = [
     { key: 'overdue',    icon: AlertTriangle, value: stats.overdue,    label: t('tasks.stat.overdue'),    bg: '#FFE4E6', fg: '#9F1239' },
@@ -198,6 +245,7 @@ export default function Tasks() {
           <option value="all">{t('tasks.filter.allSources')}</option>
           <option value="customer">{t('tasks.filter.customers')}</option>
           <option value="partner">{t('tasks.filter.partners')}</option>
+          <option value="marketing">{t('tasks.filter.marketing')}</option>
         </select>
         <div className="flex rounded-xl border border-shadow overflow-hidden">
           <button
@@ -258,6 +306,7 @@ export default function Tasks() {
                         key={task.key}
                         task={task}
                         canEdit={canEditTask(task)}
+                        onEdit={() => setEditingKey(task.key)}
                         onDragStart={() => setDraggingKey(task.key)}
                         onDragEnd={() => { setDraggingKey(null); setDragOverCol(null) }}
                       />
@@ -268,7 +317,7 @@ export default function Tasks() {
             })}
           </div>
         ) : (
-          <TaskTable tasks={filtered} canEditTask={canEditTask} onSetStatus={setStatus} />
+          <TaskTable tasks={filtered} canEditTask={canEditTask} onSetStatus={setStatus} onEdit={(task) => setEditingKey(task.key)} />
         )}
       </div>
 
@@ -288,6 +337,9 @@ export default function Tasks() {
                   <Link to={l.link} className="card !p-3 flex items-start gap-3 hover:scale-[1.01] transition-transform">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium leading-snug">{l.message}</p>
+                      {l.type === 'activity' && l.meta?.note && (
+                        <p className="text-xs text-graphite mt-0.5 whitespace-pre-wrap">{l.meta.note}</p>
+                      )}
                       <p className="text-[11px] text-graphite mt-0.5">
                         {l.ownerName}
                         {l.actorName && <> · by {l.actorName}</>}
@@ -309,11 +361,24 @@ export default function Tasks() {
           </>
         )}
       </section>
+
+      {editing && (
+        <TaskEditModal
+          key={editingKey}
+          editing={editing}
+          team={state.team || []}
+          canEdit={canEditTask(editing.flat)}
+          canDelete={canDeleteTask(editing.flat)}
+          onClose={() => setEditingKey(null)}
+          onSave={saveTask}
+          onDelete={deleteTask}
+        />
+      )}
     </div>
   )
 }
 
-function TaskCard({ task, canEdit, onDragStart, onDragEnd }) {
+function TaskCard({ task, canEdit, onEdit, onDragStart, onDragEnd }) {
   const bucket = dueBucket(task.due, task.status)
   return (
     <div
@@ -323,10 +388,22 @@ function TaskCard({ task, canEdit, onDragStart, onDragEnd }) {
       className={`card !p-4 space-y-1.5 ${canEdit ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
       <div className="flex items-start gap-2">
-        <p className={`text-sm font-semibold flex-1 min-w-0 ${task.status === 'Done' ? 'line-through text-graphite' : ''}`}>
+        <button
+          type="button"
+          onClick={onEdit}
+          className={`text-sm font-semibold flex-1 min-w-0 text-left hover:text-wise-dark ${task.status === 'Done' ? 'line-through text-graphite' : ''}`}
+        >
           {task.name}
-        </p>
+        </button>
         {task.priority && <span className={`pill shrink-0 ${priorityStyle(task.priority)}`}>{task.priority}</span>}
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label="Edit task"
+          className="shrink-0 p-1 -m-1 text-graphite hover:text-wise-dark"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
       </div>
       <div className="flex items-center gap-1.5">
         <span className={`pill shrink-0 text-[10px] ${sourceStyle(task.source)}`}>{task.ownerLabel}</span>
@@ -353,7 +430,7 @@ function TaskCard({ task, canEdit, onDragStart, onDragEnd }) {
   )
 }
 
-function TaskTable({ tasks, canEditTask, onSetStatus }) {
+function TaskTable({ tasks, canEditTask, onSetStatus, onEdit }) {
   const { t } = useT()
   const sorted = useMemo(
     () => [...tasks].sort((a, b) => {
@@ -385,7 +462,14 @@ function TaskTable({ tasks, canEditTask, onSetStatus }) {
             return (
               <tr key={task.key} className="border-b border-shadow last:border-0 hover:bg-iron/60">
                 <td className="p-3">
-                  <p className={`font-semibold ${task.status === 'Done' ? 'line-through text-graphite' : ''}`}>{task.name}</p>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(task)}
+                    className={`font-semibold text-left hover:text-wise-dark inline-flex items-center gap-1.5 ${task.status === 'Done' ? 'line-through text-graphite' : ''}`}
+                  >
+                    {task.name}
+                    <Pencil className="w-3 h-3 text-graphite shrink-0" />
+                  </button>
                   {task.groupName && <p className="text-[11px] text-graphite">{task.groupName}</p>}
                 </td>
                 <td className="p-3">
@@ -419,5 +503,177 @@ function TaskTable({ tasks, canEditTask, onSetStatus }) {
         </tbody>
       </table>
     </div>
+  )
+}
+
+// Edit a task (customer or partner) directly from the Tasks board. Fields
+// branch on the task's source since customer and partner tasks have slightly
+// different shapes. (Posting activity lives on the board, not here.)
+function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onDelete }) {
+  const { t } = useT()
+  const { flat, parent, raw } = editing
+  const isCustomer = flat.source === 'customer'
+  const isMarketing = flat.source === 'marketing'
+  const groups = isCustomer ? (parent?.taskGroups || []) : []
+
+  const [form, setForm] = useState({
+    name: (isMarketing ? raw.concept : raw.name) || '',
+    description: (isMarketing ? raw.caption : raw.description) || '',
+    status: isMarketing ? (POST_STATUS_TO_TASK[raw.postStatus] || 'Todo') : (raw.status || 'Todo'),
+    due: (isMarketing ? raw.postDate : raw.due) || '',
+    assignee: raw.assignee || '',
+    assigneeId: raw.assigneeId || '',
+    priority: raw.priority || '',
+    groupId: raw.groupId || null,
+    expense: raw.expense ?? 0,
+    channel: raw.channel || '',
+    type: raw.type || 'Image',
+  })
+
+  const update = (patch) => setForm((s) => ({ ...s, ...patch }))
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (!canEdit || !form.name.trim()) return
+    const patch = isCustomer
+      ? {
+          name: form.name.trim(), description: form.description, status: form.status,
+          due: form.due, assignee: form.assignee, assigneeId: form.assigneeId,
+          priority: form.priority, groupId: form.groupId || null,
+        }
+      : isMarketing
+      ? {
+          concept: form.name.trim(), caption: form.description,
+          postStatus: TASK_TO_POST_STATUS[form.status] || 'draft',
+          postDate: form.due, channel: form.channel, type: form.type,
+          assignee: form.assignee, assigneeId: form.assigneeId,
+        }
+      : {
+          name: form.name.trim(), description: form.description, status: form.status,
+          due: form.due, assignee: form.assignee, assigneeId: form.assigneeId,
+          expense: Number(form.expense) || 0,
+        }
+    onSave(patch)
+    onClose()
+  }
+
+  return (
+    <Modal open onClose={onClose} title={t('tasks.edit.title')} size="lg">
+      <form onSubmit={submit} className="space-y-3">
+        <div className="flex items-center gap-1.5">
+          <span className={`pill text-[10px] ${sourceStyle(flat.source)}`}>{flat.ownerLabel}</span>
+          <Link to={flat.link} onClick={onClose} className="text-xs text-graphite hover:text-wise-dark inline-flex items-center gap-1">
+            {flat.ownerName} <ArrowUpRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        {!canEdit && (
+          <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{t('tasks.edit.readonly')}</p>
+        )}
+
+        <div>
+          <label className="label">{t(isMarketing ? 'tasks.field.concept' : 'tasks.field.name')} *</label>
+          <input
+            className="input" autoFocus disabled={!canEdit}
+            value={form.name}
+            onChange={(e) => update({ name: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="label">{t(isMarketing ? 'tasks.field.caption' : 'tasks.field.description')}</label>
+          <textarea
+            className="input min-h-[80px]" disabled={!canEdit}
+            value={form.description}
+            onChange={(e) => update({ description: e.target.value })}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">{t('tasks.field.status')}</label>
+            <select className="input" disabled={!canEdit} value={form.status} onChange={(e) => update({ status: e.target.value })}>
+              {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">{t('tasks.field.due')}</label>
+            <input className="input" type="date" disabled={!canEdit} value={form.due} onChange={(e) => update({ due: e.target.value })} />
+          </div>
+        </div>
+
+        {isCustomer ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">{t('tasks.field.priority')}</label>
+              <select className="input" disabled={!canEdit} value={form.priority || ''} onChange={(e) => update({ priority: e.target.value })}>
+                <option value="">{t('tasks.field.priority.none')}</option>
+                {TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            {groups.length > 0 && (
+              <div>
+                <label className="label">Group</label>
+                <select className="input" disabled={!canEdit} value={form.groupId || ''} onChange={(e) => update({ groupId: e.target.value || null })}>
+                  <option value="">Ungrouped</option>
+                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        ) : isMarketing ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">{t('tasks.field.channel')}</label>
+              <select className="input" disabled={!canEdit} value={form.channel || ''} onChange={(e) => update({ channel: e.target.value })}>
+                <option value="">—</option>
+                {MARKETING_POST_CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">{t('tasks.field.type')}</label>
+              <select className="input" disabled={!canEdit} value={form.type || 'Image'} onChange={(e) => update({ type: e.target.value })}>
+                {MARKETING_POST_TYPES.map((ty) => <option key={ty} value={ty}>{ty}</option>)}
+              </select>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label className="label">{t('tasks.field.expense')}</label>
+            <input className="input" type="number" min="0" step="0.01" disabled={!canEdit} value={form.expense} onChange={(e) => update({ expense: e.target.value })} />
+          </div>
+        )}
+
+        <fieldset disabled={!canEdit} className="disabled:opacity-60">
+          <AssigneeField
+            team={team}
+            assigneeId={form.assigneeId}
+            assignee={form.assignee}
+            onChange={(v) => update(v)}
+          />
+        </fieldset>
+
+        {isMarketing && (
+          <p className="text-[11px] text-graphite">{t('tasks.field.marketingNote')}</p>
+        )}
+
+        {canEdit && (
+          <div className="flex gap-2 pt-1">
+            <button type="submit" className="btn-primary flex-1" disabled={!form.name.trim()}>
+              {t('common.save')}
+            </button>
+            {canDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="rounded-xl px-4 text-rose-600 hover:bg-rose-50 text-sm font-semibold border border-rose-100 inline-flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" /> {t('tasks.edit.delete')}
+              </button>
+            )}
+          </div>
+        )}
+      </form>
+    </Modal>
   )
 }

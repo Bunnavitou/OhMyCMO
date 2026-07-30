@@ -1,7 +1,7 @@
 import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom'
 import {
   Home, Users, Package, Handshake, Megaphone, MoreHorizontal,
-  ChevronLeft, ChevronRight, ListChecks,
+  ChevronLeft, ChevronRight, ListChecks, FileBarChart,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
@@ -15,6 +15,7 @@ const ALL_TABS = [
   { to: '/products',  icon: Package,        labelKey: 'nav.products',  mobileLabelKey: 'nav.products.short', isActive: (p) => p.startsWith('/products'),                            perm: 'products' },
   { to: '/partners',  icon: Handshake,      labelKey: 'nav.partners',  mobileLabelKey: 'nav.partners',       isActive: (p) => p.startsWith('/partners'),                            perm: 'partners' },
   { to: '/marketing', icon: Megaphone,      labelKey: 'nav.marketing', mobileLabelKey: 'nav.marketing',      isActive: (p) => p.startsWith('/marketing'),                           perm: 'marketing' },
+  { to: '/reports',   icon: FileBarChart,   labelKey: 'nav.reports',   mobileLabelKey: 'nav.reports',        isActive: (p) => p.startsWith('/reports'),                             perm: 'reports' },
   { to: '/more',      icon: MoreHorizontal, labelKey: 'nav.more',      mobileLabelKey: 'nav.more',           isActive: (p) => p.startsWith('/more') || p.startsWith('/assets'),     perm: null },
 ]
 
@@ -68,6 +69,8 @@ function useNavMeta() {
       const c = state.campaigns?.find((x) => x.id === segs[1])
       crumbs.push({ label: c?.name || t('breadcrumb.campaign'), to: pathname })
     }
+  } else if (segs[0] === 'reports') {
+    crumbs.push({ label: t('nav.reports'), to: '/reports' })
   } else if (segs[0] === 'assets') {
     crumbs.push({ label: t('nav.more'), to: '/more' })
     crumbs.push({ label: t('breadcrumb.assets'), to: '/assets' })

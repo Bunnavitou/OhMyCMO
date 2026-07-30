@@ -31,6 +31,7 @@ const EMPTY_STATE = {
   partners: [],
   campaigns: [],
   assets: [],
+  reports: [],
   // subUsers are managed separately via /api/sub-users; keep an empty list
   // here so legacy reads of state.subUsers don't crash.
   subUsers: [],
@@ -71,9 +72,10 @@ export function StoreProvider({ children }) {
       safeGet('/partners'),
       safeGet('/campaigns'),
       safeGet('/assets'),
+      safeGet('/reports'),
       safeGet('/users/team'),
     ])
-      .then(([cust, custGroups, prod, part, camp, ass, team]) => {
+      .then(([cust, custGroups, prod, part, camp, ass, rep, team]) => {
         if (cancelled) return
         setState({
           customers: cust.data.items,
@@ -82,6 +84,7 @@ export function StoreProvider({ children }) {
           partners: part.data.items,
           campaigns: camp.data.items,
           assets: ass.data.items,
+          reports: rep.data.items,
           subUsers: [],
           team: team.data.items,
         })
@@ -151,6 +154,17 @@ export function StoreProvider({ children }) {
         replaceIn('partners', partner)
         return partner
       })
+
+    // Campaigns store their audit trail in a JSON `logs` column (no dedicated
+    // table), so entries are built client-side. Shape mirrors CustomerLog /
+    // PartnerLog so the Tasks "Team activity" feed can render them uniformly.
+    const campaignLogEntry = (type, message, meta = {}) => ({
+      id: uid('clog'),
+      ts: new Date().toISOString(),
+      type,
+      message,
+      meta: { ...meta, by: user?.id, byName: memberName(user) },
+    })
 
     // ────────────────────────────────────────────────────────────────────
 
@@ -235,6 +249,18 @@ export function StoreProvider({ children }) {
             ...s,
             customers: s.customers.map((c) =>
               c.id === id ? { ...c, logs: [res.data.log, ...(c.logs || [])] } : c,
+            ),
+          }))
+        }),
+
+      // Manual audit log entry for a partner (mirrors appendCustomerLog).
+      appendPartnerLog: (id, entry) =>
+        run(async () => {
+          const res = await api.post(`/partners/${id}/logs`, entry)
+          setState((s) => ({
+            ...s,
+            partners: s.partners.map((p) =>
+              p.id === id ? { ...p, logs: [res.data.log, ...(p.logs || [])] } : p,
             ),
           }))
         }),
@@ -791,6 +817,30 @@ export function StoreProvider({ children }) {
           removeFrom('assets', id)
         }),
 
+      // ── Reports (WeBill365 usage reports)
+      // These intentionally do NOT use run(): they rethrow so the Reports page
+      // can surface failures (e.g. a 403 when the user lacks the permission)
+      // instead of failing silently.
+      addReport: async (data) => {
+        const res = await api.post('/reports', data)
+        prependTo('reports', res.data.report)
+        return res.data.report
+      },
+      updateReport: async (id, patch) => {
+        const res = await api.patch(`/reports/${id}`, patch)
+        replaceIn('reports', res.data.report)
+      },
+      removeReport: async (id) => {
+        await api.delete(`/reports/${id}`)
+        removeFrom('reports', id)
+      },
+      // Report activity log (create/update/delete). Fetched on demand — rethrows
+      // so the History view can surface failures.
+      fetchReportLogs: async () => {
+        const res = await api.get('/reports/logs')
+        return res.data.items
+      },
+
       // ── Sub-users — managed via /api/sub-users (see useSubUsers).
       // These no-ops keep any stragglers from crashing.
       addSubUser: () => {},
@@ -823,40 +873,76 @@ export function StoreProvider({ children }) {
             id: uid('cmt'),
             postDate: '', concept: '', type: 'Image', channel: '',
             keyFeature: '', caption: '', artwork: null, postStatus: 'draft',
+            assignee: '', assigneeId: '',
             ...todo,
           }
+          const log = campaignLogEntry('task.create', `Created post "${newTodo.concept || 'Untitled'}"`, {
+            taskId: newTodo.id, postStatus: newTodo.postStatus,
+          })
           const res = await api.patch(`/campaigns/${campaignId}`, {
             todos: [newTodo, ...(c.todos || [])],
+            logs: [log, ...(c.logs || [])],
           })
           replaceIn('campaigns', res.data.campaign)
         }),
       replaceCampaignTodos: (campaignId, todos) =>
         run(async () => {
+          const c = stateRef.current.campaigns.find((x) => x.id === campaignId)
           const normalized = (todos || []).map((t) => ({
             id: t.id || uid('cmt'),
             postDate: '', concept: '', type: 'Image', channel: '',
             keyFeature: '', caption: '', artwork: null, postStatus: 'draft',
+            assignee: '', assigneeId: '',
             ...t,
           }))
-          const res = await api.patch(`/campaigns/${campaignId}`, { todos: normalized })
+          const log = campaignLogEntry(
+            'task.update',
+            `Imported ${normalized.length} post${normalized.length !== 1 ? 's' : ''}`,
+          )
+          const res = await api.patch(`/campaigns/${campaignId}`, {
+            todos: normalized,
+            logs: [log, ...((c?.logs) || [])],
+          })
           replaceIn('campaigns', res.data.campaign)
         }),
       updateCampaignTodo: (campaignId, todoId, patch) =>
         run(async () => {
           const c = stateRef.current.campaigns.find((x) => x.id === campaignId)
           if (!c) return
-          const todos = (c.todos || []).map((t) =>
-            t.id === todoId ? { ...t, ...patch } : t,
-          )
-          const res = await api.patch(`/campaigns/${campaignId}`, { todos })
+          const before = (c.todos || []).find((t) => t.id === todoId)
+          const after = { ...(before || {}), ...patch }
+          const todos = (c.todos || []).map((t) => (t.id === todoId ? after : t))
+          const changed = before
+            ? Object.keys(patch).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
+            : []
+          const body = { todos }
+          if (changed.length) {
+            let type = 'task.update'
+            let message
+            if (changed.length === 1 && changed[0] === 'postStatus') {
+              type = 'task.status'
+              message = `Post "${after.concept || 'Untitled'}": ${before.postStatus || 'draft'} → ${after.postStatus}`
+            } else {
+              message = `Updated post "${after.concept || 'Untitled'}" (${changed.join(', ')})`
+            }
+            body.logs = [campaignLogEntry(type, message, { taskId: todoId, changed }), ...(c.logs || [])]
+          }
+          const res = await api.patch(`/campaigns/${campaignId}`, body)
           replaceIn('campaigns', res.data.campaign)
         }),
       removeCampaignTodo: (campaignId, todoId) =>
         run(async () => {
           const c = stateRef.current.campaigns.find((x) => x.id === campaignId)
           if (!c) return
+          const removed = (c.todos || []).find((t) => t.id === todoId)
+          const log = campaignLogEntry('task.delete', `Deleted post "${removed?.concept || 'Untitled'}"`, {
+            taskId: todoId,
+          })
           const todos = (c.todos || []).filter((t) => t.id !== todoId)
-          const res = await api.patch(`/campaigns/${campaignId}`, { todos })
+          const res = await api.patch(`/campaigns/${campaignId}`, {
+            todos,
+            logs: [log, ...(c.logs || [])],
+          })
           replaceIn('campaigns', res.data.campaign)
         }),
     }
