@@ -182,5 +182,63 @@
     color: #0E0F0C;
   }
 
+  /* Percentage slider (task / post completion). The filled portion is painted
+     with a background-gradient driven by a --pct custom property, since the
+     track pseudo-element can't see the input's value on its own. */
+  .range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 22px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .range:disabled { cursor: not-allowed; opacity: 0.5; }
+
+  .range::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: linear-gradient(
+      to right,
+      #163300 0%,
+      #163300 var(--pct, 0%),
+      rgba(14, 15, 12, 0.12) var(--pct, 0%),
+      rgba(14, 15, 12, 0.12) 100%
+    );
+  }
+  .range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -6px; /* centre the thumb on the 6px track */
+    border-radius: 9999px;
+    background: #9FE870;
+    border: 2px solid #163300;
+    transition: transform 150ms ease;
+  }
+  .range:hover::-webkit-slider-thumb { transform: scale(1.12); }
+  .range:active::-webkit-slider-thumb { transform: scale(0.94); }
+  .range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(22, 51, 0, 0.25); }
+
+  .range::-moz-range-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: rgba(14, 15, 12, 0.12);
+  }
+  .range::-moz-range-progress {
+    height: 6px;
+    border-radius: 9999px;
+    background: #163300;
+  }
+  .range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: #9FE870;
+    border: 2px solid #163300;
+  }
+  .range:focus { outline: none; }
+
   .hairline { border-color: rgba(14, 15, 12, 0.12); }
 }

@@ -7,7 +7,11 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 import Modal from '../components/Modal.jsx'
 import AssigneeField from '../components/AssigneeField.jsx'
-import { statusStyle, priorityStyle, TASK_PRIORITIES, memberName } from '../utils/tasks.js'
+import ProgressField from '../components/ProgressField.jsx'
+import {
+  statusStyle, priorityStyle, TASK_PRIORITIES, memberName, doneStamp,
+  clampProgress, progressForStatus,
+} from '../utils/tasks.js'
 
 const STATUS_OPTIONS = ['Todo', 'In Progress', 'Done', 'Blocked']
 const FILE_LIMIT_BYTES = 1024 * 1024
@@ -254,17 +258,21 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
     return match ? { ...initial, assigneeId: match.id } : initial
   })()
   const [form, setForm] = useState(
-    normalizedInitial || {
-      name: '',
-      registerDate: today,
-      description: '',
-      status: 'Todo',
-      priority: '',
-      file: null,
-      due: '',
-      ...defaultAssignee,
-      groupId: groups[0]?.id || null,
-    },
+    normalizedInitial
+      // Tasks created before the progress field existed don't carry it at all.
+      ? { ...normalizedInitial, progress: clampProgress(normalizedInitial.progress) }
+      : {
+          name: '',
+          registerDate: today,
+          description: '',
+          status: 'Todo',
+          progress: 0,
+          priority: '',
+          file: null,
+          due: '',
+          ...defaultAssignee,
+          groupId: groups[0]?.id || null,
+        },
   )
   const [fileError, setFileError] = useState('')
   const fileInputRef = useRef(null)
@@ -288,12 +296,23 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
     reader.readAsDataURL(f)
   }
 
+  // Moving the status to Done means finished, so pull progress up to 100.
+  // Leaving Done keeps whatever number is there.
+  const setStatus = (status) =>
+    setForm((s) => ({ ...s, status, progress: progressForStatus(status, s.progress) }))
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
         if (!form.name.trim()) return
-        onSubmit(form)
+        // Keep the completion timestamp in sync with the status — the team
+        // report needs it to place finished work in the right week.
+        onSubmit({
+          ...form,
+          progress: progressForStatus(form.status, form.progress),
+          doneAt: doneStamp(form.status, initial?.doneAt),
+        })
       }}
       className="space-y-3"
     >
@@ -324,7 +343,7 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
           <select
             className="input"
             value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
+            onChange={(e) => setStatus(e.target.value)}
           >
             {STATUS_OPTIONS.map((s) => <option key={s}>{s}</option>)}
           </select>
@@ -341,6 +360,11 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
           </select>
         </div>
       </div>
+
+      <ProgressField
+        value={form.progress}
+        onChange={(progress) => setForm((s) => ({ ...s, progress }))}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <div>

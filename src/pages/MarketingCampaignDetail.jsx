@@ -13,6 +13,8 @@ import { CAMPAIGN_STATUS, statusStyle, formatDateRange } from './Marketing.jsx'
 import { parsePostsFile, downloadTemplate, exportPostsExcel } from '../utils/campaignExcel.js'
 import AuthImage from '../components/AuthImage.jsx'
 import AssigneeField from '../components/AssigneeField.jsx'
+import ProgressField from '../components/ProgressField.jsx'
+import { POST_STATUS_TO_TASK, clampProgress, progressForStatus, doneStamp } from '../utils/tasks.js'
 import { persistImageRef, fileContentPath } from '../utils/imageRef.js'
 import { getBlob } from '../api/client.js'
 
@@ -31,6 +33,17 @@ const cyclePostStatus = (s) => {
   const idx = POST_STATUSES.findIndex((x) => x.value === s)
   return POST_STATUSES[(idx + 1) % POST_STATUSES.length].value
 }
+// A published post is finished, so its completion snaps to 100 — the same rule
+// the task board applies when a task lands in Done. Every other post status
+// leaves the percentage untouched.
+const postProgress = (postStatus, progress) =>
+  progressForStatus(POST_STATUS_TO_TASK[postStatus] || 'Todo', progress)
+
+// Publishing a post is the marketing equivalent of completing a task, so it
+// carries the same doneAt stamp the team report reads to decide which week the
+// finished work belongs to.
+const postDoneAt = (postStatus, previous) =>
+  doneStamp(POST_STATUS_TO_TASK[postStatus] || 'Todo', previous)
 const postStatusPill = (s) =>
   s === 'published' ? 'bg-wise-green text-wise-dark'
   : s === 'scheduled' ? 'bg-brand-100 text-brand-800'
@@ -334,8 +347,11 @@ export default function MarketingCampaignDetail() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation()
+                              const postStatus = cyclePostStatus(t.postStatus || 'draft')
                               updateCampaignTodo(campaign.id, t.id, {
-                                postStatus: cyclePostStatus(t.postStatus || 'draft'),
+                                postStatus,
+                                progress: postProgress(postStatus, t.progress),
+                                doneAt: postDoneAt(postStatus, t.doneAt),
                               })
                             }}
                             className={`pill ${postStatusPill(t.postStatus || 'draft')} hover:scale-105 active:scale-95 transition-transform`}
@@ -530,8 +546,10 @@ function TodoForm({ initial, team = [], onSubmit, onDelete }) {
       postStatus: 'draft',
       assignee: '',
       assigneeId: '',
+      progress: 0,
     }
-    return { ...base, artworks: normalizeArtworks(base) }
+    // Posts created before `progress` existed won't carry the field at all.
+    return { ...base, progress: clampProgress(base.progress), artworks: normalizeArtworks(base) }
   })
   const [fileError, setFileError] = useState('')
   const [previewIndex, setPreviewIndex] = useState(null)
@@ -585,7 +603,13 @@ function TodoForm({ initial, team = [], onSubmit, onDelete }) {
     const artworks = await Promise.all(
       (form.artworks || []).map((a) => persistImageRef(a, { entityType: 'campaign' })),
     )
-    onSubmit({ ...form, artworks, artwork: artworks[0] || null })
+    onSubmit({
+      ...form,
+      progress: postProgress(form.postStatus, form.progress),
+      doneAt: postDoneAt(form.postStatus, initial?.doneAt),
+      artworks,
+      artwork: artworks[0] || null,
+    })
   }
 
   const artworks = form.artworks || []
@@ -633,7 +657,11 @@ function TodoForm({ initial, team = [], onSubmit, onDelete }) {
           <select
             className="input"
             value={form.postStatus || 'draft'}
-            onChange={(e) => setForm({ ...form, postStatus: e.target.value })}
+            onChange={(e) => setForm((s) => ({
+              ...s,
+              postStatus: e.target.value,
+              progress: postProgress(e.target.value, s.progress),
+            }))}
           >
             {POST_STATUSES.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
@@ -641,6 +669,11 @@ function TodoForm({ initial, team = [], onSubmit, onDelete }) {
           </select>
         </div>
       </div>
+
+      <ProgressField
+        value={form.progress}
+        onChange={(progress) => setForm((s) => ({ ...s, progress }))}
+      />
 
       <div>
         <label className="label">Post title</label>

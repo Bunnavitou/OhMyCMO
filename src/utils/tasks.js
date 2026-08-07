@@ -26,6 +26,35 @@ export const MARKETING_POST_CHANNELS = [
   'LinkedIn', 'X (Twitter)', 'Threads', 'Telegram', 'Other',
 ]
 
+// Completion percentage. Stored as a plain 0-100 number on the task/post JSON
+// (`progress`), edited with a slider that moves in TASK_PROGRESS_STEP jumps.
+export const TASK_PROGRESS_STEP = 5
+
+// Coerce anything stored on an older task (undefined, '', a string, out-of-range)
+// into a valid 0-100 multiple of the step.
+export function clampProgress(v) {
+  const n = Math.round(Number(v) / TASK_PROGRESS_STEP) * TASK_PROGRESS_STEP
+  if (!Number.isFinite(n)) return 0
+  return Math.min(100, Math.max(0, n))
+}
+
+// Progress follows the status in one direction only: landing on Done (or a
+// published post) means finished, so it snaps to 100. Every other status
+// leaves the number alone, and moving the slider never rewrites the status.
+export const progressForStatus = (status, progress) =>
+  status === 'Done' ? 100 : clampProgress(progress)
+
+// Completion-timestamp bookkeeping. Stamp when a task enters Done, preserve an
+// existing stamp so a later edit doesn't reset the clock, and clear it when the
+// task leaves Done. The team report uses this to tell work finished during the
+// current week from work finished earlier, so EVERY screen that can complete a
+// task has to set it — a missing stamp reads as "finished some time ago".
+export const doneStamp = (status, previous) =>
+  status === 'Done' ? (previous || new Date().toISOString()) : null
+
+export const progressBarStyle = (pct) =>
+  pct >= 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-wise-dark' : 'bg-shadow'
+
 export const statusStyle = (s) =>
   s === 'Done' ? 'bg-emerald-100 text-emerald-700'
   : s === 'In Progress' ? 'bg-brand-100 text-brand-700'
@@ -71,6 +100,14 @@ export const dueTextStyle = (bucket) =>
 export const memberName = (m) =>
   m ? (m.name || m.username || m.email || `User ${String(m.id).slice(0, 4)}`) : ''
 
+// The organisation a task belongs to, for reports that show the account
+// alongside the work. It is NOT the same as `ownerName` for every source:
+// a Customer record *is* the company, but a Partner record is a person who
+// has a company, so their optional `company` wins and the contact's name is
+// only the fallback. Campaigns have no company — their name is all there is.
+export const ownerCompanyName = (source, entity) =>
+  source === 'partner' ? (entity.company || entity.name || '') : (entity.name || '')
+
 // Flatten every customer + partner task into one comparable shape.
 export function collectTasks(state) {
   const out = []
@@ -82,6 +119,7 @@ export function collectTasks(state) {
         source: 'customer',
         ownerId: c.id,
         ownerName: c.name,
+        ownerCompany: ownerCompanyName('customer', c),
         ownerLabel: 'Customer',
         link: `/customers/${c.id}`,
         taskId: t.id,
@@ -95,6 +133,7 @@ export function collectTasks(state) {
         priority: t.priority || '',
         groupName: groups.find((g) => g.id === t.groupId)?.name || '',
         doneAt: t.doneAt || '',
+        progress: progressForStatus(t.status || 'Todo', t.progress),
       })
     }
   }
@@ -105,6 +144,7 @@ export function collectTasks(state) {
         source: 'partner',
         ownerId: p.id,
         ownerName: p.name,
+        ownerCompany: ownerCompanyName('partner', p),
         ownerLabel: 'Partner',
         link: `/partners/${p.id}`,
         taskId: t.id,
@@ -120,6 +160,7 @@ export function collectTasks(state) {
         priority: t.priority || '',
         groupName: '',
         doneAt: t.doneAt || '',
+        progress: progressForStatus(t.status || (t.done ? 'Done' : 'Todo'), t.progress),
       })
     }
   }
@@ -132,6 +173,7 @@ export function collectTasks(state) {
         source: 'marketing',
         ownerId: cam.id,
         ownerName: cam.name,
+        ownerCompany: ownerCompanyName('marketing', cam),
         ownerLabel: 'Marketing',
         link: `/marketing/${cam.id}`,
         taskId: t.id,
@@ -145,6 +187,7 @@ export function collectTasks(state) {
         priority: '',
         groupName: t.channel || '',
         doneAt: t.doneAt || '',
+        progress: progressForStatus(POST_STATUS_TO_TASK[t.postStatus] || 'Todo', t.progress),
       })
     }
   }

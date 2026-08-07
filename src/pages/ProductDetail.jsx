@@ -9,6 +9,7 @@ import Modal from '../components/Modal.jsx'
 import { InvoiceForm, MonthlyIncomeList, InvoiceDetail } from '../components/Invoice.jsx'
 import AuthImage from '../components/AuthImage.jsx'
 import { uploadImageRef, hasImage } from '../utils/imageRef.js'
+import { validRecipients } from '../utils/email.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 
 const LOGO_LIMIT_BYTES = 2 * 1024 * 1024
@@ -71,7 +72,6 @@ export default function ProductDetail() {
   // Save the invoice's email settings back onto the customer as their billing
   // defaults, so the next invoice for that customer pre-fills with them. Only
   // valid pieces are written, and empty fields never wipe an existing default.
-  const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim())
   // Build a fresh copy of an invoice for duplication: new date, blank invoice
   // number, fresh line-item ids, and no carried-over send history.
   const duplicateInvoiceData = (src) => {
@@ -92,8 +92,14 @@ export default function ProductDetail() {
     if (!d?.customerId || !d.email) return
     const { to, cc, subject, body } = d.email
     const patch = {}
-    if (isEmail(to)) patch.billingEmail = to.trim()
-    const validCc = (Array.isArray(cc) ? cc : []).filter(isEmail)
+    // `to` is a recipient LIST, not a string — validRecipients normalizes both
+    // shapes (array, or a legacy comma-separated string). `billingEmail` is a
+    // single address both here and in the API validator, so only the first
+    // recipient becomes the default; the rest live on the customer's Email tab,
+    // which resolveEmailTemplate reads first anyway.
+    const [primary] = validRecipients(to)
+    if (primary) patch.billingEmail = primary
+    const validCc = validRecipients(cc)
     if (validCc.length) patch.emailCc = validCc
     if ((subject || '').trim() || (body || '').trim()) {
       patch.emailTemplate = { subject: subject || '', body: body || '' }

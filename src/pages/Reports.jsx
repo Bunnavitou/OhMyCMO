@@ -1,13 +1,14 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
-import { Plus, FileBarChart, Pencil, Trash2, Save, AlertCircle, X, Download, Upload, Table2, FileDown, History, TrendingUp, Calendar, ClipboardList } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Fragment, useState, useMemo, useRef, useEffect } from 'react'
+import { Plus, FileBarChart, Pencil, Trash2, Save, AlertCircle, X, Download, Upload, Table2, FileDown, History, TrendingUp, Calendar } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { exportFullExcel, parseReportFile, downloadMonthlyTemplate } from '../utils/reportExcel.js'
-import { collectTasks, memberName, statusStyle } from '../utils/tasks.js'
+import {
+  collectTasks, memberName, statusStyle, sourceStyle, dueBucket, clampProgress, progressBarStyle,
+} from '../utils/tasks.js'
 
 // A report is a customizable table: fixed prev-year / current-year columns plus
 // a DYNAMIC set of weekly/period columns (add/remove) that feed the auto-summed
@@ -128,20 +129,12 @@ const normalize = (report, t) => {
   return { headers, rows }
 }
 
-// Whether a given (year, month) is fully finished relative to today. The
-// current, in-progress month — and any future month — is NOT complete, so it
-// does not roll into '26 until it ends.
-const monthComplete = (year, month) => {
-  const now = new Date()
-  const cy = now.getFullYear()
-  const cm = now.getMonth() + 1
-  return year < cy || (year === cy && month < cm)
-}
-
 // Year-to-date auto totals for the '26 (current-year) column: for one
-// account+year, the running sum of each COMPLETED month's weekly Total (per row
-// label) through `uptoMonth`. The current in-progress month is excluded until
-// it finishes. This is added on top of any typed prior/opening amount.
+// account+year, the running sum of every month's weekly Total (per row label)
+// through `uptoMonth`. The in-progress month counts as soon as W1–W4 are typed
+// — the year column is a live roll-up of the weekly figures, which are now the
+// only numbers anyone enters. This is added on top of any typed prior/opening
+// amount left over from before those columns became read-only.
 // `excludeId` skips one report — the editor passes its own id so it can add the
 // live, unsaved weekly totals on top of the rest.
 const ytdByLabel = (reports, account, year, uptoMonth, t, excludeId) => {
@@ -149,7 +142,6 @@ const ytdByLabel = (reports, account, year, uptoMonth, t, excludeId) => {
   for (const r of reports || []) {
     if (r.account !== account || r.year !== year || r.month > uptoMonth) continue
     if (r.id === excludeId || r.data?.imported) continue
-    if (!monthComplete(r.year, r.month)) continue // in-progress month waits for month-end
     for (const row of normalize(r, t).rows) {
       const tot = weekTotal(row.weeks)
       if (tot == null) continue
@@ -160,6 +152,35 @@ const ytdByLabel = (reports, account, year, uptoMonth, t, excludeId) => {
   return acc
 }
 
+// Per-label opening baseline for one account-year: the typed prior/opening
+// amount stored on that year's most recent report. Those baselines are carried
+// forward month to month by the auto-roll, so every month holds the SAME copy —
+// they must never be summed, only read from the latest month.
+const openingByLabel = (reports, account, year, t) => {
+  let latest = null
+  for (const r of reports || []) {
+    if (r.account !== account || r.year !== year || r.data?.imported) continue
+    if (!latest || r.month > latest.month) latest = r
+  }
+  if (!latest) return {}
+  const out = {}
+  for (const row of normalize(latest, t).rows) {
+    if (isNum(row.currentYear)) out[row.label || '—'] = Number(row.currentYear)
+  }
+  return out
+}
+
+// What a whole account-year is worth, per row label: opening baseline plus every
+// month's weekly total. This is the figure the FOLLOWING year shows in its
+// previous-year column, which is why that column no longer needs typing.
+const yearTotalsByLabel = (reports, account, year, t) => {
+  const out = { ...openingByLabel(reports, account, year, t) }
+  for (const [label, v] of Object.entries(ytdByLabel(reports, account, year, 12, t))) {
+    out[label] = (out[label] || 0) + v
+  }
+  return out
+}
+
 // The '26 value actually shown. A typed value is a prior/opening amount (e.g.
 // months not tracked week-by-week); the auto weekly YTD sum is ADDED on top of
 // it. Empty typed field → pure auto sum. Both empty → blank.
@@ -168,6 +189,19 @@ const effectiveYear = (row, ytd) => {
   const auto = ytd?.[row.label || '—'] ?? null
   if (base == null && auto == null) return null
   return (base || 0) + (auto || 0)
+}
+
+// The two year figures a row actually shows. Previous year is last year's
+// calculated total, with the stored value standing in only when there is
+// nothing to calculate from; current year is any legacy opening amount plus
+// this year's weekly roll-up. The grid and the Excel export both go through
+// here so the sheet can never disagree with the screen.
+const resolveYears = (row, yearMap, prevMap) => {
+  const pDerived = prevMap ? prevMap[row.label || '—'] ?? null : null
+  return {
+    prevYear: pDerived != null ? pDerived : isNum(row.prevYear) ? Number(row.prevYear) : null,
+    currentYear: effectiveYear(row, yearMap),
+  }
 }
 
 // Build the combined "all years" table for one account by reading every report
@@ -254,7 +288,12 @@ function CombinedTable({ years, rows }) {
 }
 
 // ── Presentational grid (read-only or editable) ────────────────────────────
-function ReportGrid({ headers, rows, editable = false, on = {}, yearMap }) {
+// Even in edit mode the two year columns are calculated, never typed: the
+// previous-year column comes from last year's reports and the current-year one
+// from this year's weekly figures. Only W1–W4 (and the labels/headers) are
+// entered by hand.
+function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap }) {
+  const { t } = useT()
   const headBlue = 'bg-sky-100 text-near-black'
   const hInput =
     'w-full min-w-[70px] bg-transparent text-center font-bold outline-none focus:bg-white rounded px-1 py-0.5'
@@ -330,10 +369,7 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap }) {
         <tbody>
           {rows.map((row) => {
             const total = weekTotal(row.weeks)
-            // '26 = a typed prior/opening amount PLUS the auto year-to-date sum.
-            const yDerived = yearMap ? yearMap[row.label || '—'] ?? null : null
-            const yBase = isNum(row.currentYear) ? Number(row.currentYear) : null
-            const yEff = yBase == null && yDerived == null ? null : (yBase || 0) + (yDerived || 0)
+            const { prevYear: pEff, currentYear: yEff } = resolveYears(row, yearMap, prevMap)
             return (
               <tr key={row.id}>
                 {/* Row label (+ format toggle + delete in edit mode) */}
@@ -369,37 +405,20 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap }) {
                 </td>
 
                 <NumCell
-                  editable={editable}
-                  raw={row.prevYear}
-                  display={fmtFull(row.prevYear, row.money)}
-                  onChange={(v) => on.row(row.id, { prevYear: v })}
+                  editable={false}
+                  raw={pEff}
+                  display={fmtFull(pEff, row.money)}
+                  title={editable ? t('report.prevYear.auto') : undefined}
                   strong
                   muted
                 />
-                {editable ? (
-                  <td className="border border-shadow p-0 align-top">
-                    <input
-                      type="number"
-                      step="any"
-                      value={row.currentYear ?? ''}
-                      placeholder={yDerived == null ? '' : String(yDerived)}
-                      title={
-                        yDerived == null
-                          ? 'Prior/opening amount for the year (optional)'
-                          : `Weekly year-to-date is ${fmtFull(yDerived, row.money)}. Type a prior/opening amount to add on top; clear to use the weekly total only.`
-                      }
-                      onChange={(e) => on.row(row.id, { currentYear: e.target.value === '' ? null : Number(e.target.value) })}
-                      className="w-full min-w-[84px] px-2 py-1.5 text-right font-bold tabular-nums bg-transparent outline-none placeholder:font-normal placeholder:text-graphite/50 focus:bg-brand-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    {yBase != null && yDerived != null && (
-                      <div className="-mt-0.5 px-2 pb-1 text-right text-[10px] font-semibold text-blue-700 whitespace-nowrap tabular-nums">
-                        = {fmtFull(yEff, row.money)}
-                      </div>
-                    )}
-                  </td>
-                ) : (
-                  <NumCell editable={false} raw={yEff} display={fmtFull(yEff, row.money)} strong />
-                )}
+                <NumCell
+                  editable={false}
+                  raw={yEff}
+                  display={fmtFull(yEff, row.money)}
+                  title={editable ? t('report.year.auto') : undefined}
+                  strong
+                />
                 {row.weeks.map((w, i) => (
                   <NumCell
                     key={i}
@@ -432,13 +451,14 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap }) {
   )
 }
 
-function NumCell({ editable, raw, display, onChange, strong, muted }) {
+function NumCell({ editable, raw, display, onChange, strong, muted, title }) {
   if (!editable) {
     return (
       <td
+        title={title}
         className={`border border-shadow px-2 py-1.5 text-right whitespace-nowrap tabular-nums ${
           strong ? 'font-bold' : ''
-        } ${muted ? 'text-graphite' : 'text-near-black'}`}
+        } ${muted ? 'text-graphite' : 'text-near-black'} ${title ? 'bg-iron/40 cursor-help' : ''}`}
       >
         {display}
       </td>
@@ -466,6 +486,11 @@ export default function Reports() {
   const [chartReportId, setChartReportId] = useState(null)
   const [view, setView] = useState('usage') // 'usage' | 'team'
   const [error, setError] = useState('')
+  // List filters. Defaults to every account for the current month, so the page
+  // still opens on "now"; month 0 means the whole year, account '' means all.
+  const [fAccount, setFAccount] = useState('')
+  const [fYear, setFYear] = useState(() => new Date().getFullYear())
+  const [fMonth, setFMonth] = useState(() => new Date().getMonth() + 1)
 
   const errText = (e) => (e?.status === 403 ? t('report.error.forbidden') : e?.message || t('report.error.generic'))
 
@@ -477,18 +502,30 @@ export default function Reports() {
     [state.reports],
   )
 
-  // One card per account: only the latest (current) month is shown. Finished
-  // months are NOT rendered, but their reports are kept in the DB so their
-  // totals still roll into '26 (and into the All-years view / export). Imported
-  // annual-history reports are excluded here. `reports` (all) still feeds '26.
-  const accountCards = useMemo(() => {
-    const map = new Map()
-    for (const r of reports) {
-      if (r.data?.imported) continue
-      if (!map.has(r.account)) map.set(r.account, r) // pre-sorted desc → first = current
-    }
-    return [...map.values()]
-  }, [reports])
+  // Monthly reports, newest first. Every month ever created stays listed —
+  // finished months are history, not clutter — and the period filter below is
+  // how you narrow down to one. Imported annual-history reports are excluded
+  // here (they live in the "All years" view) but still feed the year columns.
+  const monthlyReports = useMemo(() => reports.filter((r) => !r.data?.imported), [reports])
+
+  // Years offered by the filter: every year that has a report, plus the current
+  // one so a fresh install can still pick "now".
+  const filterYears = useMemo(() => {
+    const set = new Set(monthlyReports.map((r) => r.year))
+    set.add(new Date().getFullYear())
+    return [...set].sort((a, b) => b - a)
+  }, [monthlyReports])
+
+  const visibleReports = useMemo(
+    () =>
+      monthlyReports.filter(
+        (r) =>
+          (!fAccount || r.account === fAccount) &&
+          r.year === Number(fYear) &&
+          (!fMonth || r.month === Number(fMonth)),
+      ),
+    [monthlyReports, fAccount, fYear, fMonth],
+  )
 
   const editing = editingId ? reports.find((r) => r.id === editingId) : null
   const previewing = previewId ? reports.find((r) => r.id === previewId) : null
@@ -497,9 +534,10 @@ export default function Reports() {
   // Auto-roll to the current calendar month. For every account with any prior
   // report, ensure a card exists for the current month with empty W1–W4 (row
   // labels / money flags carried from the latest report). Across a YEAR boundary
-  // it also carries the finished prior year's total into the new prev-year
-  // column — e.g. on the first 2027 card the '26 column is prefilled with 2026's
-  // final total (still editable). Accounts never used are left alone.
+  // it also stores the finished prior year's total as the new prev-year value.
+  // That column is calculated from last year's reports now, so the stored copy
+  // is only a fallback for years with no reports left to add up. Accounts never
+  // used are left alone.
   const autoRolled = useRef(new Set())
   useEffect(() => {
     const now = new Date()
@@ -554,6 +592,12 @@ export default function Reports() {
     }
     const finalData = data || buildInitialData(account, year, month, t)
     const created = await addReport({ account, year, month, data: finalData })
+    // Move the filters onto what was just created, otherwise a report for an
+    // older month or the other account would be saved straight out of view.
+    // The account filter is only widened when it would hide the new report.
+    if (fAccount && fAccount !== account) setFAccount('')
+    setFYear(year)
+    setFMonth(month)
     setCreateOpen(false)
     if (created?.id) setEditingId(created.id)
   }
@@ -563,7 +607,12 @@ export default function Reports() {
   // the report the user clicked, so the file mirrors exactly what they created.
   const onExport = (report) => {
     const combined = buildCombined(reports, report.account, t)
-    const monthly = normalize(report, t)
+    const norm = normalize(report, t)
+    // Bake the calculated year columns into the exported rows — the stored
+    // prev/current values are stale leftovers and must not reach the sheet.
+    const yearMap = ytdByLabel(reports, report.account, report.year, report.month, t)
+    const prevMap = yearTotalsByLabel(reports, report.account, report.year - 1, t)
+    const monthly = { ...norm, rows: norm.rows.map((r) => ({ ...r, ...resolveYears(r, yearMap, prevMap) })) }
     const rows = alignRows(combined.rows, monthly.rows)
     exportFullExcel(report.account, { years: combined.years, rows }, monthly, `report-${ts()}`).catch((e) =>
       setError(e?.message || t('report.error.generic')),
@@ -583,7 +632,7 @@ export default function Reports() {
   // the All-years view reconstructs the full history (2024, 2025, 2026, …).
   // Rethrow so the editor can show the failure inline (the page-level banner is
   // hidden behind the open modal). On success we close the modal. Merge onto the
-  // existing data so fields the editor doesn't manage (e.g. the chart's `trend`)
+  // existing data so fields the editor doesn't manage (e.g. the `imported` flag)
   // are preserved rather than wiped.
   const onSave = async (data) => {
     await updateReport(editing.id, { data: { ...(editing.data || {}), ...data } })
@@ -642,7 +691,57 @@ export default function Reports() {
         </div>
       )}
 
-      {view === 'usage' && (accountCards.length === 0 ? (
+      {/* Filters — account, then the year and one month or the whole year. */}
+      {view === 'usage' && monthlyReports.length > 0 && (
+        <div className="mb-5 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="label" htmlFor="report-filter-account">{t('report.account')}</label>
+            <select
+              id="report-filter-account"
+              className="input !py-2"
+              value={fAccount}
+              onChange={(e) => setFAccount(e.target.value)}
+            >
+              <option value="">{t('report.filter.allAccounts')}</option>
+              {ACCOUNTS.map((a) => (
+                <option key={a} value={a}>{t(`report.account.${a}.short`)}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="report-filter-year">{t('report.year')}</label>
+            <select
+              id="report-filter-year"
+              className="input !py-2"
+              value={fYear}
+              onChange={(e) => setFYear(Number(e.target.value))}
+            >
+              {filterYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="report-filter-month">{t('report.month')}</label>
+            <select
+              id="report-filter-month"
+              className="input !py-2"
+              value={fMonth}
+              onChange={(e) => setFMonth(Number(e.target.value))}
+            >
+              <option value={0}>{t('report.filter.allMonths')}</option>
+              {Array.from({ length: 12 }).map((_, i) => (
+                <option key={i + 1} value={i + 1}>{String(i + 1).padStart(2, '0')}</option>
+              ))}
+            </select>
+          </div>
+          <p className="pb-2 text-xs text-graphite">
+            {t('report.filter.count', { n: visibleReports.length })}
+          </p>
+        </div>
+      )}
+
+      {view === 'usage' && (monthlyReports.length === 0 ? (
         <EmptyState
           icon={FileBarChart}
           title={t('report.title')}
@@ -653,13 +752,18 @@ export default function Reports() {
             </button>
           }
         />
+      ) : visibleReports.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-shadow px-4 py-8 text-center text-sm text-graphite">
+          {t('report.filter.none')}
+        </p>
       ) : (
         <div className="space-y-6">
-          {accountCards.map((r) => {
+          {visibleReports.map((r) => {
             const { headers, rows } = normalize(r, t)
             const yearMap = ytdByLabel(reports, r.account, r.year, r.month, t)
+            const prevMap = yearTotalsByLabel(reports, r.account, r.year - 1, t)
             return (
-              <section key={r.account} className="space-y-2">
+              <section key={r.id} className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-base md:text-lg font-bold">
                     {t(`report.account.${r.account}`)}{' '}
@@ -710,7 +814,7 @@ export default function Reports() {
                     </button>
                   </div>
                 </div>
-                <ReportGrid headers={headers} rows={rows} yearMap={yearMap} />
+                <ReportGrid headers={headers} rows={rows} yearMap={yearMap} prevMap={prevMap} />
               </section>
             )
           })}
@@ -754,12 +858,7 @@ export default function Reports() {
           title={`${t(`report.account.${charting.account}`)} · ${t('report.chart')}`}
           size="3xl"
         >
-          <ReportChart
-            report={charting}
-            onSaveTrend={(trend) =>
-              updateReport(charting.id, { data: { ...(charting.data || {}), trend } })
-            }
-          />
+          <ReportChart report={charting} reports={reports} />
         </Modal>
       )}
     </>
@@ -797,120 +896,54 @@ const buildSmoothPath = (p) => {
   return d
 }
 
-// Last-6-months transaction-count trend for one report. The latest month is
-// auto (this report's monthly total for its transaction-count row); the five
-// prior months are entered by the user and saved onto the report (data.trend).
+// Last-6-months transaction-count trend for one report. Read-only: every month
+// comes from that month's own report — its transaction-count row's weekly total.
+// A month with no report is simply a gap in the line; there is nothing to enter.
 const ymKey = (y, m) => `${y}-${String(m).padStart(2, '0')}`
 
-function ReportChart({ report, onSaveTrend }) {
+// The transaction-count row of a report: the one carrying `label` if it has it,
+// otherwise the first count row (money === false). Matching on the label keeps
+// the series on the same metric even when a month's rows were reordered.
+const countRowOf = (rows, label) =>
+  (label && rows.find((r) => r.label === label && !r.money)) || rows.find((r) => !r.money) || rows[0] || null
+
+function ReportChart({ report, reports }) {
   const { t, lang } = useT()
 
-  // Transaction count = the report's first count row (money === false).
   const norm = useMemo(() => normalize(report, t), [report, t])
-  const countRow = norm.rows.find((r) => !r.money) || norm.rows[0]
-  const autoValue = countRow ? weekTotal(countRow.weeks) : null
+  const countLabel = countRowOf(norm.rows)?.label || ''
 
-  // The six months ending at this report's month; last one is auto.
+  // Monthly totals for this account, keyed YYYY-MM. Imported annual history has
+  // no weekly breakdown, so it contributes nothing here.
+  const autoByKey = useMemo(() => {
+    const out = {}
+    for (const r of reports || []) {
+      if (r.account !== report.account || r.data?.imported) continue
+      const row = countRowOf(normalize(r, t).rows, countLabel)
+      const tot = row ? weekTotal(row.weeks) : null
+      if (tot != null) out[ymKey(r.year, r.month)] = tot
+    }
+    return out
+  }, [reports, report.account, countLabel, t])
+
+  // The six months ending at this report's month.
   const months = useMemo(() => {
     const out = []
     for (let k = 5; k >= 0; k--) {
       let m = report.month - k
       let y = report.year
       while (m <= 0) { m += 12; y -= 1 }
-      out.push({ y, m, key: ymKey(y, m), auto: k === 0 })
+      out.push({ y, m, key: ymKey(y, m) })
     }
     return out
   }, [report.year, report.month])
 
-  const trend = report.data?.trend || {}
-  const [inputs, setInputs] = useState(() =>
-    Object.fromEntries(months.filter((mo) => !mo.auto).map((mo) => [mo.key, trend[mo.key] ?? ''])),
-  )
-  const [busy, setBusy] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [err, setErr] = useState('')
-
   const points = months.map((mo) => ({
     label: monthLabel(mo.y, mo.m, lang),
-    value: mo.auto
-      ? autoValue
-      : inputs[mo.key] === '' || inputs[mo.key] == null
-        ? null
-        : Number(inputs[mo.key]),
+    value: autoByKey[mo.key] ?? null,
   }))
 
-  const setVal = (key, v) => {
-    setInputs((s) => ({ ...s, [key]: v }))
-    setSaved(false)
-  }
-
-  const save = async () => {
-    setErr('')
-    setBusy(true)
-    try {
-      const clean = {}
-      for (const [k, v] of Object.entries(inputs)) {
-        if (v !== '' && v != null && !Number.isNaN(Number(v))) clean[k] = Number(v)
-      }
-      await onSaveTrend(clean)
-      setSaved(true)
-    } catch (e) {
-      setErr(e?.status === 403 ? t('report.error.forbidden') : e?.message || t('report.error.generic'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <AreaChartSVG points={points} money={false} />
-
-      <div>
-        <p className="text-sm font-semibold mb-2">{t('report.chart.inputs')}</p>
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-          {months.map((mo) => (
-            <div
-              key={mo.key}
-              className={`rounded-xl border px-2.5 py-2 ${mo.auto ? 'border-wise-dark bg-mint-bg' : 'border-shadow'}`}
-            >
-              <label className="block text-[11px] font-semibold text-graphite mb-1">
-                {monthLabel(mo.y, mo.m, lang)}
-                {mo.auto && <span className="text-wise-dark"> · {t('report.chart.auto')}</span>}
-              </label>
-              {mo.auto ? (
-                <p className="text-sm font-bold tabular-nums">
-                  {autoValue == null ? '—' : Number(autoValue).toLocaleString('en-US')}
-                </p>
-              ) : (
-                <input
-                  type="number"
-                  value={inputs[mo.key] ?? ''}
-                  onChange={(e) => setVal(mo.key, e.target.value)}
-                  placeholder="0"
-                  className="w-full text-sm font-bold tabular-nums bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              )}
-            </div>
-          ))}
-        </div>
-        <p className="text-[11px] text-graphite mt-1.5">{t('report.chart.hint')}</p>
-      </div>
-
-      {err && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span className="flex-1">{err}</span>
-        </div>
-      )}
-
-      <div className="flex items-center gap-3">
-        <button onClick={save} disabled={busy} className="btn-primary disabled:opacity-60">
-          <Save className="w-4 h-4" /> {busy ? t('common.saving') : t('common.save')}
-        </button>
-        {saved && <span className="text-xs text-wise-dark font-semibold">{t('report.saved')}</span>}
-      </div>
-    </div>
-  )
+  return <AreaChartSVG points={points} money={false} />
 }
 
 // Dependency-free single-series area chart (SVG). Direct value labels on every
@@ -1005,6 +1038,9 @@ function TeamTaskReport() {
   const [picked, setPicked] = useState('')
   const memberId = picked || defaultMemberId
 
+  // The columns split by status, not by date, so every one of the member's
+  // tasks lands in one of them — no due-date scoping, and the chip counts
+  // above always match what the columns below render.
   const tasks = useMemo(
     () => allTasks.filter((tk) => tk.assigneeId && tk.assigneeId === memberId),
     [allTasks, memberId],
@@ -1060,60 +1096,126 @@ function TeamTaskReport() {
   )
 }
 
+// Local YYYY-MM-DD. Deliberately not toISOString().slice(0,10): that is UTC,
+// which would roll a Sunday-evening completion into next week for anyone east
+// or west of it. Week boundaries have to match the calendar the user reads.
 const isoDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-// Monday & Sunday (YYYY-MM-DD) of the current week — the week boundaries.
-const thisWeekBounds = () => {
+// Monday (YYYY-MM-DD) of the current week — the cutoff between the columns.
+const thisMonday = () => {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)) // back up to Monday
-  const mon = isoDate(d)
-  d.setDate(d.getDate() + 6) // Sunday
-  return { mon, sun: isoDate(d) }
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+  return isoDate(d)
 }
 
-// A single task line: bold title + status badge, with the description beneath.
-function TaskLine({ tk }) {
+// Which column a task belongs to.
+//   Todo / In Progress → This Week; still actionable.
+//   Blocked            → Last Week; stuck, and it needs reporting.
+//   Done               → This Week while it was completed during the current
+//                        week, moving to Last Week from next Monday onward.
+// A Done task whose doneAt is missing or unparseable can't be placed in time —
+// legacy rows finished before the stamp existed — so it counts as older work.
+const isLastWeekTask = (tk, monday) => {
+  if (tk.status === 'Blocked') return true
+  if (tk.status !== 'Done') return false
+  if (!tk.doneAt) return true
+  const d = new Date(tk.doneAt)
+  if (Number.isNaN(d.getTime())) return true
+  return isoDate(d) < monday
+}
+
+// "Overdue" is not a status — dueBucket derives it from the due date, and it
+// never applies to a Done task. It replaces the status on a task's badge so
+// late work is visible at a glance inside its company group.
+//
+// Only the This Week column flags it (`flagOverdue`). Last Week is Done and
+// Blocked, and calling a blocked task late says nothing useful: it's already
+// stuck, whether or not its date has passed.
+const OVERDUE_KEY = 'Overdue'
+const statusKeyFor = (tk, flagOverdue) =>
+  flagOverdue && dueBucket(tk.due, tk.status) === 'overdue' ? OVERDUE_KEY : (tk.status || 'Todo')
+
+// Overdue borrows the rose treatment the due-date text already uses. Blocked
+// shares that palette but lives in the other column, so they never sit
+// side by side.
+const statusBadgeStyle = (key) => (key === OVERDUE_KEY ? 'bg-rose-100 text-rose-700' : statusStyle(key))
+
+// The company a task belongs to. Falls back to the owner's own name, then to a
+// placeholder, so a task always has a group to sit in rather than vanishing.
+const UNNAMED_COMPANY = '—'
+const companyOf = (tk) => tk.ownerCompany || tk.ownerName || UNNAMED_COMPANY
+
+// A single task line: bold title + status badge, completion percentage
+// right-aligned, description beneath. The company is not repeated here — it's
+// the group heading above.
+function TaskLine({ tk, flagOverdue = false, onOpen }) {
   const { t } = useT()
   const desc = (tk.description || '').trim()
   const bullet = desc ? `- ${desc.replace(/^[-•]\s*/, '')}` : ''
+  const pct = clampProgress(tk.progress)
+  const statusKey = statusKeyFor(tk, flagOverdue)
   return (
     <li className="pl-1">
-      <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
-        <Link to={tk.link} className="font-semibold text-near-black hover:text-wise-dark">
-          {tk.name || t('common.untitled')}
-        </Link>
-        <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold ${statusStyle(tk.status)}`}>
-          {tk.status}
+      <div className="flex items-baseline gap-2">
+        <span className="min-w-0 flex-1">
+          {/* Opens the detail popup rather than navigating: the report is read
+              end to end, and leaving the page lost the reader's place in it. */}
+          <button
+            type="button"
+            onClick={() => onOpen(tk)}
+            className="text-left font-semibold text-near-black hover:text-wise-dark hover:underline"
+          >
+            {tk.name || t('common.untitled')}
+          </button>
+          <span className={`ml-1.5 rounded-full px-1.5 py-px text-[10px] font-semibold ${statusBadgeStyle(statusKey)}`}>
+            {statusKey === OVERDUE_KEY ? t('report.team.overdue') : statusKey}
+          </span>
         </span>
-      </span>
+        <span
+          className={`shrink-0 text-xs font-bold tabular-nums ${pct >= 100 ? 'text-emerald-700' : 'text-graphite'}`}
+        >
+          {pct}%
+        </span>
+      </div>
       {desc && <div className="mt-0.5 text-[13px] text-graphite whitespace-pre-wrap">{bullet}</div>}
     </li>
   )
 }
 
-// Owner-grouped list for one week column.
-function OutlineGroups({ tasks }) {
-  const groups = []
-  const byOwner = {}
+// Company-grouped list, used by both week columns. Companies with the most work
+// in this column lead; ties fall back to alphabetical so the order stays stable
+// week to week instead of shuffling on every render, and the unnamed group
+// sinks below real companies on a tie rather than winning on its dash. Each
+// task keeps its status as a badge, since status is no longer the grouping axis.
+function CompanyGroups({ tasks, flagOverdue = false, onOpen }) {
+  const byCompany = new Map()
   for (const tk of tasks) {
-    const name = tk.ownerName || '—'
-    if (!byOwner[name]) {
-      byOwner[name] = { name, items: [] }
-      groups.push(byOwner[name])
-    }
-    byOwner[name].items.push(tk)
+    const name = companyOf(tk)
+    if (!byCompany.has(name)) byCompany.set(name, [])
+    byCompany.get(name).push(tk)
   }
+  const groups = [...byCompany.entries()]
+    .map(([name, items]) => ({ name, items }))
+    .sort((a, b) =>
+      b.items.length - a.items.length ||
+      (a.name === UNNAMED_COMPANY) - (b.name === UNNAMED_COMPANY) ||
+      a.name.localeCompare(b.name))
 
   return (
     <div className="space-y-4">
       {groups.map((g) => (
         <div key={g.name}>
-          <p className="text-xs font-bold uppercase tracking-wide text-graphite">{g.name}</p>
+          <div className="flex items-baseline gap-2">
+            <p className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wide text-graphite">
+              {g.name}
+            </p>
+            <span className="shrink-0 text-xs font-bold text-graphite tabular-nums">{g.items.length}</span>
+          </div>
           <ul className="mt-1.5 ml-5 list-disc space-y-2 marker:text-graphite">
             {g.items.map((tk) => (
-              <TaskLine key={tk.key} tk={tk} />
+              <TaskLine key={tk.key} tk={tk} flagOverdue={flagOverdue} onOpen={onOpen} />
             ))}
           </ul>
         </div>
@@ -1122,19 +1224,17 @@ function OutlineGroups({ tasks }) {
   )
 }
 
-// One week column (card): header with icon + count, then the grouped list.
-function WeekColumn({ title, icon: Icon, tasks, emptyText }) {
+// One week column (card): header with icon and title, then the company-grouped
+// list. No roll-up figures — the per-task percentages carry the detail.
+function WeekColumn({ title, icon: Icon, tasks, emptyText, flagOverdue = false, onOpen }) {
   return (
     <section className="rounded-2xl border border-shadow bg-white p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-2 border-b border-shadow pb-2">
         <Icon className="h-4 w-4 text-graphite" />
         <h4 className="text-sm font-bold text-near-black">{title}</h4>
-        <span className="ml-auto rounded-full bg-iron px-2 py-0.5 text-xs font-semibold text-graphite">
-          {tasks.length}
-        </span>
       </div>
       {tasks.length ? (
-        <OutlineGroups tasks={tasks} />
+        <CompanyGroups tasks={tasks} flagOverdue={flagOverdue} onOpen={onOpen} />
       ) : (
         <p className="py-4 text-center text-sm text-graphite/60">{emptyText}</p>
       )}
@@ -1142,43 +1242,97 @@ function WeekColumn({ title, icon: Icon, tasks, emptyText }) {
   )
 }
 
-// Text/outline view split by due date: Last Week (due before this Monday, incl.
-// overdue) and This Week (due this week or no due date) side by side, with a
-// Next Plan schedule list below (tasks due after this week).
+// Text/outline view. This Week is the live picture — everything actionable plus
+// whatever was finished during the current week, so completed work stays
+// visible in the report it was completed for. Last Week is what carried over:
+// blocked work, and anything completed before this Monday. Both columns group
+// by company, and every task lands in exactly one of them.
 function TaskOutline({ tasks }) {
   const { t } = useT()
+  // The open task, with the column it was opened from — This Week flags overdue
+  // work and Last Week doesn't, so the popup badge has to match the line clicked.
+  const [detail, setDetail] = useState(null)
+  const open = (flagOverdue) => (tk) => setDetail({ tk, flagOverdue })
+
   if (!tasks.length) return <p className="text-sm text-graphite">{t('report.team.noTasks')}</p>
 
-  const { mon, sun } = thisWeekBounds()
-  const lastWeek = tasks.filter((tk) => tk.due && tk.due < mon)
-  const nextPlan = tasks.filter((tk) => tk.due && tk.due > sun)
-  const thisWeek = tasks.filter((tk) => !(tk.due && (tk.due < mon || tk.due > sun)))
+  const monday = thisMonday()
+  const lastWeek = tasks.filter((tk) => isLastWeekTask(tk, monday))
+  const thisWeek = tasks.filter((tk) => !isLastWeekTask(tk, monday))
 
   return (
-    <div className="space-y-4 text-[15px] leading-relaxed">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <WeekColumn title={t('report.team.lastWeek')} icon={History} tasks={lastWeek} emptyText={t('report.team.emptyWeek')} />
-        <WeekColumn title={t('report.team.thisWeek')} icon={Calendar} tasks={thisWeek} emptyText={t('report.team.emptyWeek')} />
+    <>
+      <div className="grid grid-cols-1 gap-4 text-[15px] leading-relaxed md:grid-cols-2">
+        <WeekColumn
+          title={t('report.team.lastWeek')} icon={History} tasks={lastWeek}
+          emptyText={t('report.team.emptyWeek')} onOpen={open(false)}
+        />
+        <WeekColumn
+          title={t('report.team.thisWeek')} icon={Calendar} tasks={thisWeek}
+          emptyText={t('report.team.emptyWeek')} flagOverdue onOpen={open(true)}
+        />
       </div>
 
-      <section className="rounded-2xl border border-shadow bg-white p-4 sm:p-5">
-        <div className="mb-4 flex items-center gap-2 border-b border-shadow pb-2">
-          <ClipboardList className="h-4 w-4 text-graphite" />
-          <h4 className="text-sm font-bold text-near-black">{t('report.team.nextPlan')}</h4>
-          <span className="ml-auto rounded-full bg-iron px-2 py-0.5 text-xs font-semibold text-graphite">
-            {nextPlan.length}
-          </span>
+      {detail && (
+        <Modal open onClose={() => setDetail(null)} title={detail.tk.name || t('common.untitled')}>
+          <TaskDetail tk={detail.tk} flagOverdue={detail.flagOverdue} />
+        </Modal>
+      )}
+    </>
+  )
+}
+
+// Read-only detail popup for one report line. Everything collectTasks knows
+// about the task, in place — the point of the popup is to keep the reader on
+// the report rather than sending them to the task's own page.
+function TaskDetail({ tk, flagOverdue }) {
+  const { t } = useT()
+  const pct = clampProgress(tk.progress)
+  const statusKey = statusKeyFor(tk, flagOverdue)
+  const done = tk.doneAt ? new Date(tk.doneAt) : null
+  const rows = [
+    [t('report.team.company'), companyOf(tk)],
+    [t('tasks.col.assignee'), tk.assignee],
+    [t('tasks.field.due'), tk.due],
+    [t('tasks.field.priority'), tk.priority],
+    // Customer tasks call this a group, marketing posts a channel; the field is
+    // the same slot in both, so one label would be wrong for one of them.
+    [tk.source === 'marketing' ? t('tasks.field.channel') : t('customer.field.group'), tk.groupName],
+    [t('tasks.col.createdBy'), tk.createdByName],
+    [t('report.team.completedAt'), done && !Number.isNaN(done.getTime()) ? formatLogTime(tk.doneAt) : ''],
+  ].filter(([, v]) => v)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`pill text-[10px] ${sourceStyle(tk.source)}`}>{tk.ownerLabel}</span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadgeStyle(statusKey)}`}>
+          {statusKey === OVERDUE_KEY ? t('report.team.overdue') : statusKey}
+        </span>
+        <span className={`ml-auto text-sm font-bold tabular-nums ${pct >= 100 ? 'text-emerald-700' : 'text-graphite'}`}>
+          {pct}%
+        </span>
+      </div>
+
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-iron">
+        <div className={`h-full rounded-full ${progressBarStyle(pct)}`} style={{ width: `${pct}%` }} />
+      </div>
+
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+        {rows.map(([label, value]) => (
+          <Fragment key={label}>
+            <dt className="text-graphite">{label}</dt>
+            <dd className="font-medium text-near-black">{value}</dd>
+          </Fragment>
+        ))}
+      </dl>
+
+      {tk.description && (
+        <div>
+          <p className="label">{t('tasks.field.description')}</p>
+          <p className="whitespace-pre-wrap text-sm text-near-black">{tk.description}</p>
         </div>
-        {nextPlan.length ? (
-          <ul className="ml-5 list-disc space-y-2 marker:text-graphite">
-            {nextPlan.map((tk) => (
-              <TaskLine key={tk.key} tk={tk} />
-            ))}
-          </ul>
-        ) : (
-          <p className="py-4 text-center text-sm text-graphite/60">{t('report.team.emptyWeek')}</p>
-        )}
-      </section>
+      )}
     </div>
   )
 }
@@ -1405,21 +1559,23 @@ function ReportEditor({ report, reports, onSave, onDelete }) {
     () => ytdByLabel(reports, report.account, report.year, report.month, t, report.id),
     [reports, report.account, report.year, report.month, report.id, t],
   )
-  // The month being edited only contributes to '26 once it's complete; while
-  // it's the current in-progress month, its live weeks show in Total but not '26.
-  const thisComplete = monthComplete(report.year, report.month)
   const yearMap = useMemo(() => {
     const m = { ...base }
-    if (thisComplete) {
-      for (const row of form.rows) {
-        const tot = weekTotal(row.weeks)
-        if (tot == null) continue
-        const label = row.label || '—'
-        m[label] = (m[label] ?? 0) + tot
-      }
+    for (const row of form.rows) {
+      const tot = weekTotal(row.weeks)
+      if (tot == null) continue
+      const label = row.label || '—'
+      m[label] = (m[label] ?? 0) + tot
     }
     return m
-  }, [base, form.rows, thisComplete])
+  }, [base, form.rows])
+
+  // Previous-year column: last year's calculated total. Nothing here depends on
+  // the row being edited, so it is stable for the life of the modal.
+  const prevMap = useMemo(
+    () => yearTotalsByLabel(reports, report.account, report.year - 1, t),
+    [reports, report.account, report.year, t],
+  )
 
   const save = async () => {
     setSaveErr('')
@@ -1457,7 +1613,9 @@ function ReportEditor({ report, reports, onSave, onDelete }) {
 
   return (
     <div className="space-y-3">
-      <ReportGrid headers={form.headers} rows={form.rows} editable on={on} yearMap={yearMap} />
+      <ReportGrid headers={form.headers} rows={form.rows} editable on={on} yearMap={yearMap} prevMap={prevMap} />
+
+      <p className="text-[11px] text-graphite">{t('report.editor.hint')}</p>
 
       <button
         type="button"

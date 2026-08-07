@@ -1272,8 +1272,19 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
       const text = bodyText.split('{invoice_table}').join('').trim()
 
       await sendInvoiceReport({ to: recipients, cc: ccList, subject, text, html, attachments })
+    } catch (err) {
+      setSendState('error')
+      setSendError(err?.message || 'Failed to send. Please try again.')
+      return
+    }
 
-      const ts = new Date().toISOString()
+    // The message has left the building. Recording it — send history and the
+    // audit log — happens OUTSIDE the try above: a bookkeeping failure must
+    // never be reported as a delivery failure, which is exactly what used to
+    // happen when a caller threw here.
+    setSendState('success')
+    const ts = new Date().toISOString()
+    try {
       onUpdate?.({ sends: [...(invoice.sends || []), { ts, to: recipientsLabel, cc: ccList }] })
       onLogSend?.({
         to: recipientsLabel,
@@ -1282,10 +1293,8 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         invoiceNo: invoice.invoiceNo || '',
         amount: invoice.amount || 0,
       })
-      setSendState('success')
     } catch (err) {
-      setSendState('error')
-      setSendError(err?.message || 'Failed to send. Please try again.')
+      console.error('Invoice email was sent, but recording the send failed:', err)
     }
   }
 

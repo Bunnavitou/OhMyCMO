@@ -11,9 +11,11 @@ import { hasPermission } from '../auth/permissions.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 import Modal from '../components/Modal.jsx'
 import AssigneeField from '../components/AssigneeField.jsx'
+import ProgressField from '../components/ProgressField.jsx'
 import {
   TASK_STATUSES, TASK_PRIORITIES, statusStyle, priorityStyle, sourceStyle, dueBucket, dueTextStyle, collectTasks, memberName,
   POST_STATUS_TO_TASK, TASK_TO_POST_STATUS, MARKETING_POST_TYPES, MARKETING_POST_CHANNELS,
+  clampProgress, progressForStatus, progressBarStyle, doneStamp,
 } from '../utils/tasks.js'
 
 const DUE_FILTERS = ['all', 'overdue', 'today', 'soon', 'open', 'none']
@@ -177,8 +179,11 @@ export default function Tasks() {
     if (task.status === status) return
     if (!canEditTask(task)) return
     // Stamp a completion time when a task enters Done (so the board can age
-    // old Done cards out of view); clear it when it leaves Done.
-    const stamp = { doneAt: status === 'Done' ? new Date().toISOString() : null }
+    // old Done cards out of view); clear it when it leaves Done. Dropping a
+    // card into Done also completes it, matching the edit modal's behaviour —
+    // any other column leaves the existing percentage untouched.
+    const stamp = { doneAt: doneStamp(status, task.doneAt) }
+    if (status === 'Done') stamp.progress = 100
     if (task.source === 'customer') updateCustomerTask(task.ownerId, task.taskId, { status, ...stamp })
     else if (task.source === 'partner') updatePartnerTask(task.ownerId, task.taskId, { status, ...stamp })
     else updateCampaignTodo(task.ownerId, task.taskId, { postStatus: TASK_TO_POST_STATUS[status] || 'draft', ...stamp })
@@ -504,6 +509,22 @@ function TaskCard({ task, canEdit, onEdit, onDragStart, onDragEnd }) {
           </span>
         )}
       </div>
+      <ProgressBar pct={task.progress} />
+    </div>
+  )
+}
+
+// Read-only completion readout — the percentage set by ProgressField.
+function ProgressBar({ pct = 0 }) {
+  return (
+    <div className="flex items-center gap-2 pt-0.5">
+      <div className="h-1.5 flex-1 rounded-full bg-iron overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-[width] duration-300 ${progressBarStyle(pct)}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[11px] font-semibold text-graphite tabular-nums shrink-0">{pct}%</span>
     </div>
   )
 }
@@ -606,9 +627,15 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
     expense: raw.expense ?? 0,
     channel: raw.channel || '',
     type: raw.type || 'Image',
+    progress: clampProgress(raw.progress),
   })
 
   const update = (patch) => setForm((s) => ({ ...s, ...patch }))
+
+  // Moving the status to Done means finished, so pull progress up to 100.
+  // Leaving Done keeps whatever number is there — the user decides what's left.
+  const updateStatus = (status) =>
+    setForm((s) => ({ ...s, status, progress: progressForStatus(status, s.progress) }))
 
   const submit = (e) => {
     e.preventDefault()
@@ -616,24 +643,25 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
     // Keep doneAt in sync with the status: stamp on entering Done (preserving
     // any existing timestamp so a later edit doesn't reset the clock), clear
     // on leaving Done. Marketing "published" maps to the board's Done column.
-    const doneAt = form.status === 'Done' ? (raw.doneAt || new Date().toISOString()) : null
+    const doneAt = doneStamp(form.status, raw.doneAt)
+    const progress = progressForStatus(form.status, form.progress)
     const patch = isCustomer
       ? {
           name: form.name.trim(), description: form.description, status: form.status,
           due: form.due, assignee: form.assignee, assigneeId: form.assigneeId,
-          priority: form.priority, groupId: form.groupId || null, doneAt,
+          priority: form.priority, groupId: form.groupId || null, doneAt, progress,
         }
       : isMarketing
       ? {
           concept: form.name.trim(), caption: form.description,
           postStatus: TASK_TO_POST_STATUS[form.status] || 'draft',
           postDate: form.due, channel: form.channel, type: form.type,
-          assignee: form.assignee, assigneeId: form.assigneeId, doneAt,
+          assignee: form.assignee, assigneeId: form.assigneeId, doneAt, progress,
         }
       : {
           name: form.name.trim(), description: form.description, status: form.status,
           due: form.due, assignee: form.assignee, assigneeId: form.assigneeId,
-          expense: Number(form.expense) || 0, doneAt,
+          expense: Number(form.expense) || 0, doneAt, progress,
         }
     onSave(patch)
     onClose()
@@ -674,7 +702,7 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">{t('tasks.field.status')}</label>
-            <select className="input" disabled={!canEdit} value={form.status} onChange={(e) => update({ status: e.target.value })}>
+            <select className="input" disabled={!canEdit} value={form.status} onChange={(e) => updateStatus(e.target.value)}>
               {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -683,6 +711,12 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
             <input className="input" type="date" disabled={!canEdit} value={form.due} onChange={(e) => update({ due: e.target.value })} />
           </div>
         </div>
+
+        <ProgressField
+          value={form.progress}
+          disabled={!canEdit}
+          onChange={(progress) => update({ progress })}
+        />
 
         {isCustomer ? (
           <div className="grid grid-cols-2 gap-3">

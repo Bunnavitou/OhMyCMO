@@ -10,11 +10,12 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 import Modal from '../components/Modal.jsx'
 import AssigneeField from '../components/AssigneeField.jsx'
+import ProgressField from '../components/ProgressField.jsx'
 import { TelegramQrPicker } from './Partners.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import AuthImage from '../components/AuthImage.jsx'
 import { uploadImageRef, hasImage } from '../utils/imageRef.js'
-import { TASK_STATUSES, statusStyle, memberName } from '../utils/tasks.js'
+import { TASK_STATUSES, statusStyle, memberName, clampProgress, progressForStatus, doneStamp } from '../utils/tasks.js'
 
 const CARD_LIMIT_BYTES = 2 * 1024 * 1024
 
@@ -559,8 +560,13 @@ function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
   const [form, setForm] = useState(
     normalizedInitial
       // Older tasks only stored a `done` boolean — normalize to `status` so
-      // the select below always has a valid value.
-      ? { ...normalizedInitial, status: normalizedInitial.status || (normalizedInitial.done ? 'Done' : 'Todo') }
+      // the select below always has a valid value. Same for `progress`, which
+      // tasks created before the field existed won't carry at all.
+      ? {
+          ...normalizedInitial,
+          status: normalizedInitial.status || (normalizedInitial.done ? 'Done' : 'Todo'),
+          progress: clampProgress(normalizedInitial.progress),
+        }
       : {
           name: '',
           setDate: today,
@@ -569,6 +575,7 @@ function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
           file: null,
           due: '',
           status: 'Todo',
+          progress: 0,
           ...defaultAssignee,
         },
   )
@@ -593,12 +600,21 @@ function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
     reader.readAsDataURL(f)
   }
 
+  // Moving the status to Done means finished, so pull progress up to 100.
+  // Leaving Done keeps whatever number is there.
+  const setStatus = (status) =>
+    setForm((s) => ({ ...s, status, progress: progressForStatus(status, s.progress) }))
+
   const submit = (e) => {
     e.preventDefault()
     if (!form.name.trim()) return
     onSubmit({
       ...form,
       expense: Number(form.expense) || 0,
+      progress: progressForStatus(form.status, form.progress),
+      // Keep the completion timestamp in sync with the status — the team
+      // report needs it to place finished work in the right week.
+      doneAt: doneStamp(form.status, initial?.doneAt),
     })
   }
 
@@ -631,7 +647,7 @@ function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
           <select
             className="input"
             value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
+            onChange={(e) => setStatus(e.target.value)}
           >
             {TASK_STATUSES.map((s) => <option key={s}>{s}</option>)}
           </select>
@@ -646,6 +662,11 @@ function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
           />
         </div>
       </div>
+
+      <ProgressField
+        value={form.progress}
+        onChange={(progress) => setForm((s) => ({ ...s, progress }))}
+      />
 
       <div>
         <label className="label">{t('partner.task.fields.setDate')}</label>

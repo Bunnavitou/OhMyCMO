@@ -554,6 +554,7 @@ export function StoreProvider({ children }) {
           createdById: '',
           createdByName: '',
           groupId: null,
+          progress: 0,
           ...task,
         }
         return patchCustomer(
@@ -752,6 +753,7 @@ export function StoreProvider({ children }) {
           name: '', setDate: new Date().toISOString().slice(0, 10),
           description: '', expense: 0, file: null, due: '', status: 'Todo',
           assignee: '', assigneeId: '', createdById: '', createdByName: '',
+          progress: 0,
           ...task,
         }
         return patchPartner(
@@ -883,7 +885,7 @@ export function StoreProvider({ children }) {
             id: uid('cmt'),
             postDate: '', concept: '', type: 'Image', channel: '',
             keyFeature: '', caption: '', artwork: null, postStatus: 'draft',
-            assignee: '', assigneeId: '',
+            assignee: '', assigneeId: '', progress: 0,
             ...todo,
           }
           const log = campaignLogEntry('task.create', `Created post "${newTodo.concept || 'Untitled'}"`, {
@@ -902,7 +904,7 @@ export function StoreProvider({ children }) {
             id: t.id || uid('cmt'),
             postDate: '', concept: '', type: 'Image', channel: '',
             keyFeature: '', caption: '', artwork: null, postStatus: 'draft',
-            assignee: '', assigneeId: '',
+            assignee: '', assigneeId: '', progress: 0,
             ...t,
           }))
           const log = campaignLogEntry(
