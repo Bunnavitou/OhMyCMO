@@ -45,3 +45,27 @@ export async function sendInvoiceReport(payload) {
   const r = await api.post('/zoho/send', payload)
   return r.data
 }
+
+// Per-user Zoho Mail settings (More → Email settings). The app password is
+// never returned once saved — the GET response only reports whether one is
+// set (`hasPassword`); PUT accepts a new one but it's optional on update.
+export async function getMailSettings() {
+  const r = await api.get('/zoho/settings')
+  return r.data
+}
+
+// payload: { host, port, user, pass?, fromName?, bcc? } or { clear: true }
+export async function saveMailSettings(payload) {
+  const r = await api.put('/zoho/settings', payload)
+  return r.data
+}
+
+// Actually connects/authenticates (unlike /zoho/status, which just checks
+// presence) — used by the Settings page's "Test connection" action. payload
+// fields (host/port/user/pass) are optional overrides on top of whatever is
+// already saved, so this tests the CURRENT form values even before Save —
+// omit `pass` to test with the already-saved password instead of retyping it.
+export async function verifyMailSettings(payload = {}) {
+  const r = await api.post('/zoho/verify', payload)
+  return r.data
+}

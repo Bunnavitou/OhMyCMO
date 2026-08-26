@@ -5,6 +5,7 @@ import {
   AlertTriangle, Clock, Loader2, Ban,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useSubUsers } from '../api/subUsers.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { collectTasks, dueBucket, dueTextStyle, sourceStyle } from '../utils/tasks.js'
 
@@ -13,6 +14,8 @@ const fmtMoney = (n) => `$${Number(n || 0).toLocaleString()}`
 export default function Home() {
   const { state } = useStore()
   const { t } = useT()
+  const { items: subUsers } = useSubUsers()
+  const pmos = subUsers.filter((u) => u.isPmo)
 
   const totalIncome = state.products.reduce(
     (sum, p) => sum + p.income.reduce((s, i) => s + Number(i.amount || 0), 0),
@@ -26,7 +29,7 @@ export default function Home() {
 
   const taskStats = (() => {
     const s = { overdue: 0, today: 0, inProgress: 0, blocked: 0 }
-    for (const task of collectTasks(state)) {
+    for (const task of collectTasks(state, pmos)) {
       if (task.status === 'Done') continue
       const b = dueBucket(task.due, task.status)
       if (b === 'overdue') s.overdue++
@@ -44,7 +47,7 @@ export default function Home() {
     { key: 'blocked',    icon: Ban,           value: taskStats.blocked,    labelKey: 'tasks.stat.blocked',    bg: '#F1F5F9', fg: '#334155', to: '/tasks?status=Blocked' },
   ]
 
-  const allTasks = collectTasks(state)
+  const allTasks = collectTasks(state, pmos)
     .filter((task) => task.status !== 'Done')
     .map((task) => ({
       title: task.name,

@@ -1,6 +1,9 @@
 import { useState } from 'react'
-import { useParams, Navigate, useNavigate } from 'react-router-dom'
-import { Plus, TrendingUp, TrendingDown, Receipt, Trash2, Pencil, Search, Camera, Package } from 'lucide-react'
+import { useParams, Navigate, useNavigate, Link as RouterLink } from 'react-router-dom'
+import {
+  Plus, TrendingUp, TrendingDown, Receipt, Trash2, Pencil, Search, Camera, Package,
+  Users, ChevronRight,
+} from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
@@ -10,11 +13,17 @@ import { InvoiceForm, MonthlyIncomeList, InvoiceDetail } from '../components/Inv
 import AuthImage from '../components/AuthImage.jsx'
 import { uploadImageRef, hasImage } from '../utils/imageRef.js'
 import { validRecipients } from '../utils/email.js'
+import { memberName } from '../utils/tasks.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 
 const LOGO_LIMIT_BYTES = 2 * 1024 * 1024
 
 const TABS = [
+  { value: 'Customers', tKey: 'product.tab.customers' },
+  { value: 'Billing',   tKey: 'product.tab.billing' },
+]
+
+const BILLING_SUB_TABS = [
   { value: 'Income',   tKey: 'product.tab.income' },
   { value: 'Expenses', tKey: 'product.tab.expenses' },
 ]
@@ -40,17 +49,21 @@ export default function ProductDetail() {
     removeProduct,
     updateCustomer,
     appendCustomerLog,
+    addCustomerProductLink,
+    removeCustomerProductLink,
   } = useStore()
   const { user } = useAuth()
   const canDelete = hasPermission(user, 'billing.delete')
   const { t } = useT()
   const navigate = useNavigate()
   const product = state.products.find((p) => p.id === id)
-  const [tab, setTab] = useState('Income')
+  const [tab, setTab] = useState('Customers')
+  const [billingSubTab, setBillingSubTab] = useState('Income')
   const [openModal, setOpenModal] = useState(null)
   const [viewingInvoice, setViewingInvoice] = useState(null)
   const [invoiceQuery, setInvoiceQuery] = useState('')
   const [invoiceDraft, setInvoiceDraft] = useState(null)
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
 
   if (!product) return <Navigate to="/products" replace />
 
@@ -148,9 +161,17 @@ export default function ProductDetail() {
               <Package className="w-6 h-6" />
             </div>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-bold truncate text-near-black">{product.name}</p>
             <p className="text-xs text-graphite">{product.type}</p>
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-graphite mt-1">
+              <span className="flex items-center gap-1">
+                {t('product.pmoOwner.short')}:
+                <span className="font-medium">
+                  {product.pmoOwner ? (product.pmoOwner.name || product.pmoOwner.username) : t('product.pmoOwner.none')}
+                </span>
+              </span>
+            </div>
           </div>
         </section>
 
@@ -189,47 +210,79 @@ export default function ProductDetail() {
           ))}
         </div>
 
-        {tab === 'Income' && (
-          <div className="space-y-3">
-            <button
-              onClick={() => {
-                setInvoiceDraft(null)
-                setOpenModal('income')
-              }}
-              className="btn-primary w-full"
-            >
-              <Receipt className="w-4 h-4" /> {t('product.newInvoice')}
-            </button>
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
-              <input
-                value={invoiceQuery}
-                onChange={(e) => setInvoiceQuery(e.target.value)}
-                placeholder={t('common.search')}
-                className="input pl-9"
-              />
-            </div>
-            <MonthlyIncomeList
-              items={product.income}
-              onTap={(x) => setViewingInvoice(x)}
-              productName={product.name}
-              query={invoiceQuery}
-              onBulkDuplicate={(list) => {
-                if (!list.length) return
-                if (!confirm(`Duplicate ${list.length} invoice${list.length > 1 ? 's' : ''}?`)) return
-                addProductChildren(product.id, 'income', list.map(duplicateInvoiceData))
-              }}
-            />
-          </div>
-        )}
-        {tab === 'Expenses' && (
-          <ExpenseLines
-            items={product.expenses}
-            onAdd={() => setOpenModal('expense')}
-            onDelete={(eid) => {
-              if (confirm(t('product.deleteExpense'))) removeProductChild(product.id, 'expenses', eid)
+        {tab === 'Customers' && (
+          <PanelCustomers
+            product={product}
+            customers={state.customers}
+            onLink={() => setCustomerPickerOpen(true)}
+            onUnlink={(customerId, linkId) => {
+              if (confirm(t('product.customers.confirmUnlink'))) {
+                removeCustomerProductLink(customerId, linkId)
+              }
             }}
           />
+        )}
+
+        {tab === 'Billing' && (
+          <div className="space-y-3">
+            <div className="flex bg-iron border border-shadow rounded-lg overflow-hidden">
+              {BILLING_SUB_TABS.map((sub) => (
+                <button
+                  key={sub.value}
+                  type="button"
+                  onClick={() => setBillingSubTab(sub.value)}
+                  className={`flex-1 text-xs py-1.5 font-semibold transition-colors ${
+                    billingSubTab === sub.value ? 'bg-charcoal text-brand-500' : 'text-graphite'
+                  }`}
+                >
+                  {t(sub.tKey)}
+                </button>
+              ))}
+            </div>
+
+            {billingSubTab === 'Income' && (
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setInvoiceDraft(null)
+                    setOpenModal('income')
+                  }}
+                  className="btn-primary w-full"
+                >
+                  <Receipt className="w-4 h-4" /> {t('product.newInvoice')}
+                </button>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
+                  <input
+                    value={invoiceQuery}
+                    onChange={(e) => setInvoiceQuery(e.target.value)}
+                    placeholder={t('common.search')}
+                    className="input pl-9"
+                  />
+                </div>
+                <MonthlyIncomeList
+                  items={product.income}
+                  onTap={(x) => setViewingInvoice(x)}
+                  productName={product.name}
+                  query={invoiceQuery}
+                  onBulkDuplicate={(list) => {
+                    if (!list.length) return
+                    if (!confirm(`Duplicate ${list.length} invoice${list.length > 1 ? 's' : ''}?`)) return
+                    addProductChildren(product.id, 'income', list.map(duplicateInvoiceData))
+                  }}
+                />
+              </div>
+            )}
+            {billingSubTab === 'Expenses' && (
+              <ExpenseLines
+                items={product.expenses}
+                onAdd={() => setOpenModal('expense')}
+                onDelete={(eid) => {
+                  if (confirm(t('product.deleteExpense'))) removeProductChild(product.id, 'expenses', eid)
+                }}
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -248,6 +301,14 @@ export default function ProductDetail() {
           onSubmit={(d) => {
             addProductChild(product.id, 'income', d)
             saveEmailDefaults(d)
+            if (d.customerId) {
+              const label = d.invoiceNo ? `invoice "${d.invoiceNo}"` : 'invoice'
+              appendCustomerLog(d.customerId, {
+                type: 'invoice.create',
+                message: `Created ${label} ($${Number(d.amount || 0).toLocaleString()})`,
+                meta: { invoiceNo: d.invoiceNo, amount: d.amount, by: user?.id, byName: memberName(user) },
+              })
+            }
             setOpenModal(null)
             setInvoiceDraft(null)
           }}
@@ -280,7 +341,7 @@ export default function ProductDetail() {
             appendCustomerLog(viewingInvoice.customerId, {
               type: 'invoice.send',
               message: `Sent invoice ${meta.invoiceNo || ''} report to ${meta.to}`.replace(/\s+/g, ' ').trim(),
-              meta,
+              meta: { ...meta, by: user?.id, byName: memberName(user) },
             })
           }}
           onDelete={() => {
@@ -306,8 +367,127 @@ export default function ProductDetail() {
       <Modal open={openModal === 'edit'} onClose={() => setOpenModal(null)} title={t('product.modal.edit')}>
         <EditProductForm product={product} onSubmit={handleEdit} />
       </Modal>
+
+      <Modal
+        open={customerPickerOpen}
+        onClose={() => setCustomerPickerOpen(false)}
+        title={t('product.customers.pickerTitle')}
+      >
+        <CustomerPicker
+          customers={state.customers}
+          onPick={(customerId) => {
+            addCustomerProductLink(customerId, product.id)
+            setCustomerPickerOpen(false)
+          }}
+        />
+      </Modal>
     </>
   )
+}
+
+function PanelCustomers({ product, customers, onLink, onUnlink }) {
+  const { t } = useT()
+  const linked = []
+  for (const c of customers || []) {
+    for (const link of c.productLinks || []) {
+      if (link.productId === product.id) linked.push({ customer: c, link })
+    }
+  }
+  linked.sort((a, b) => (b.link.linkedAt || '').localeCompare(a.link.linkedAt || ''))
+
+  return (
+    <div className="space-y-3">
+      <button type="button" onClick={onLink} className="btn-primary w-full">
+        <Plus className="w-4 h-4" /> {t('product.customers.add')}
+      </button>
+      {linked.length === 0 ? (
+        <p className="text-center text-sm text-graphite py-6">{t('product.customers.empty')}</p>
+      ) : (
+        <ul className="space-y-2">
+          {linked.map(({ customer, link }) => {
+            const activityCount = (link.activities || []).length
+            const startedOn = formatStartDate(link.linkedAt)
+            return (
+              <li key={link.id} className="card !p-0 overflow-hidden">
+                <RouterLink
+                  to={`/customers/${customer.id}/products/${link.id}`}
+                  className="flex items-center gap-3 p-4 hover:bg-iron transition-colors"
+                >
+                  <div className="w-11 h-11 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate text-near-black">{customer.name}</p>
+                    <p className="text-[11px] text-graphite mt-0.5">
+                      {startedOn ? t('product.customers.startedOn', { date: startedOn }) : t('common.new')}
+                      {' · '}
+                      {t('product.customers.activity', { count: activityCount })}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-graphite" />
+                </RouterLink>
+                <button
+                  type="button"
+                  onClick={() => onUnlink(customer.id, link.id)}
+                  className="w-full text-xs text-rose-600 py-2 border-t border-shadow hover:bg-rose-50 flex items-center justify-center gap-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> {t('product.customers.unlink')}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function CustomerPicker({ customers, onPick }) {
+  const { t } = useT()
+  const [q, setQ] = useState('')
+  const available = (customers || []).filter((c) =>
+    c.name.toLowerCase().includes(q.toLowerCase()),
+  )
+  return (
+    <div className="space-y-3">
+      <input
+        className="input"
+        autoFocus
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={t('product.customers.search')}
+      />
+      {(customers || []).length === 0 ? (
+        <p className="text-center text-sm text-graphite py-4">{t('product.customers.noneYet')}</p>
+      ) : available.length === 0 ? (
+        <p className="text-center text-sm text-graphite py-4">{t('product.customers.noMatch')}</p>
+      ) : (
+        <ul className="divide-y divide-shadow max-h-72 overflow-y-auto -mx-1">
+          {available.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => onPick(c.id)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-iron active:bg-iron text-left"
+              >
+                <div className="w-9 h-9 rounded-lg bg-iron text-graphite flex items-center justify-center text-xs font-bold shrink-0">
+                  {(c.name || '?').charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium truncate">{c.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+const formatStartDate = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d)) return ''
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function EditProductForm({ product, onSubmit }) {

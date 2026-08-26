@@ -8,6 +8,11 @@ export const PERMISSION_KEYS = [
   'assets',
   'reports',
   'subUsers',
+  // Opt-in like the menu keys above, not the default-allow abilities below —
+  // the PMO menu is visible to everyone, but promoting/demoting a PMO,
+  // reassigning a product's PMO owner, and editing a PMO's tasks are
+  // sensitive enough that a sub-user must be explicitly granted this.
+  'pmo.manage',
 ]
 
 // Owners (no ownerId) have implicit full access. For sub-users:

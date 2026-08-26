@@ -1,7 +1,7 @@
 import {
   Activity, ClipboardList, FileEdit, FileX, FilePlus, FolderOpen,
   FolderEdit, FolderX, Upload, ListChecks, RefreshCw, UserPlus, UserMinus,
-  Link2, Link2Off, TrendingUp, TrendingDown,
+  Link2, Link2Off, TrendingUp, TrendingDown, Gauge,
 } from 'lucide-react'
 
 const LOG_VISUAL = {
@@ -11,6 +11,7 @@ const LOG_VISUAL = {
   'task.create':            { Icon: ClipboardList, tone: 'bg-emerald-500' },
   'task.update':            { Icon: FileEdit,      tone: 'bg-iron0' },
   'task.status':            { Icon: RefreshCw,     tone: 'bg-brand-500' },
+  'task.progress':          { Icon: Gauge,         tone: 'bg-brand-500' },
   'task.delete':            { Icon: FileX,         tone: 'bg-rose-500' },
   'group.create':           { Icon: FolderOpen,    tone: 'bg-emerald-500' },
   'group.rename':           { Icon: FolderEdit,    tone: 'bg-iron0' },

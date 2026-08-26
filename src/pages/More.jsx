@@ -1,19 +1,20 @@
 import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Users, FileText, LogOut, ChevronRight,
-  Megaphone, Folder, Globe,
+  Megaphone, Folder, Globe, Mail,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 
 const ALL_ITEMS = [
-  { to: '/more/profile',     icon: User,      key: 'more.profile',     iconBg: 'bg-brand-50 text-brand-700',    perm: null },
-  { to: '/more/sub-users',   icon: Users,     key: 'more.subUsers',    iconBg: 'bg-violet-100 text-violet-700', perm: 'subUsers' },
-  { to: '/more/influencers', icon: Megaphone, key: 'more.influencers', iconBg: 'bg-amber-100 text-amber-700',   perm: 'marketing' },
-  { to: '/assets',           icon: Folder,    key: 'more.assets',      iconBg: 'bg-sky-100 text-sky-700',       perm: 'assets' },
-  { to: '/more/language',    icon: Globe,     key: 'more.language',    iconBg: 'bg-sky-100 text-sky-700',       perm: null },
-  { to: '/more/tcs',         icon: FileText,  key: 'more.tcs',         iconBg: 'bg-iron text-near-black',       perm: null },
+  { to: '/more/profile',       icon: User,      key: 'more.profile',       iconBg: 'bg-brand-50 text-brand-700',    perm: null },
+  { to: '/more/sub-users',     icon: Users,     key: 'more.subUsers',      iconBg: 'bg-violet-100 text-violet-700', perm: 'subUsers' },
+  { to: '/more/mail-settings', icon: Mail,      key: 'more.mailSettings',  iconBg: 'bg-emerald-100 text-emerald-700', perm: null },
+  { to: '/more/influencers',   icon: Megaphone, key: 'more.influencers',   iconBg: 'bg-amber-100 text-amber-700',   perm: 'marketing' },
+  { to: '/assets',             icon: Folder,    key: 'more.assets',        iconBg: 'bg-sky-100 text-sky-700',       perm: 'assets' },
+  { to: '/more/language',      icon: Globe,     key: 'more.language',      iconBg: 'bg-sky-100 text-sky-700',       perm: null },
+  { to: '/more/tcs',           icon: FileText,  key: 'more.tcs',           iconBg: 'bg-iron text-near-black',       perm: null },
 ]
 
 export default function More() {

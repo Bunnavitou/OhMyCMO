@@ -1,8 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { Plus, Trash2, TrendingUp, Receipt, Share2, Pencil, Copy, Search, X, ChevronDown, Eye, Paperclip, Download, Upload, FileSpreadsheet, Send, Printer, RefreshCw, Loader2, CheckCircle2, AlertCircle, Link2 } from 'lucide-react'
+import { Plus, Trash2, TrendingUp, Receipt, Share2, Pencil, Copy, Search, X, ChevronDown, Eye, Paperclip, Download, Upload, FileSpreadsheet, Send, Printer, Loader2, CheckCircle2, AlertCircle, Link2, Mail } from 'lucide-react'
 import Modal from './Modal.jsx'
 import { fmtMoney, isEmail, applyPlaceholders, parseRecipients, validRecipients, recipientsText } from '../utils/email.js'
 import { useZohoStatus, sendInvoiceReport } from '../utils/zoho.js'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 
@@ -1250,8 +1251,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
       return
     }
     if (!zoho.configured) {
-      setSendState('error')
-      setSendError('Zoho email is not configured on the server yet.')
+      setSendState('notConnected')
       return
     }
     setSendState('sending')
@@ -1348,13 +1348,13 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
             <AlertCircle className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-near-black">Zoho email not configured</p>
-            <p className="text-[11px] text-graphite">Add Zoho Mail SMTP credentials to enable sending.</p>
+            <p className="text-sm font-semibold text-near-black">Zoho Mail not connected</p>
+            <p className="text-[11px] text-graphite">Connect your own Zoho Mail account to enable sending.</p>
           </div>
           <button
             type="button"
             onClick={() => setSetupOpen(true)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-charcoal text-white hover:opacity-90 transition-opacity"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-near-black text-white hover:opacity-90 transition-opacity shrink-0"
           >
             <Link2 className="w-3.5 h-3.5" /> Setup guide
           </button>
@@ -1514,6 +1514,19 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
             <p className="text-xs text-graphite">Sent to {recipientsLabel}{ccList.length ? ` · Cc ${ccList.length}` : ''}.</p>
             <button type="button" onClick={closeSend} className="btn-primary w-full">Done</button>
           </div>
+        ) : sendState === 'notConnected' ? (
+          <div className="space-y-3">
+            <p className="text-sm text-red-600 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" /> You haven't connected a Zoho Mail account
+            </p>
+            <Link
+              to="/more/mail-settings"
+              onClick={closeSend}
+              className="btn-primary w-full"
+            >
+              <Mail className="w-4 h-4" /> Go to Email settings
+            </Link>
+          </div>
         ) : (
           <div className="space-y-3">
             <div className="card !p-3 space-y-1 text-sm">
@@ -1541,26 +1554,27 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         )}
       </Modal>
 
-      {/* Zoho Mail setup guide (SMTP is configured server-side, not per-user) */}
+      {/* Zoho Mail setup guide — every user connects their own mailbox */}
       <Modal open={setupOpen} onClose={() => setSetupOpen(false)} title="Enable Zoho Mail sending">
         <div className="space-y-3 text-sm">
           <p className="text-graphite">
-            Invoice reports are sent through your Zoho Mail account over SMTP. An administrator
-            configures this once on the server:
+            Invoice reports send through your own Zoho Mail account over SMTP. Connect it once
+            in Email settings:
           </p>
           <ol className="list-decimal list-inside space-y-1.5 text-near-black">
             <li>In Zoho Mail, open <span className="font-medium">Settings → Security → App Passwords</span> and generate an app-specific password.</li>
-            <li>Add these to the API <span className="font-mono text-xs">.env</span> and restart:
-              <pre className="mt-1 p-2 rounded-lg bg-iron text-[11px] overflow-x-auto">{`SMTP_HOST=smtp.zoho.com
-SMTP_PORT=465
-SMTP_USER=you@zohomail.com
-SMTP_PASS=<app-password>
-SMTP_FROM=you@zohomail.com`}</pre>
-            </li>
+            <li>Enter your Zoho mailbox and that app password in <span className="font-medium">More → Email settings</span>.</li>
             <li>Reopen this invoice — the banner will show <span className="font-medium">Connected to Zoho Mail</span>.</li>
           </ol>
-          <button type="button" onClick={() => { setSetupOpen(false); zoho.refresh() }} className="btn-primary w-full">
-            <RefreshCw className="w-4 h-4" /> Re-check connection
+          <Link
+            to="/more/mail-settings"
+            onClick={() => setSetupOpen(false)}
+            className="btn-primary w-full"
+          >
+            <Mail className="w-4 h-4" /> Go to Email settings
+          </Link>
+          <button type="button" onClick={() => { setSetupOpen(false); zoho.refresh() }} className="w-full text-xs text-graphite underline">
+            Re-check connection
           </button>
         </div>
       </Modal>

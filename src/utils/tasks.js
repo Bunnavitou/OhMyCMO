@@ -72,6 +72,7 @@ export const priorityStyle = (p) =>
 export const sourceStyle = (source) =>
   source === 'partner' ? 'bg-violet-100 text-violet-700'
   : source === 'marketing' ? 'bg-amber-100 text-amber-700'
+  : source === 'pmo' ? 'bg-emerald-100 text-emerald-700'
   : 'bg-sky-100 text-sky-700'
 
 export const todayStr = () => new Date().toISOString().slice(0, 10)
@@ -108,8 +109,55 @@ export const memberName = (m) =>
 export const ownerCompanyName = (source, entity) =>
   source === 'partner' ? (entity.company || entity.name || '') : (entity.name || '')
 
-// Flatten every customer + partner task into one comparable shape.
-export function collectTasks(state) {
+const pctLabel = (v) => `${Math.round(Number(v) || 0)}%`
+
+// Activity-feed summary for one changed field. Status and progress spell out
+// their before → after values; a bare field name like "(progress)" tells the
+// team something moved but not what it moved to.
+const fieldSummary = (before, after, field, statusKey) => {
+  if (field === statusKey) return `${before[statusKey] || '—'} → ${after[statusKey] || '—'}`
+  if (field === 'progress') return `progress ${pctLabel(before.progress)} → ${pctLabel(after.progress)}`
+  return field
+}
+
+// Log type + message for a task/post edit. `noun` is the capitalised label used
+// in single-change headlines (`Task "X": …`); `meaningful` is the changed keys
+// worth surfacing.
+export const editLogEntry = (before, after, meaningful, { noun, name, statusKey = 'status' }) => {
+  if (meaningful.length === 0) {
+    return { type: 'task.update', message: `Updated ${noun.toLowerCase()} "${name}"` }
+  }
+  if (meaningful.length === 1 && (meaningful[0] === statusKey || meaningful[0] === 'progress')) {
+    return {
+      type: meaningful[0] === 'progress' ? 'task.progress' : 'task.status',
+      message: `${noun} "${name}": ${fieldSummary(before, after, meaningful[0], statusKey)}`,
+    }
+  }
+  const parts = meaningful.map((k) => fieldSummary(before, after, k, statusKey))
+  return {
+    type: 'task.update',
+    message: `Updated ${noun.toLowerCase()} "${name}" (${parts.join(', ')})`,
+  }
+}
+
+// One audit-log entry for a PMO task change — same shape as the
+// Customer/Partner/Campaign task logs so the Tasks "Team activity" feed
+// renders them all uniformly. PMO logs are a plain JSON column (like
+// Campaign.logs), built client-side rather than via a dedicated log table.
+export function pmoLogEntry(type, message, meta, user) {
+  return {
+    id: `ulog-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    ts: new Date().toISOString(),
+    type,
+    message,
+    meta: { ...meta, by: user?.id, byName: memberName(user) },
+  }
+}
+
+// Flatten every customer + partner + marketing + PMO task into one comparable
+// shape. PMO tasks live on sub-user accounts (fetched separately via
+// useSubUsers, not part of `state`), so they're passed in as `pmos`.
+export function collectTasks(state, pmos) {
   const out = []
   for (const c of state.customers || []) {
     const groups = c.taskGroups || []
@@ -188,6 +236,31 @@ export function collectTasks(state) {
         groupName: t.channel || '',
         doneAt: t.doneAt || '',
         progress: progressForStatus(POST_STATUS_TO_TASK[t.postStatus] || 'Todo', t.progress),
+      })
+    }
+  }
+  for (const u of pmos || []) {
+    for (const t of u.tasks || []) {
+      out.push({
+        key: `u:${u.id}:${t.id}`,
+        source: 'pmo',
+        ownerId: u.id,
+        ownerName: u.name || u.username,
+        ownerCompany: u.name || u.username,
+        ownerLabel: 'PMO',
+        link: `/pmo/${u.id}`,
+        taskId: t.id,
+        name: t.name || 'Untitled',
+        description: t.description || '',
+        status: t.status || 'Todo',
+        due: t.due || '',
+        assignee: t.assignee || '',
+        assigneeId: t.assigneeId || '',
+        createdByName: t.createdByName || '',
+        priority: t.priority || '',
+        groupName: '',
+        doneAt: t.doneAt || '',
+        progress: progressForStatus(t.status || 'Todo', t.progress),
       })
     }
   }

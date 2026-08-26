@@ -1,6 +1,7 @@
 import { Fragment, useState, useMemo, useRef, useEffect } from 'react'
 import { Plus, FileBarChart, Pencil, Trash2, Save, AlertCircle, X, Download, Upload, Table2, FileDown, History, TrendingUp, Calendar } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useSubUsers } from '../api/subUsers.js'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -43,7 +44,12 @@ const ts = () => {
 }
 
 const isNum = (v) => v !== null && v !== undefined && v !== '' && !Number.isNaN(Number(v))
-const fmtFull = (v, money) => (isNum(v) ? (money ? '$' : '') + Number(v).toLocaleString('en-US') : '')
+
+// Report amounts can be tracked in USD or Khmer Riel — Riel uses a plain 'R'
+// prefix here rather than the ៛ glyph, matching how the team already writes it.
+const CURRENCY_SYMBOL = { USD: '$', KHR: 'R' }
+const fmtFull = (v, money, currency = 'USD') =>
+  isNum(v) ? (money ? (CURRENCY_SYMBOL[currency] || '$') : '') + Number(v).toLocaleString('en-US') : ''
 const weekTotal = (weeks) => {
   const vals = (weeks || []).filter(isNum).map(Number)
   return vals.length ? vals.reduce((s, n) => s + n, 0) : null
@@ -69,6 +75,7 @@ const defaultRows = (account, t) =>
     id: newId(),
     label: t(`report.metric.${key}`),
     money,
+    currency: 'USD',
     prevYear: null,
     currentYear: null,
     weeks: Array(DEFAULT_WEEKS).fill(null),
@@ -105,6 +112,7 @@ const normalize = (report, t) => {
       id: r.id || newId(),
       label: r.label || '',
       money: !!r.money,
+      currency: r.currency === 'KHR' ? 'KHR' : 'USD',
       prevYear: r.prevYear ?? null,
       currentYear: r.currentYear ?? null,
       weeks: normWeeks(r.weeks, W),
@@ -120,6 +128,7 @@ const normalize = (report, t) => {
         id: newId(),
         label: t(`report.metric.${key}`),
         money,
+        currency: 'USD',
         prevYear: m.prevYear ?? null,
         currentYear: m.currentYear ?? null,
         weeks: normWeeks(m.weeks, W),
@@ -191,6 +200,13 @@ const effectiveYear = (row, ytd) => {
   return (base || 0) + (auto || 0)
 }
 
+// The row-format toggle cycles Count (#) → US Dollar ($) → Khmer Riel (R) → Count.
+const nextMoneyState = (row) => {
+  if (!row.money) return { money: true, currency: 'USD' }
+  if (row.currency !== 'KHR') return { money: true, currency: 'KHR' }
+  return { money: false, currency: 'USD' }
+}
+
 // The two year figures a row actually shows. Previous year is last year's
 // calculated total, with the stored value standing in only when there is
 // nothing to calculate from; current year is any legacy opening amount plus
@@ -214,6 +230,7 @@ const buildCombined = (reports, account, t) => {
   )
   const order = [] // label order, from most-recent report
   const money = {} // label -> money flag
+  const currency = {} // label -> currency ('USD' | 'KHR'), only meaningful when money[label]
   const cell = {} // `label||year` -> { val, pri }  (pri: currentYear=2 beats prevYear=1)
   const years = new Set()
 
@@ -232,6 +249,7 @@ const buildCombined = (reports, account, t) => {
       const label = row.label || '—'
       if (!(label in money)) {
         money[label] = row.money
+        currency[label] = row.currency || 'USD'
         order.push(label)
       }
       put(label, r.year, effectiveYear(row, ytd), 2)
@@ -245,6 +263,7 @@ const buildCombined = (reports, account, t) => {
   const rows = order.map((label) => ({
     label,
     money: money[label],
+    currency: currency[label],
     byYear: Object.fromEntries(yrs.map((y) => [y, cell[`${label}||${y}`]?.val ?? null])),
   }))
   return { years: yrs, rows }
@@ -276,7 +295,7 @@ function CombinedTable({ years, rows }) {
               <td className="border border-shadow px-3 py-2 font-semibold whitespace-nowrap">{r.label}</td>
               {years.map((y) => (
                 <td key={y} className="border border-shadow px-3 py-2 text-right tabular-nums whitespace-nowrap">
-                  {fmtFull(r.byYear[y], r.money)}
+                  {fmtFull(r.byYear[y], r.money, r.currency)}
                 </td>
               ))}
             </tr>
@@ -378,11 +397,15 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => on.row(row.id, { money: !row.money })}
-                        title={row.money ? 'Currency ($)' : 'Count (#)'}
+                        onClick={() => on.row(row.id, nextMoneyState(row))}
+                        title={
+                          !row.money ? 'Count (#)'
+                          : row.currency === 'KHR' ? 'Khmer Riel (R)'
+                          : 'US Dollar ($)'
+                        }
                         className="w-6 h-6 shrink-0 rounded border border-shadow text-xs font-bold text-graphite hover:bg-iron"
                       >
-                        {row.money ? '$' : '#'}
+                        {!row.money ? '#' : row.currency === 'KHR' ? 'R' : '$'}
                       </button>
                       <input
                         className="flex-1 min-w-[90px] bg-transparent outline-none focus:bg-brand-50 rounded px-1 py-0.5"
@@ -407,7 +430,7 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap
                 <NumCell
                   editable={false}
                   raw={pEff}
-                  display={fmtFull(pEff, row.money)}
+                  display={fmtFull(pEff, row.money, row.currency)}
                   title={editable ? t('report.prevYear.auto') : undefined}
                   strong
                   muted
@@ -415,7 +438,7 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap
                 <NumCell
                   editable={false}
                   raw={yEff}
-                  display={fmtFull(yEff, row.money)}
+                  display={fmtFull(yEff, row.money, row.currency)}
                   title={editable ? t('report.year.auto') : undefined}
                   strong
                 />
@@ -424,7 +447,7 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap
                     key={i}
                     editable={editable}
                     raw={w}
-                    display={fmtFull(w, row.money)}
+                    display={fmtFull(w, row.money, row.currency)}
                     onChange={(v) => {
                       const weeks = row.weeks.slice()
                       weeks[i] = v
@@ -433,7 +456,7 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap
                   />
                 ))}
                 <td className="border border-shadow px-2 py-1.5 text-right font-bold text-blue-700 whitespace-nowrap tabular-nums">
-                  {fmtFull(total, row.money)}
+                  {fmtFull(total, row.money, row.currency)}
                 </td>
               </tr>
             )
@@ -563,6 +586,7 @@ export default function Reports() {
         id: newId(),
         label: row.label,
         money: row.money,
+        currency: row.currency || 'USD',
         prevYear: crossingYear ? effectiveYear(row, priorYtd) : row.prevYear ?? null,
         // Within a year, carry the '26 opening baseline forward so the running
         // total stays continuous (completed months keep adding on top). A new
@@ -1024,7 +1048,9 @@ const STATUS_KEYS = ['Todo', 'In Progress', 'Done', 'Blocked']
 function TeamTaskReport() {
   const { state } = useStore()
   const { t } = useT()
-  const allTasks = useMemo(() => collectTasks(state), [state])
+  const { items: subUsers } = useSubUsers()
+  const pmos = useMemo(() => subUsers.filter((u) => u.isPmo), [subUsers])
+  const allTasks = useMemo(() => collectTasks(state, pmos), [state, pmos])
   const team = useMemo(() => state.team || [], [state.team])
 
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | one of STATUS_KEYS
@@ -1412,7 +1438,7 @@ function ReportPreview({ report, reports }) {
 const alignRows = (combinedRows, refRows) => {
   const byLabel = Object.fromEntries(combinedRows.map((r) => [r.label, r]))
   return refRows.map(
-    (rr) => byLabel[rr.label] || { label: rr.label, money: rr.money, byYear: {} },
+    (rr) => byLabel[rr.label] || { label: rr.label, money: rr.money, currency: rr.currency, byYear: {} },
   )
 }
 
@@ -1450,6 +1476,7 @@ function CreateForm({ onSubmit, onTemplate }) {
           id: newId(),
           label: r.label || '',
           money: !!r.money,
+          currency: r.currency || 'USD',
           prevYear: by[Y - 1] ?? null,
           currentYear: by[Y] ?? null,
           weeks: normWeeks(r.weeks, DEFAULT_WEEKS),
@@ -1607,7 +1634,7 @@ function ReportEditor({ report, reports, onSave, onDelete }) {
       ...s,
       rows: [
         ...s.rows,
-        { id: newId(), label: '', money: false, prevYear: null, currentYear: null, weeks: Array(s.headers.weeks.length).fill(null) },
+        { id: newId(), label: '', money: false, currency: 'USD', prevYear: null, currentYear: null, weeks: Array(s.headers.weeks.length).fill(null) },
       ],
     }))
 

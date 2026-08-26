@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   UserPlus, User, Trash2, Eye, EyeOff, Pencil,
-  Users, Lock, ShieldCheck, AlertTriangle,
+  Users, Lock, ShieldCheck, AlertTriangle, UserCog,
 } from 'lucide-react'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -30,6 +30,7 @@ const MENU_ABILITIES = {
     { key: 'customers.delete',     label: 'Delete records' },
   ],
   products: [
+    { key: 'billing.create',    label: 'Create products/services' },
     { key: 'billing.send',      label: 'Send invoice emails' },
     { key: 'billing.duplicate', label: 'Duplicate bills' },
     { key: 'billing.delete',    label: 'Delete bills' },
@@ -150,6 +151,9 @@ export default function MoreSubUsers() {
                 <p className="text-xs text-graphite truncate flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 shrink-0" /> {accessSummary(u.permissions)}
                 </p>
+                <p className="text-[11px] text-graphite truncate flex items-center gap-1">
+                  <UserCog className="w-3 h-3 shrink-0" /> Reports to {u.inCharge ? (u.inCharge.name || u.inCharge.username) : 'Owner'}
+                </p>
               </div>
               <button
                 disabled={busy}
@@ -189,6 +193,7 @@ export default function MoreSubUsers() {
         <SubUserForm
           key={editing?.id || 'new'}
           initial={editing}
+          peers={items.filter((u) => u.id !== editing?.id)}
           submitting={busy}
           error={opError}
           onSubmit={onSave}
@@ -199,7 +204,7 @@ export default function MoreSubUsers() {
   )
 }
 
-function SubUserForm({ initial, submitting, error, onSubmit, onDelete }) {
+function SubUserForm({ initial, peers = [], submitting, error, onSubmit, onDelete }) {
   const defaultPermissions = {
     tasks: true,
     customers: true,
@@ -215,6 +220,7 @@ function SubUserForm({ initial, submitting, error, onSubmit, onDelete }) {
   const [showPw, setShowPw] = useState(false)
   const [name, setName] = useState(initial?.name || '')
   const [active, setActive] = useState(initial?.active ?? true)
+  const [inChargeId, setInChargeId] = useState(initial?.inChargeId || '')
   const [permissions, setPermissions] = useState({
     ...defaultPermissions,
     ...(initial?.permissions || {}),
@@ -244,6 +250,7 @@ function SubUserForm({ initial, submitting, error, onSubmit, onDelete }) {
       name: name.trim() || null,
       active,
       permissions,
+      inChargeId: inChargeId || null,
     }
     if (password) payload.password = password
     onSubmit(payload)
@@ -273,6 +280,26 @@ function SubUserForm({ initial, submitting, error, onSubmit, onDelete }) {
           onChange={(e) => setName(e.target.value)}
           placeholder="Optional — shown on profile"
         />
+      </div>
+
+      <div>
+        <label className="label">Incharge (reports to)</label>
+        <div className="relative">
+          <UserCog className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
+          <select
+            className="input pl-9"
+            value={inChargeId}
+            onChange={(e) => setInChargeId(e.target.value)}
+          >
+            <option value="">Owner</option>
+            {peers.map((p) => (
+              <option key={p.id} value={p.id}>{p.name || p.username}</option>
+            ))}
+          </select>
+        </div>
+        <p className="text-[11px] text-graphite mt-1">
+          Who this sub user's work is accountable to. Informational only — doesn't change menu access.
+        </p>
       </div>
 
       <div>

@@ -13,11 +13,13 @@ const weekTotal = (weeks) => {
   return vals.length ? vals.reduce((s, n) => s + n, 0) : null
 }
 
-// Parse a possibly-formatted cell ("$1,182,191", "308K") into a number or null.
+// Parse a possibly-formatted cell ("$1,182,191", "R1,182,191", "308K") into a
+// number or null. The leading R only ever comes from our own Khmer Riel
+// formatting, so stripping it here is safe.
 const numOrNull = (v) => {
   if (v === '' || v === null || v === undefined) return null
   if (typeof v === 'number') return v
-  let s = String(v).trim().replace(/[$,\s]/g, '')
+  let s = String(v).trim().replace(/^R(?=[\d.])/, '').replace(/[$,\s]/g, '')
   let mult = 1
   if (/[kK]$/.test(s)) { mult = 1e3; s = s.slice(0, -1) }
   else if (/[mM]$/.test(s)) { mult = 1e6; s = s.slice(0, -1) }
@@ -138,11 +140,12 @@ export async function exportFullExcel(account, combined, monthly, filenameBase =
   ws['!merges'] = merges
   ws['!cols'] = [{ wch: 20 }, ...years.map(() => ({ wch: 12 })), ...(W ? [...Array(W).fill({ wch: 10 }), { wch: 12 }] : [])]
 
-  // Number formats: amount rows as currency ($1,234), count rows with a
-  // thousands separator. One data row per combined row, starting at sheet row 2.
+  // Number formats: amount rows as currency ($1,234 or R1,234 for Khmer Riel),
+  // count rows with a thousands separator. One data row per combined row,
+  // starting at sheet row 2.
   const lastNumCol = N + (W ? W + 1 : 0)
   combined.rows.forEach((row, i) => {
-    const z = row.money ? '$#,##0' : '#,##0'
+    const z = row.money ? (row.currency === 'KHR' ? '"R"#,##0' : '$#,##0') : '#,##0'
     for (let c = 1; c <= lastNumCol; c++) {
       const cell = ws[XLSX.utils.encode_cell({ r: 2 + i, c })]
       if (cell && cell.t === 'n') cell.z = z
@@ -226,11 +229,17 @@ export async function parseReportFile(file) {
     const label = String(r[0] ?? '').trim()
     const dataCells = [...yearCols.map(([c]) => r[c]), ...weekCols.map((c) => r[c])]
     if (!label && dataCells.every((c) => c === '' || c === null || c === undefined)) continue
-    const money = /\$/.test((r || []).map((c) => String(c ?? '')).join(''))
+    // Currency is sniffed from the data cells only (not the label), so a label
+    // like "Return rate" never gets mistaken for a Khmer Riel ("R123") column.
+    const cellText = dataCells.map((c) => String(c ?? '')).join(' ')
+    const isUsd = /\$/.test(cellText)
+    const isKhr = !isUsd && /(?:^|[\s(])R\s?[\d,]/.test(cellText)
+    const money = isUsd || isKhr
+    const currency = isKhr ? 'KHR' : 'USD'
     const byYear = {}
     for (const [c, y] of yearCols) byYear[y] = numOrNull(r[c])
     const weeks = weekCols.map((c) => numOrNull(r[c]))
-    rows.push({ label, money, byYear, weeks })
+    rows.push({ label, money, currency, byYear, weeks })
   }
 
   if (!rows.length) throw new Error('No data rows found in the sheet')

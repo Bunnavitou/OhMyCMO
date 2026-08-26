@@ -182,6 +182,7 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
   const [start, setStart] = useState(initial.start)
   const [end, setEnd] = useState(initial.end)
   const [activePreset, setActivePreset] = useState(value ? '' : defaultPreset)
+  const [activeMonth, setActiveMonth] = useState(null)
   const [save, setSave] = useState(false)
 
   const [startMonth, setStartMonth] = useState(initial.start.getMonth())
@@ -196,6 +197,7 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
     setStartMonth(r.start.getMonth()); setStartYear(r.start.getFullYear())
     setEndMonth(r.end.getMonth());     setEndYear(r.end.getFullYear())
     setActivePreset(name)
+    setActiveMonth(null)
   }
 
   const applyMonth = (m) => {
@@ -205,17 +207,20 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
     setStartMonth(m); setStartYear(y)
     setEndMonth(m);   setEndYear(y)
     setActivePreset('')
+    setActiveMonth(m)
   }
 
   const onPickStart = (d) => {
     setStart(d)
     if (d > end) setEnd(d)
     setActivePreset('')
+    setActiveMonth(null)
   }
   const onPickEnd = (d) => {
     setEnd(d)
     if (d < start) setStart(d)
     setActivePreset('')
+    setActiveMonth(null)
   }
 
   const handleApply = () => {
@@ -242,7 +247,7 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
                 onClick={() => applyPreset(p)}
                 className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold border transition ${
                   active
-                    ? 'bg-iron border-graphite text-white'
+                    ? 'bg-wise-dark border-wise-dark text-white'
                     : 'bg-charcoal border-shadow text-near-black hover:bg-iron'
                 }`}
               >
@@ -258,7 +263,11 @@ export default function DateRangeFilter({ open, onClose, value, onApply, default
               key={m}
               type="button"
               onClick={() => applyMonth(i)}
-              className="px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold border border-shadow bg-charcoal text-near-black hover:bg-iron"
+              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold border transition ${
+                activeMonth === i
+                  ? 'bg-wise-dark border-wise-dark text-white'
+                  : 'bg-charcoal border-shadow text-near-black hover:bg-iron'
+              }`}
             >
               {m}
             </button>

@@ -6,16 +6,18 @@ import {
   ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { usePmos } from '../api/pmo.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 import Modal from '../components/Modal.jsx'
 import AssigneeField from '../components/AssigneeField.jsx'
 import ProgressField from '../components/ProgressField.jsx'
+import DateFilterButton from '../components/DateFilterButton.jsx'
 import {
   TASK_STATUSES, TASK_PRIORITIES, statusStyle, priorityStyle, sourceStyle, dueBucket, dueTextStyle, collectTasks, memberName,
   POST_STATUS_TO_TASK, TASK_TO_POST_STATUS, MARKETING_POST_TYPES, MARKETING_POST_CHANNELS,
-  clampProgress, progressForStatus, progressBarStyle, doneStamp,
+  clampProgress, progressForStatus, progressBarStyle, doneStamp, editLogEntry, pmoLogEntry,
 } from '../utils/tasks.js'
 
 const DUE_FILTERS = ['all', 'overdue', 'today', 'soon', 'open', 'none']
@@ -38,6 +40,35 @@ export default function Tasks() {
   } = useStore()
   const { user } = useAuth()
   const { t } = useT()
+  const { items: pmos, update: updatePmo } = usePmos()
+
+  const patchPmoTask = (pmoId, taskId, patch) => {
+    const pmo = pmos.find((u) => u.id === pmoId)
+    if (!pmo) return
+    const before = (pmo.tasks || []).find((t) => t.id === taskId)
+    const after = { ...(before || {}), ...patch }
+    const nextTasks = (pmo.tasks || []).map((t) => (t.id === taskId ? after : t))
+    const body = { tasks: nextTasks }
+    const changed = before
+      ? Object.keys(patch).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
+      : []
+    const meaningful = changed.filter((k) => k !== 'doneAt')
+    if (changed.length) {
+      const { type, message } = editLogEntry(before, after, meaningful, { noun: 'Task', name: after.name })
+      body.logs = [pmoLogEntry(type, message, { taskId, changed }, user), ...(pmo.logs || [])]
+    }
+    updatePmo(pmoId, body)
+  }
+  const removePmoTask = (pmoId, taskId) => {
+    const pmo = pmos.find((u) => u.id === pmoId)
+    if (!pmo) return
+    const removed = (pmo.tasks || []).find((t) => t.id === taskId)
+    const log = pmoLogEntry('task.delete', `Deleted task "${removed?.name || 'Untitled'}"`, { taskId }, user)
+    updatePmo(pmoId, {
+      tasks: (pmo.tasks || []).filter((t) => t.id !== taskId),
+      logs: [log, ...(pmo.logs || [])],
+    })
+  }
 
   const isOwner = !!user && !user.ownerId // owners/admins see the whole team by default
   const canViewTeam = isOwner || hasPermission(user, 'tasks.team')
@@ -93,9 +124,11 @@ export default function Tasks() {
     return !when || when < doneWindowStart
   }
   const [activityCount, setActivityCount] = useState(ACTIVITY_PAGE_SIZE)
+  const [activityQuery, setActivityQuery] = useState('')
+  const [activityDateRange, setActivityDateRange] = useState(null)
   const [editingKey, setEditingKey] = useState(null)
 
-  const allTasks = useMemo(() => collectTasks(state), [state])
+  const allTasks = useMemo(() => collectTasks(state, pmos), [state, pmos])
 
   // Scope first: a member's board defaults to tasks assigned to their account.
   // Without the 'tasks.team' ability, the team view is unavailable entirely.
@@ -164,15 +197,41 @@ export default function Tasks() {
     for (const cam of state.campaigns || []) {
       for (const l of cam.logs || []) logs.push({ ...l, ownerName: cam.name, link: `/marketing/${cam.id}`, actorName: actorName(l) })
     }
+    for (const u of pmos) {
+      for (const l of u.logs || []) logs.push({ ...l, ownerName: u.name || u.username, link: `/pmo/${u.id}`, actorName: actorName(l) })
+    }
     return logs.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''))
-  }, [state.customers, state.partners, state.campaigns, state.team])
+  }, [state.customers, state.partners, state.campaigns, state.team, pmos])
 
-  const visibleActivity = activity.slice(0, activityCount)
+  const filteredActivity = useMemo(() => {
+    const needle = activityQuery.trim().toLowerCase()
+    return activity.filter((l) => {
+      if (activityDateRange) {
+        const ts = new Date(l.ts).getTime()
+        if (!(ts >= activityDateRange.start.getTime() && ts <= activityDateRange.end.getTime())) return false
+      }
+      if (needle) {
+        const hay = `${l.message} ${l.ownerName} ${l.actorName || ''}`.toLowerCase()
+        if (!hay.includes(needle)) return false
+      }
+      return true
+    })
+  }, [activity, activityQuery, activityDateRange])
+
+  const visibleActivity = filteredActivity.slice(0, activityCount)
 
   // Sub-users may only change the status of tasks assigned to them; the
   // account owner can change any task. Mirrors the backend guard in
   // assertOwnTaskChangesOnly (OhMyCMO_API/src/utils/tenant.js).
-  const canEditTask = (task) => isOwner || !task.assigneeId || task.assigneeId === user?.id
+  const canEditTask = (task) => {
+    const selfService = isOwner || !task.assigneeId || task.assigneeId === user?.id
+    // A PMO task assigned to someone else additionally needs 'pmo.manage' —
+    // everyone can self-service their own (or an unassigned) PMO task same as
+    // customer/partner tasks; only reaching into someone ELSE's PMO task is
+    // the step up, matching the backend's PATCH /pmo/:id field-level check.
+    if (task.source === 'pmo' && !selfService) return hasPermission(user, 'pmo.manage')
+    return selfService
+  }
   const canDeleteTask = (task) => canEditTask(task) && hasPermission(user, 'tasks.delete')
 
   const setStatus = (task, status) => {
@@ -186,6 +245,7 @@ export default function Tasks() {
     if (status === 'Done') stamp.progress = 100
     if (task.source === 'customer') updateCustomerTask(task.ownerId, task.taskId, { status, ...stamp })
     else if (task.source === 'partner') updatePartnerTask(task.ownerId, task.taskId, { status, ...stamp })
+    else if (task.source === 'pmo') patchPmoTask(task.ownerId, task.taskId, { status, ...stamp })
     else updateCampaignTodo(task.ownerId, task.taskId, { postStatus: TASK_TO_POST_STATUS[status] || 'draft', ...stamp })
   }
 
@@ -204,19 +264,21 @@ export default function Tasks() {
     if (!flat) return null
     const list = flat.source === 'customer' ? state.customers
       : flat.source === 'partner' ? state.partners
+      : flat.source === 'pmo' ? pmos
       : state.campaigns
     const parent = (list || []).find((e) => e.id === flat.ownerId)
     const items = flat.source === 'marketing' ? parent?.todos : parent?.tasks
     const raw = (items || []).find((tk) => tk.id === flat.taskId)
     if (!raw) return null
     return { flat, parent, raw }
-  }, [editingKey, allTasks, state.customers, state.partners, state.campaigns])
+  }, [editingKey, allTasks, state.customers, state.partners, state.campaigns, pmos])
 
   const saveTask = (patch) => {
     if (!editing) return
     const { source, ownerId, taskId } = editing.flat
     if (source === 'customer') updateCustomerTask(ownerId, taskId, patch)
     else if (source === 'partner') updatePartnerTask(ownerId, taskId, patch)
+    else if (source === 'pmo') patchPmoTask(ownerId, taskId, patch)
     else updateCampaignTodo(ownerId, taskId, patch)
   }
 
@@ -225,6 +287,7 @@ export default function Tasks() {
     const { source, ownerId, taskId } = editing.flat
     if (source === 'customer') removeCustomerTask(ownerId, taskId)
     else if (source === 'partner') removePartnerTask(ownerId, taskId)
+    else if (source === 'pmo') removePmoTask(ownerId, taskId)
     else removeCampaignTodo(ownerId, taskId)
     setEditingKey(null)
   }
@@ -290,6 +353,7 @@ export default function Tasks() {
           <option value="customer">{t('tasks.filter.customers')}</option>
           <option value="partner">{t('tasks.filter.partners')}</option>
           <option value="marketing">{t('tasks.filter.marketing')}</option>
+          <option value="pmo">{t('tasks.filter.pmo')}</option>
         </select>
         <div className="flex rounded-xl border border-shadow overflow-hidden">
           <button
@@ -414,32 +478,54 @@ export default function Tasks() {
           <p className="text-sm text-graphite px-1">{t('tasks.activity.empty')}</p>
         ) : (
           <>
-            <ul className="space-y-2">
-              {visibleActivity.map((l) => (
-                <li key={l.id}>
-                  <Link to={l.link} className="card !p-3 flex items-start gap-3 hover:scale-[1.01] transition-transform">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-snug">{l.message}</p>
-                      {l.type === 'activity' && l.meta?.note && (
-                        <p className="text-xs text-graphite mt-0.5 whitespace-pre-wrap">{l.meta.note}</p>
-                      )}
-                      <p className="text-[11px] text-graphite mt-0.5">
-                        {l.ownerName}
-                        {l.actorName && <> · by {l.actorName}</>}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-graphite shrink-0">{formatLogTime(l.ts)}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            {activity.length > activityCount && (
-              <button
-                onClick={() => setActivityCount((n) => n + ACTIVITY_PAGE_SIZE)}
-                className="mt-3 w-full text-sm font-semibold text-wise-dark hover:underline text-center"
-              >
-                {t('tasks.activity.viewMore')}
-              </button>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <div className="relative flex-1 min-w-[180px]">
+                <Search className="w-4 h-4 text-graphite absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  className="input pl-9"
+                  placeholder={t('tasks.activity.search')}
+                  value={activityQuery}
+                  onChange={(e) => { setActivityQuery(e.target.value); setActivityCount(ACTIVITY_PAGE_SIZE) }}
+                />
+              </div>
+              <DateFilterButton
+                value={activityDateRange}
+                onChange={(range) => { setActivityDateRange(range); setActivityCount(ACTIVITY_PAGE_SIZE) }}
+                storageKey="ohmycmo:filter:activity"
+              />
+            </div>
+            {filteredActivity.length === 0 ? (
+              <p className="text-sm text-graphite px-1">{t('tasks.activity.noMatch')}</p>
+            ) : (
+              <>
+                <ul className="space-y-2">
+                  {visibleActivity.map((l) => (
+                    <li key={l.id}>
+                      <Link to={l.link} className="card !p-3 flex items-start gap-3 hover:scale-[1.01] transition-transform">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium leading-snug">{l.message}</p>
+                          {l.type === 'activity' && l.meta?.note && (
+                            <p className="text-xs text-graphite mt-0.5 whitespace-pre-wrap">{l.meta.note}</p>
+                          )}
+                          <p className="text-[11px] text-graphite mt-0.5">
+                            {l.ownerName}
+                            {l.actorName && <> · by {l.actorName}</>}
+                          </p>
+                        </div>
+                        <span className="text-[10px] text-graphite shrink-0">{formatLogTime(l.ts)}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                {filteredActivity.length > activityCount && (
+                  <button
+                    onClick={() => setActivityCount((n) => n + ACTIVITY_PAGE_SIZE)}
+                    className="mt-3 w-full text-sm font-semibold text-wise-dark hover:underline text-center"
+                  >
+                    {t('tasks.activity.viewMore')}
+                  </button>
+                )}
+              </>
             )}
           </>
         )}
@@ -613,6 +699,7 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
   const { flat, parent, raw } = editing
   const isCustomer = flat.source === 'customer'
   const isMarketing = flat.source === 'marketing'
+  const isPmo = flat.source === 'pmo'
   const groups = isCustomer ? (parent?.taskGroups || []) : []
 
   const [form, setForm] = useState({
@@ -645,7 +732,7 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
     // on leaving Done. Marketing "published" maps to the board's Done column.
     const doneAt = doneStamp(form.status, raw.doneAt)
     const progress = progressForStatus(form.status, form.progress)
-    const patch = isCustomer
+    const patch = isCustomer || isPmo
       ? {
           name: form.name.trim(), description: form.description, status: form.status,
           due: form.due, assignee: form.assignee, assigneeId: form.assigneeId,
@@ -718,7 +805,7 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
           onChange={(progress) => update({ progress })}
         />
 
-        {isCustomer ? (
+        {isCustomer || isPmo ? (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">{t('tasks.field.priority')}</label>

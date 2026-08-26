@@ -5,6 +5,8 @@ import {
   Camera, Trash2,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -16,8 +18,18 @@ import { useT } from '../i18n/LanguageContext.jsx'
 
 const LOGO_LIMIT_BYTES = 2 * 1024 * 1024
 
+function initialsOf(nameOrId) {
+  if (!nameOrId) return '?'
+  const base = nameOrId.includes('@') ? nameOrId.split('@')[0] : nameOrId
+  const parts = base.split(/[\s._-]+/).filter(Boolean)
+  const letters = (parts[0]?.[0] || '') + (parts[1]?.[0] || '')
+  return (letters || base.slice(0, 2)).toUpperCase()
+}
+
 export default function Products() {
   const { state, addProduct } = useStore()
+  const { user } = useAuth()
+  const canCreate = hasPermission(user, 'billing.create')
   const { t } = useT()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
@@ -151,9 +163,11 @@ export default function Products() {
             title={t('product.empty.title')}
             description={t('product.empty.body')}
             action={
-              <button onClick={() => setOpen(true)} className="btn-primary">
-                <Plus className="w-4 h-4" /> {t('product.addNew')}
-              </button>
+              canCreate && (
+                <button onClick={() => setOpen(true)} className="btn-primary">
+                  <Plus className="w-4 h-4" /> {t('product.addNew')}
+                </button>
+              )
             }
           />
         ) : filtered.length === 0 ? (
@@ -187,6 +201,19 @@ export default function Products() {
                         </span>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 text-xs text-graphite">
+                      <div className="w-6 h-6 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        {p.pmoOwner ? initialsOf(p.pmoOwner.name || p.pmoOwner.username) : '?'}
+                      </div>
+                      <span className="truncate">
+                        {p.pmoOwner ? (p.pmoOwner.name || p.pmoOwner.username) : t('product.pmoOwner.none')}
+                      </span>
+                      {p.pmoOwner && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wider px-1 py-0.5 rounded bg-brand-50 text-brand-700 shrink-0">
+                          {t('product.pmoOwner.short')}
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="bg-emerald-50 text-emerald-700 rounded-lg p-2">
                         <div className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> {t('product.metric.income')}</div>
@@ -215,13 +242,15 @@ export default function Products() {
         onSubmit={handleCreate}
       />
 
-      <button
-        onClick={() => setOpen(true)}
-        className="btn-primary fixed z-40 right-4 md:right-8 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-8 shadow-xl"
-        aria-label={t('product.addNew')}
-      >
-        <Plus className="w-5 h-5" /> {t('common.new')}
-      </button>
+      {canCreate && (
+        <button
+          onClick={() => setOpen(true)}
+          className="btn-primary fixed z-40 right-4 md:right-8 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-8 shadow-xl"
+          aria-label={t('product.addNew')}
+        >
+          <Plus className="w-5 h-5" /> {t('common.new')}
+        </button>
+      )}
     </>
   )
 }

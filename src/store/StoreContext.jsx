@@ -17,7 +17,7 @@ import {
 import { api } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
-import { memberName } from '../utils/tasks.js'
+import { memberName, editLogEntry } from '../utils/tasks.js'
 
 const StoreContext = createContext(null)
 
@@ -583,16 +583,9 @@ export function StoreProvider({ children }) {
         // `doneAt` is an internal completion timestamp stamped alongside a
         // Done transition — it shouldn't surface as a user-facing change.
         const meaningful = changed.filter((k) => k !== 'doneAt')
-        let type = 'task.update'
-        let message
-        if (meaningful.length === 1 && meaningful[0] === 'status') {
-          type = 'task.status'
-          message = `Task "${after.name}": ${before.status} → ${after.status}`
-        } else if (meaningful.length === 0) {
-          message = `Updated task "${after.name}"`
-        } else {
-          message = `Updated task "${after.name}" (${meaningful.join(', ')})`
-        }
+        const { type, message } = editLogEntry(before, after, meaningful, {
+          noun: 'Task', name: after.name,
+        })
         return patchCustomer(
           id,
           { tasks: (c.tasks || []).map((t) => (t.id === taskId ? after : t)) },
@@ -779,16 +772,9 @@ export function StoreProvider({ children }) {
         // `doneAt` is an internal completion timestamp stamped alongside a
         // Done transition — it shouldn't surface as a user-facing change.
         const meaningful = changed.filter((k) => k !== 'doneAt')
-        let type = 'task.update'
-        let message
-        if (meaningful.length === 1 && meaningful[0] === 'status') {
-          type = 'task.status'
-          message = `Task "${after.name}": ${before.status} → ${after.status}`
-        } else if (meaningful.length === 0) {
-          message = `Updated task "${after.name}"`
-        } else {
-          message = `Updated task "${after.name}" (${meaningful.join(', ')})`
-        }
+        const { type, message } = editLogEntry(before, after, meaningful, {
+          noun: 'Task', name: after.name,
+        })
         return patchPartner(
           id,
           { tasks: (p.tasks || []).map((t) => (t.id === taskId ? after : t)) },
@@ -930,16 +916,9 @@ export function StoreProvider({ children }) {
           const body = { todos }
           const meaningful = changed.filter((k) => k !== 'doneAt')
           if (changed.length) {
-            let type = 'task.update'
-            let message
-            if (meaningful.length === 1 && meaningful[0] === 'postStatus') {
-              type = 'task.status'
-              message = `Post "${after.concept || 'Untitled'}": ${before.postStatus || 'draft'} → ${after.postStatus}`
-            } else if (meaningful.length === 0) {
-              message = `Updated post "${after.concept || 'Untitled'}"`
-            } else {
-              message = `Updated post "${after.concept || 'Untitled'}" (${meaningful.join(', ')})`
-            }
+            const { type, message } = editLogEntry(before || {}, after, meaningful, {
+              noun: 'Post', name: after.concept || 'Untitled', statusKey: 'postStatus',
+            })
             body.logs = [campaignLogEntry(type, message, { taskId: todoId, changed }), ...(c.logs || [])]
           }
           const res = await api.patch(`/campaigns/${campaignId}`, body)

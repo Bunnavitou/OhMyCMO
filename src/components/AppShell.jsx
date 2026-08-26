@@ -1,13 +1,18 @@
 import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom'
 import {
   Home, Users, Package, Handshake, Megaphone, MoreHorizontal,
-  ChevronLeft, ChevronRight, ListChecks, FileBarChart,
+  ChevronLeft, ChevronRight, ListChecks, FileBarChart, ShieldCheck,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 
+// `ownerOnly` tabs are hidden from every sub-user regardless of their
+// permissions JSON — unlike `perm`, which an owner could opt a sub-user
+// into. The PMO tab itself carries no gate (everyone can see who the PMOs
+// are); promoting/demoting a PMO or reassigning their products is instead
+// checked inside the PMO pages via the 'pmo.manage' permission.
 const ALL_TABS = [
   { to: '/',          icon: Home,           labelKey: 'nav.home',      mobileLabelKey: 'nav.home',           isActive: (p) => p === '/',                                            perm: null },
   { to: '/tasks',     icon: ListChecks,     labelKey: 'nav.tasks',     mobileLabelKey: 'nav.tasks',          isActive: (p) => p.startsWith('/tasks'),                               perm: 'tasks' },
@@ -16,6 +21,7 @@ const ALL_TABS = [
   { to: '/partners',  icon: Handshake,      labelKey: 'nav.partners',  mobileLabelKey: 'nav.partners',       isActive: (p) => p.startsWith('/partners'),                            perm: 'partners' },
   { to: '/marketing', icon: Megaphone,      labelKey: 'nav.marketing', mobileLabelKey: 'nav.marketing',      isActive: (p) => p.startsWith('/marketing'),                           perm: 'marketing' },
   { to: '/reports',   icon: FileBarChart,   labelKey: 'nav.reports',   mobileLabelKey: 'nav.reports',        isActive: (p) => p.startsWith('/reports'),                             perm: 'reports' },
+  { to: '/pmo',       icon: ShieldCheck,    labelKey: 'nav.pmo',       mobileLabelKey: 'nav.pmo.short',      isActive: (p) => p.startsWith('/pmo'),                                 perm: null },
   { to: '/more',      icon: MoreHorizontal, labelKey: 'nav.more',      mobileLabelKey: 'nav.more',           isActive: (p) => p.startsWith('/more') || p.startsWith('/assets'),     perm: null },
 ]
 
@@ -71,6 +77,8 @@ function useNavMeta() {
     }
   } else if (segs[0] === 'reports') {
     crumbs.push({ label: t('nav.reports'), to: '/reports' })
+  } else if (segs[0] === 'pmo') {
+    crumbs.push({ label: t('nav.pmo'), to: '/pmo' })
   } else if (segs[0] === 'assets') {
     crumbs.push({ label: t('nav.more'), to: '/more' })
     crumbs.push({ label: t('breadcrumb.assets'), to: '/assets' })
@@ -98,7 +106,9 @@ export default function AppShell() {
   const { t } = useT()
   const isDetail = level >= 2
 
-  const TABS = ALL_TABS.filter((tab) => !tab.perm || hasPermission(user, tab.perm))
+  const TABS = ALL_TABS.filter((tab) =>
+    (!tab.perm || hasPermission(user, tab.perm)) && (!tab.ownerOnly || !user?.ownerId),
+  )
 
   return (
     <div className="min-h-screen bg-white text-near-black md:flex">
