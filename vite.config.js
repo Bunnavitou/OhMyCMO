@@ -11,7 +11,11 @@ import react from '@vitejs/plugin-react'
 // The browser only ever talks to :3001. Same-origin /api calls are proxied
 // to the backend over the loopback interface, so the backend never needs
 // to be exposed publicly and CORS isn't required.
+// VITE_BASE_PATH lets a build be served under a path prefix (e.g. "/ohmycmo/"
+// behind a shared reverse proxy) instead of domain root. Defaults to root for
+// the normal dev server and the standalone Docker prod stack.
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
   server: {
     host: '0.0.0.0',

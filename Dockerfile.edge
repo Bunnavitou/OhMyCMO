@@ -1,0 +1,16 @@
+# Variant of Dockerfile that builds OhMyCMO to be served under the shared
+# macmini-edge reverse proxy at the /ohmycmo/ path prefix, instead of domain
+# root. See nginx.edge.conf for how requests are handled once prefixed.
+FROM node:20-slim AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+ENV VITE_BASE_PATH=/ohmycmo/
+ENV VITE_API_URL=/ohmycmo/api
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.edge.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
