@@ -176,6 +176,17 @@ export function StoreProvider({ children }) {
       // Now it just refetches from server.
       resetAll: () => setBootstrapped(false),
 
+      // Refetch products from the server. Each product's `pmoOwner` is a
+      // denormalized snapshot taken at fetch time — editing your own name or
+      // avatar elsewhere (Profile) doesn't touch the Product row, so that
+      // snapshot only goes stale unless something calls this after such an
+      // edit (see MoreProfile.jsx).
+      refreshProducts: () =>
+        run(async () => {
+          const res = await api.get('/products')
+          setState((s) => ({ ...s, products: res.data.items }))
+        }),
+
       // ── Customers
       addCustomer: (data) =>
         run(async () => {

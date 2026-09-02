@@ -11,6 +11,8 @@ import { usePmos } from '../api/pmo.js'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
+import AuthImage from '../components/AuthImage.jsx'
+import { hasImage } from '../utils/imageRef.js'
 import {
   TASK_STATUSES, TASK_PRIORITIES, progressForStatus, doneStamp,
   statusStyle, priorityStyle, editLogEntry, pmoLogEntry, memberName,
@@ -75,10 +77,10 @@ export default function PmoDetail() {
   const pmo = pmos.find((u) => u.id === id)
 
   if (loading) {
-    return <p className="text-center text-sm text-graphite py-10">Loading PMO…</p>
+    return <p className="text-center text-sm text-graphite py-10">Loading PM…</p>
   }
   if (error) {
-    return <p className="text-center text-sm text-rose-600 py-10">Couldn't load PMO.</p>
+    return <p className="text-center text-sm text-rose-600 py-10">Couldn't load PM.</p>
   }
   if (!pmo || !pmo.isPmo) return <Navigate to="/pmo" replace />
 
@@ -202,7 +204,7 @@ export default function PmoDetail() {
   return (
     <>
       <Link to="/pmo" className="inline-flex items-center gap-1 text-sm text-graphite hover:text-near-black mb-3">
-        <ChevronLeft className="w-4 h-4" /> Back to PMOs
+        <ChevronLeft className="w-4 h-4" /> Back to PMs
       </Link>
 
       <div className="space-y-4">
@@ -211,12 +213,20 @@ export default function PmoDetail() {
             <div className="md:pr-5">
               <h3 className="text-xs font-bold uppercase tracking-wider text-graphite mb-3">Profile</h3>
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center font-bold text-lg shrink-0">
-                  {(pmo.name || pmo.username || '?').charAt(0).toUpperCase()}
-                </div>
+                {hasImage(pmo.avatar) ? (
+                  <AuthImage
+                    value={pmo.avatar}
+                    alt={pmo.name || pmo.username}
+                    className="w-14 h-14 rounded-full object-cover border border-shadow bg-iron shrink-0"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-mint-bg text-wise-dark flex items-center justify-center font-bold text-lg shrink-0">
+                    {(pmo.name || pmo.username || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="font-bold truncate text-near-black">{pmo.name || pmo.username}</p>
-                  <p className="text-xs text-graphite mt-0.5">PMO</p>
+                  <p className="text-xs text-graphite mt-0.5">PM</p>
                 </div>
               </div>
             </div>
@@ -259,7 +269,7 @@ export default function PmoDetail() {
                     type="button"
                     onClick={() => setOpenModal('products')}
                     className="p-1.5 -m-1.5 rounded-full hover:bg-iron text-graphite"
-                    aria-label="Edit PMO's products"
+                    aria-label="Edit PM's products"
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
@@ -592,7 +602,7 @@ function PmoProductsForm({ pmo, products, onSave }) {
                     <p className="text-sm font-medium truncate">{p.name}</p>
                     {ownedByOther && (
                       <p className="text-[11px] text-amber-600">
-                        Currently supported by: {p.pmoOwner?.name || p.pmoOwner?.username || 'another PMO'} (PMO)
+                        Currently supported by: {p.pmoOwner?.name || p.pmoOwner?.username || 'another PM'} (PM)
                       </p>
                     )}
                   </div>
@@ -626,7 +636,7 @@ function PmoReportsForm({ pmo, team, onSave }) {
     <div className="space-y-3">
       <p className="text-[11px] text-graphite -mt-1">
         Select who supports {pmo.name || pmo.username}. Selected members get the same rights to
-        add and assign tasks, replacing their current PMO support.
+        add and assign tasks, replacing their current PM support.
       </p>
       {candidates.length === 0 ? (
         <p className="text-center text-sm text-graphite py-4">No other sub users yet.</p>
@@ -649,7 +659,7 @@ function PmoReportsForm({ pmo, team, onSave }) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{memberName(m)}</p>
                     {supportsOther && (
-                      <p className="text-[11px] text-amber-600">Currently supports {otherPmoName || 'another PMO'} (PMO)</p>
+                      <p className="text-[11px] text-amber-600">Currently supports {otherPmoName || 'another PM'} (PM)</p>
                     )}
                   </div>
                 </label>

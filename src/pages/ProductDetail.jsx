@@ -154,7 +154,7 @@ export default function ProductDetail() {
             <AuthImage
               value={product.logo}
               alt={`${product.name} logo`}
-              className="w-14 h-14 rounded-xl object-cover border border-shadow bg-iron shrink-0"
+              className="h-14 w-auto max-w-[9rem] rounded-xl object-contain border border-shadow bg-white p-1 shrink-0"
             />
           ) : (
             <div className="w-14 h-14 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
@@ -551,7 +551,7 @@ function EditProductForm({ product, onSubmit }) {
             <AuthImage
               value={form.logo}
               alt="Logo"
-              className="w-14 h-14 object-cover rounded-md"
+              className="h-14 w-auto max-w-[9rem] object-contain rounded-md bg-white p-1 shrink-0"
             />
             <div className="flex-1 min-w-0">
               <p className="text-sm truncate">{form.logo.name || 'logo'}</p>

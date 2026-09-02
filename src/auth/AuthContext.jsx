@@ -67,6 +67,17 @@ export function AuthProvider({ children }) {
     return res.data.user
   }, [])
 
+  const updateProfile = useCallback(async ({ name, username, avatar } = {}) => {
+    const body = {}
+    if (name !== undefined) body.name = name
+    if (username !== undefined) body.username = username
+    if (avatar !== undefined) body.avatar = avatar
+    const res = await api.patch('/auth/me', body)
+    if (res?.data?.accessToken) setAccessToken(res.data.accessToken)
+    if (res?.data?.user) setUser(res.data.user)
+    return res.data
+  }, [])
+
   const changePassword = useCallback(async (currentPassword, newPassword) => {
     const res = await api.post('/auth/change-password', { currentPassword, newPassword })
     // Backend rotates tokens on success; keep this session authenticated.
@@ -87,8 +98,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, status, login, register, logout, changePassword }),
-    [user, status, login, register, logout, changePassword],
+    () => ({ user, status, login, register, logout, updateProfile, changePassword }),
+    [user, status, login, register, logout, updateProfile, changePassword],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -14,8 +14,8 @@ import {
 // A report is a customizable table: fixed prev-year / current-year columns plus
 // a DYNAMIC set of weekly/period columns (add/remove) that feed the auto-summed
 // 합계. Headers and rows are editable and stored in `data` as { headers, rows }.
-// New reports prefill the standard WeBill365 rows for the chosen account.
-const ACCOUNTS = ['LM', 'SM']
+// New reports prefill the standard rows for the chosen product.
+const ACCOUNTS = ['LM', 'SM', 'SMS']
 const DEFAULT_WEEKS = 4
 
 // Default rows per account: [i18n metric key, is-currency].
@@ -30,6 +30,10 @@ const DEFAULT_ROWS = {
     ['billAmount', true],
     ['wePointFee', true],
     ['taxInvoice', true],
+  ],
+  SMS: [
+    ['smsCount', false],
+    ['smsAmount', true],
   ],
 }
 
@@ -677,7 +681,6 @@ export default function Reports() {
   return (
     <>
       <PageHeader
-        subtitle={t('report.subtitle')}
         action={
           view === 'usage' ? (
             <button onClick={() => setCreateOpen(true)} className="btn-primary !px-3 !py-2">
@@ -687,7 +690,7 @@ export default function Reports() {
         }
       />
 
-      {/* Tabs: WeBill365 usage reports vs. per-member task reports */}
+      {/* Tabs: product usage reports vs. per-member task reports */}
       <div className="mb-5 flex gap-1 border-b border-shadow">
         {[
           ['usage', t('report.tab.usage')],

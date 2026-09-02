@@ -247,7 +247,7 @@ export function collectTasks(state, pmos) {
         ownerId: u.id,
         ownerName: u.name || u.username,
         ownerCompany: u.name || u.username,
-        ownerLabel: 'PMO',
+        ownerLabel: 'PM',
         link: `/pmo/${u.id}`,
         taskId: t.id,
         name: t.name || 'Untitled',

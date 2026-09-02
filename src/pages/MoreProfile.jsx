@@ -1,8 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, Mail, Briefcase, LogOut, AtSign, KeyRound, Check, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { User, Mail, Briefcase, LogOut, AtSign, KeyRound, Pencil, Camera, Check, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
+import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import AuthImage from '../components/AuthImage.jsx'
+import ImageCropModal from '../components/ImageCropModal.jsx'
+import { uploadImageRef, hasImage } from '../utils/imageRef.js'
+
+// Generous cap on the *source* photo picked from disk/camera — cropping
+// downsizes it to a small square before upload, so this only guards against
+// pathologically large files, not typical phone-camera photos.
+const AVATAR_LIMIT_BYTES = 10 * 1024 * 1024
 
 function initialsOf(nameOrId) {
   if (!nameOrId) return '?'
@@ -20,7 +30,6 @@ export default function MoreProfile() {
   const displayName =
     user?.name || user?.email?.split('@')[0] || user?.username || 'Account'
   const role = user?.role === 'ADMIN' ? t('profile.role.admin') : t('profile.role.user')
-  const initials = initialsOf(user?.name || user?.email || user?.username)
 
   async function handleLogout() {
     await logout()
@@ -29,15 +38,7 @@ export default function MoreProfile() {
 
   return (
     <div className="space-y-4">
-      <section className="card flex items-center gap-3">
-        <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-brand-100 text-brand-700 flex items-center justify-center text-base md:text-lg font-extrabold shrink-0">
-          {initials}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-base md:text-lg font-bold truncate">{displayName}</p>
-          <p className="text-xs md:text-sm text-graphite truncate">{role}</p>
-        </div>
-      </section>
+      <ProfileCard displayName={displayName} role={role} />
 
       <section className="card divide-y divide-shadow p-0">
         <Row icon={User} label={t('profile.displayName')} value={displayName} />
@@ -93,6 +94,170 @@ function PasswordInput({ label, value, onChange, autoComplete, required, minLeng
         </button>
       </div>
     </div>
+  )
+}
+
+// Identity card: avatar + display name, both editable behind one pencil
+// icon. Role stays read-only (structural, set by an owner) so it's shown
+// as plain text rather than pulled into edit mode.
+function ProfileCard({ displayName, role }) {
+  const { user, updateProfile } = useAuth()
+  const { refreshProducts } = useStore()
+  const { t } = useT()
+  const initials = initialsOf(user?.name || user?.email || user?.username)
+  // Products denormalize their PMO owner's name/avatar at fetch time — an
+  // edit here needs a manual refetch so the Billing page picks it up
+  // without waiting for a full app reload.
+  const syncOwnedProducts = () => {
+    if (hasPermission(user, 'products')) refreshProducts()
+  }
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState('')
+  const [avatarError, setAvatarError] = useState('')
+  const [cropFile, setCropFile] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  function startEdit() {
+    setName(user?.name || '')
+    setError('')
+    setAvatarError('')
+    setEditing(true)
+  }
+
+  function onAvatarFile(e) {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    if (f.size > AVATAR_LIMIT_BYTES) {
+      setAvatarError(`File is ${(f.size / 1024 / 1024).toFixed(1)} MB — max ${AVATAR_LIMIT_BYTES / 1024 / 1024} MB.`)
+      return
+    }
+    setAvatarError('')
+    setCropFile(f)
+  }
+
+  // Left to throw: ImageCropModal catches it and shows the error inline,
+  // keeping the crop (zoom/pan) so the user can just retry instead of
+  // re-picking the file.
+  async function onCropSave(croppedFile) {
+    const avatar = await uploadImageRef(croppedFile, {
+      maxDim: 480, quality: 0.9, entityType: 'user', entityId: user.id,
+    })
+    await updateProfile({ avatar })
+    setCropFile(null)
+    syncOwnedProducts()
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    setError('')
+    const trimmedName = name.trim()
+    if (!trimmedName) { setError(t('profile.nameRequired')); return }
+    setBusy(true)
+    try {
+      await updateProfile({ name: trimmedName })
+      setEditing(false)
+      syncOwnedProducts()
+    } catch (err) {
+      setError(err?.message || t('profile.profileUpdateFailed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card space-y-3">
+      <form onSubmit={submit} className="flex items-center gap-3">
+        <div className="relative shrink-0">
+          {hasImage(user?.avatar) ? (
+            <AuthImage
+              value={user.avatar}
+              alt={displayName}
+              className="w-12 h-12 md:w-14 md:h-14 rounded-2xl object-cover border border-shadow"
+            />
+          ) : (
+            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-brand-100 text-brand-700 flex items-center justify-center text-base md:text-lg font-extrabold">
+              {initials}
+            </div>
+          )}
+          {editing && (
+            <label
+              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-near-black text-white flex items-center justify-center cursor-pointer border-2 border-white"
+              aria-label={t('profile.changeAvatar')}
+              title={t('profile.changeAvatar')}
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <input type="file" accept="image/*" className="hidden" onChange={onAvatarFile} />
+            </label>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {editing ? (
+            <input
+              className="input !py-1.5 font-bold"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={80}
+              placeholder={t('profile.displayName')}
+              autoFocus
+            />
+          ) : (
+            <p className="text-base md:text-lg font-bold truncate">{displayName}</p>
+          )}
+          <p className="text-xs md:text-sm text-graphite truncate mt-0.5">{role}</p>
+        </div>
+
+        {!editing && (
+          <button
+            type="button"
+            onClick={startEdit}
+            className="p-2 rounded-full hover:bg-iron text-graphite shrink-0"
+            aria-label={t('profile.editProfile')}
+            title={t('profile.editProfile')}
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
+
+        {editing && (
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="submit" disabled={busy}
+              className="rounded-full bg-near-black text-white font-semibold py-2 px-4 text-sm disabled:opacity-60"
+            >
+              {busy ? t('common.saving') : t('common.save')}
+            </button>
+            <button
+              type="button" onClick={() => setEditing(false)}
+              className="rounded-full border border-shadow font-semibold py-2 px-4 text-sm"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        )}
+      </form>
+
+      {avatarError && (
+        <p className="flex items-center gap-1.5 text-xs text-red-600">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />{avatarError}
+        </p>
+      )}
+      {error && (
+        <p className="flex items-center gap-1.5 text-xs text-red-600">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
+        </p>
+      )}
+
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onSave={onCropSave}
+        />
+      )}
+    </section>
   )
 }
 

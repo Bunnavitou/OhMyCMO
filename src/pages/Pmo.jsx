@@ -8,6 +8,8 @@ import { usePmos } from '../api/pmo.js'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
+import AuthImage from '../components/AuthImage.jsx'
+import { hasImage } from '../utils/imageRef.js'
 
 const pmoInRange = (u, range) => {
   if (!range) return true
@@ -52,12 +54,12 @@ export default function Pmo() {
   )
 
   const demotePmo = async (u) => {
-    if (!confirm(`Remove "${u.name || u.username}" from PMO management? Their account stays — they just won't be a PMO anymore.`)) return
+    if (!confirm(`Remove "${u.name || u.username}" from PM management? Their account stays — they just won't be a PM anymore.`)) return
     setOpError(null)
     try {
       await update(u.id, { isPmo: false })
     } catch (err) {
-      setOpError(err.message || 'Failed to remove PMO')
+      setOpError(err.message || 'Failed to remove PM')
     }
   }
 
@@ -71,12 +73,12 @@ export default function Pmo() {
       await refresh()
       setPickerOpen(false)
     } catch (err) {
-      setOpError(err.message || 'Failed to add PMO')
+      setOpError(err.message || 'Failed to add PM')
     }
   }
 
   if (loading) {
-    return <p className="text-center text-sm text-graphite py-10">Loading PMOs…</p>
+    return <p className="text-center text-sm text-graphite py-10">Loading PMs…</p>
   }
 
   if (error) {
@@ -84,7 +86,7 @@ export default function Pmo() {
       <div className="card flex items-start gap-3 text-sm text-rose-700 bg-rose-50 border-rose-200">
         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
         <div>
-          <p className="font-semibold">Couldn't load PMOs.</p>
+          <p className="font-semibold">Couldn't load PMs.</p>
           <p className="text-xs">{error.message || 'Unknown error'}</p>
           <button onClick={refresh} className="text-xs underline mt-1">Retry</button>
         </div>
@@ -100,7 +102,7 @@ export default function Pmo() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search PMO, product"
+            placeholder="Search PM, product"
             className="input pl-9"
           />
         </div>
@@ -114,18 +116,18 @@ export default function Pmo() {
       {pmos.length === 0 ? (
         <EmptyState
           icon={ShieldCheck}
-          title="No PMOs yet"
-          description="Promote an existing sub user to PMO, then assign them the Products & Services they'll manage."
+          title="No PMs yet"
+          description="Promote an existing sub user to PM, then assign them the Products & Services they'll manage."
           action={
             canManage ? (
               <button onClick={() => { setOpError(null); setPickerOpen(true) }} className="btn-primary">
-                <Plus className="w-4 h-4" /> Add PMO
+                <Plus className="w-4 h-4" /> Add PM
               </button>
             ) : undefined
           }
         />
       ) : filtered.length === 0 ? (
-        <p className="text-center text-sm text-graphite py-6">No PMOs match your search.</p>
+        <p className="text-center text-sm text-graphite py-6">No PMs match your search.</p>
       ) : (
         <ul className="space-y-3 md:space-y-0 md:grid md:grid-cols-2 md:gap-3">
           {filtered.map((u) => {
@@ -133,9 +135,17 @@ export default function Pmo() {
             return (
               <li key={u.id} className="relative">
                 <Link to={`/pmo/${u.id}`} className="card flex gap-3 active:scale-[0.99]">
-                  <div className="w-11 h-11 rounded-xl bg-mint-bg text-wise-dark flex items-center justify-center font-bold shrink-0">
-                    {(u.name || u.username || '?').charAt(0).toUpperCase()}
-                  </div>
+                  {hasImage(u.avatar) ? (
+                    <AuthImage
+                      value={u.avatar}
+                      alt={u.name || u.username}
+                      className="w-11 h-11 rounded-xl object-cover border border-shadow bg-iron shrink-0"
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-xl bg-mint-bg text-wise-dark flex items-center justify-center font-bold shrink-0">
+                      {(u.name || u.username || '?').charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0 pr-6">
                     <p className="font-semibold truncate">{u.name || u.username}</p>
                     {products.length === 0 ? (
@@ -154,7 +164,7 @@ export default function Pmo() {
                     type="button"
                     onClick={() => demotePmo(u)}
                     className="absolute top-4 right-4 p-1.5 rounded-full text-rose-500 hover:bg-rose-50"
-                    aria-label={`Remove ${u.name || u.username} from PMO`}
+                    aria-label={`Remove ${u.name || u.username} from PM`}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -172,10 +182,10 @@ export default function Pmo() {
       {canManage && (
         <>
           <p className="text-[11px] text-graphite text-center">
-            PMOs are picked from your existing sub users — removing one doesn't delete their account.
+            PMs are picked from your existing sub users — removing one doesn't delete their account.
           </p>
 
-          <Modal open={pickerOpen} onClose={() => setPickerOpen(false)} title="Add a PMO" size="lg">
+          <Modal open={pickerOpen} onClose={() => setPickerOpen(false)} title="Add a PM" size="lg">
             <PmoCreateForm
               key={pickerOpen}
               candidates={candidates}
@@ -187,7 +197,7 @@ export default function Pmo() {
           <button
             onClick={() => { setOpError(null); setPickerOpen(true) }}
             className="btn-primary fixed z-40 right-4 md:right-8 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-8 shadow-xl"
-            aria-label="Add PMO"
+            aria-label="Add PM"
           >
             <Plus className="w-5 h-5" /> New
           </button>
@@ -236,7 +246,7 @@ function PmoCreateForm({ candidates, products, onCreate }) {
         />
         {candidates.length === 0 ? (
           <p className="text-center text-sm text-graphite py-4">
-            No eligible sub users — everyone is already a PMO, or no sub users exist yet.
+            No eligible sub users — everyone is already a PM, or no sub users exist yet.
           </p>
         ) : available.length === 0 ? (
           <p className="text-center text-sm text-graphite py-4">No sub users match your search.</p>
@@ -286,7 +296,7 @@ function PmoCreateForm({ candidates, products, onCreate }) {
                     <p className="text-sm font-medium truncate">{p.name}</p>
                     {p.pmoOwnerId && (
                       <p className="text-[11px] text-amber-600">
-                        Currently: {p.pmoOwner?.name || p.pmoOwner?.username || 'another PMO'}
+                        Currently: {p.pmoOwner?.name || p.pmoOwner?.username || 'another PM'}
                       </p>
                     )}
                   </div>
@@ -303,7 +313,7 @@ function PmoCreateForm({ candidates, products, onCreate }) {
         onClick={submit}
         className="btn-primary w-full disabled:opacity-50"
       >
-        Add PMO
+        Add PM
       </button>
     </div>
   )
