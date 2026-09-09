@@ -118,7 +118,7 @@ const normalize = (report, t) => {
       label: r.label || '',
       money: !!r.money,
       currency: r.currency === 'KHR' ? 'KHR' : 'USD',
-      // Carrier usage row (☎) — the only format that carries Buy In / Sell Out.
+      // Carrier usage row (O) — the only format that carries Buy In / Sell Out.
       operator: !!r.operator,
       prevYear: r.prevYear ?? null,
       currentYear: r.currentYear ?? null,
@@ -212,7 +212,7 @@ const effectiveYear = (row, ytd) => {
 }
 
 // The row-format toggle cycles Count (#) → US Dollar ($) → Khmer Riel (R) →
-// Operator (☎) → Count. Operator rows are counts too, but flagged as carrier
+// Operator (O) → Count. Operator rows are counts too, but flagged as carrier
 // usage: they are the only rows that carry a Buy In / Sell Out rate.
 const nextMoneyState = (row) => {
   if (row.operator) return { money: false, currency: 'USD', operator: false }
@@ -413,14 +413,14 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap
                         type="button"
                         onClick={() => on.row(row.id, nextMoneyState(row))}
                         title={
-                          row.operator ? 'Operator (☎)'
+                          row.operator ? 'Operator (O)'
                           : !row.money ? 'Count (#)'
                           : row.currency === 'KHR' ? 'Khmer Riel (R)'
                           : 'US Dollar ($)'
                         }
                         className="w-6 h-6 shrink-0 rounded border border-shadow text-xs font-bold text-graphite hover:bg-iron"
                       >
-                        {row.operator ? '☎' : !row.money ? '#' : row.currency === 'KHR' ? 'R' : '$'}
+                        {row.operator ? 'O' : !row.money ? '#' : row.currency === 'KHR' ? 'R' : '$'}
                       </button>
                       <input
                         className="flex-1 min-w-[90px] bg-transparent outline-none focus:bg-brand-50 rounded px-1 py-0.5"
@@ -994,7 +994,7 @@ const countRowOf = (rows, label) =>
 
 // WeUMS (SMS) totals for one report/month: usage is the sum of every count
 // row's weekly total (Operator rows included — they are counts too), while
-// amount sums only the Operator (☎) rows, each priced at its OWN Sell Out rate
+// amount sums only the Operator (O) rows, each priced at its OWN Sell Out rate
 // since different carriers/routes bill differently. `amount` stays null until
 // at least one operator row has both usage and a Sell Out rate.
 const smsMonthlyTotals = (report, t) => {
@@ -1856,7 +1856,7 @@ function ReportEditor({ report, reports, onSave, onDelete }) {
 
   // WeUMS (SMS) carrier usage rows — each can carry its own Buy In / Sell Out
   // rate (different operators/routes bill differently), so pricing is entered
-  // per row rather than once for the whole report. Only Operator-format (☎)
+  // per row rather than once for the whole report. Only Operator-format (O)
   // rows are priced: plain Count (#) rows are unbilled tallies, and money rows
   // (e.g. an "SMS cost" row already in dollars) hold an amount, not a usage.
   const smsRows = useMemo(() => (isSms ? form.rows.filter((r) => r.operator) : []), [isSms, form.rows])

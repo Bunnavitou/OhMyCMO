@@ -117,8 +117,8 @@ export const messages = {
     'report.metric.smsAmount':     'SMS cost',
 
     'report.sms.pricing':    'Pricing per row',
-    'report.sms.pricingHint':'Buy In and Sell Out are set per operator row — save this report, then open Edit, set each carrier row’s format to Operator (☎) with the symbol button, and fill in its rates.',
-    'report.sms.noOperatorRows': 'No operator rows yet — click a row’s format button until it shows ☎ to price that carrier’s SMS.',
+    'report.sms.pricingHint':'Buy In and Sell Out are set per operator row — save this report, then open Edit, set each carrier row’s format to Operator (O) with the symbol button, and fill in its rates.',
+    'report.sms.noOperatorRows': 'No operator rows yet — click a row’s format button until it shows O to price that carrier’s SMS.',
     'report.sms.buyIn':      'Buy In',
     'report.sms.sellOut':    'Sell Out',
     'report.sms.buyIn.hint': 'Cost per SMS for this row.',
@@ -721,8 +721,8 @@ export const messages = {
     'report.metric.smsAmount':     'SMS 비용',
 
     'report.sms.pricing':    '행별 단가',
-    'report.sms.pricingHint':'Buy In과 Sell Out은 통신사 행에만 설정합니다 — 리포트를 만든 뒤 편집에서 기호 버튼으로 각 통신사 행을 Operator(☎)로 바꾸고 단가를 입력하세요.',
-    'report.sms.noOperatorRows': 'Operator 행이 없습니다 — 행의 기호 버튼을 ☎ 가 될 때까지 눌러 해당 통신사의 SMS 단가를 입력하세요.',
+    'report.sms.pricingHint':'Buy In과 Sell Out은 통신사 행에만 설정합니다 — 리포트를 만든 뒤 편집에서 기호 버튼으로 각 통신사 행을 Operator(O)로 바꾸고 단가를 입력하세요.',
+    'report.sms.noOperatorRows': 'Operator 행이 없습니다 — 행의 기호 버튼을 O 가 될 때까지 눌러 해당 통신사의 SMS 단가를 입력하세요.',
     'report.sms.buyIn':      'Buy In',
     'report.sms.sellOut':    'Sell Out',
     'report.sms.buyIn.hint': '이 행의 SMS 1건당 매입 단가입니다.',
