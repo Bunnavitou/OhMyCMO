@@ -1,5 +1,5 @@
 import { Fragment, useState, useMemo, useRef, useEffect } from 'react'
-import { Plus, FileBarChart, Pencil, Trash2, Save, AlertCircle, X, Download, Upload, Table2, FileDown, History, TrendingUp, Calendar } from 'lucide-react'
+import { Plus, FileBarChart, Pencil, Trash2, Save, AlertCircle, X, Download, Upload, Table2, FileDown, History, TrendingUp, Calendar, Copy } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useSubUsers } from '../api/subUsers.js'
 import PageHeader from '../components/PageHeader.jsx'
@@ -120,6 +120,10 @@ const normalize = (report, t) => {
       prevYear: r.prevYear ?? null,
       currentYear: r.currentYear ?? null,
       weeks: normWeeks(r.weeks, W),
+      // WeUMS (SMS) per-row pricing: each usage row can carry its own Buy In /
+      // Sell Out rate (different SMS types/routes bill differently).
+      buyIn: r.buyIn ?? null,
+      sellOut: r.sellOut ?? null,
       // Older years imported alongside prev/current (e.g. 2024 when the report is
       // 2025→2026). Kept as { [year]: value } so the combined view can show them.
       ...(r.extra && typeof r.extra === 'object' ? { extra: r.extra } : {}),
@@ -511,6 +515,7 @@ export default function Reports() {
   const [editingId, setEditingId] = useState(null)
   const [previewId, setPreviewId] = useState(null)
   const [chartReportId, setChartReportId] = useState(null)
+  const [duplicateId, setDuplicateId] = useState(null)
   const [view, setView] = useState('usage') // 'usage' | 'team'
   const [error, setError] = useState('')
   // List filters. Defaults to every account for the current month, so the page
@@ -557,6 +562,7 @@ export default function Reports() {
   const editing = editingId ? reports.find((r) => r.id === editingId) : null
   const previewing = previewId ? reports.find((r) => r.id === previewId) : null
   const charting = chartReportId ? reports.find((r) => r.id === chartReportId) : null
+  const duplicating = duplicateId ? reports.find((r) => r.id === duplicateId) : null
 
   // Auto-roll to the current calendar month. For every account with any prior
   // report, ensure a card exists for the current month with empty W1–W4 (row
@@ -597,15 +603,19 @@ export default function Reports() {
         // year starts its own '26 fresh (the prior total went to prevYear above).
         currentYear: crossingYear ? null : row.currentYear ?? null,
         weeks: Array(DEFAULT_WEEKS).fill(null),
+        // WeUMS (SMS) per-row pricing rarely changes month to month, so carry it
+        // forward with the rest of the row rather than starting blank.
+        buyIn: row.buyIn ?? null,
+        sellOut: row.sellOut ?? null,
       }))
       addReport({ account, year: y, month: m, data: { headers: defaultHeaders(y, m, t), rows } }).catch(() => {})
     }
   }, [state.reports, addReport, t])
 
-  const onCreate = async ({ account, year, month, data }) => {
-    // Only one report per account+year+month. Refuse to override an existing
-    // one — the user must edit or delete it instead. Throws so CreateForm shows
-    // the reason inline (for both the manual and the import paths).
+  // Only one report per account+year+month. Refuse to override an existing one
+  // — the user must edit or delete it instead. Throws so the caller's form
+  // shows the reason inline. Shared by create, import, and duplicate.
+  const assertSlotFree = (account, year, month) => {
     const existing = (state.reports || []).find(
       (r) => r.account === account && r.year === year && r.month === month && !r.data?.imported,
     )
@@ -618,16 +628,42 @@ export default function Reports() {
         }),
       )
     }
-    const finalData = data || buildInitialData(account, year, month, t)
-    const created = await addReport({ account, year, month, data: finalData })
-    // Move the filters onto what was just created, otherwise a report for an
-    // older month or the other account would be saved straight out of view.
-    // The account filter is only widened when it would hide the new report.
+  }
+
+  // After creating or duplicating into a report, land the list filters and the
+  // editor on it — otherwise a report for an older month or the other account
+  // would be saved straight out of view.
+  const afterCreate = (account, year, month, created) => {
     if (fAccount && fAccount !== account) setFAccount('')
     setFYear(year)
     setFMonth(month)
-    setCreateOpen(false)
     if (created?.id) setEditingId(created.id)
+  }
+
+  const onCreate = async ({ account, year, month, data }) => {
+    assertSlotFree(account, year, month)
+    const finalData = data || buildInitialData(account, year, month, t)
+    const created = await addReport({ account, year, month, data: finalData })
+    afterCreate(account, year, month, created)
+    setCreateOpen(false)
+  }
+
+  // Copy an existing report's rows AS-IS — labels, weekly figures, and WeUMS
+  // per-row Buy In/Sell Out — into a different year/month for the same
+  // account, for when a period should start from a prior report's numbers
+  // instead of a blank one. Works the same for every product (LM, SM, SMS),
+  // since it only touches the shared row/header shape.
+  const onDuplicate = async (source, year, month) => {
+    assertSlotFree(source.account, year, month)
+    const norm = normalize(source, t)
+    // Month/week/year header text is date-specific and gets regenerated for
+    // the target period; category/total are free-text labels, so those carry
+    // over from the source.
+    const headers = { ...defaultHeaders(year, month, t), category: norm.headers.category, total: norm.headers.total }
+    const rows = norm.rows.map((r) => ({ ...r, id: newId() }))
+    const created = await addReport({ account: source.account, year, month, data: { headers, rows } })
+    afterCreate(source.account, year, month, created)
+    setDuplicateId(null)
   }
 
   // Download the full form for ONE report: all year columns PLUS this report's
@@ -824,6 +860,14 @@ export default function Reports() {
                       <Download className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => setDuplicateId(r.id)}
+                      className="p-2 rounded-full hover:bg-iron text-graphite"
+                      aria-label={t('report.duplicate')}
+                      title={t('report.duplicate')}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => setEditingId(r.id)}
                       className="p-2 rounded-full hover:bg-iron text-graphite"
                       aria-label={t('report.edit')}
@@ -888,6 +932,12 @@ export default function Reports() {
           <ReportChart report={charting} reports={reports} />
         </Modal>
       )}
+
+      {duplicating && (
+        <Modal open onClose={() => setDuplicateId(null)} title={t('report.duplicate.title')}>
+          <DuplicateForm report={duplicating} onSubmit={onDuplicate} onCancel={() => setDuplicateId(null)} />
+        </Modal>
+      )}
     </>
   )
 }
@@ -934,24 +984,59 @@ const ymKey = (y, m) => `${y}-${String(m).padStart(2, '0')}`
 const countRowOf = (rows, label) =>
   (label && rows.find((r) => r.label === label && !r.money)) || rows.find((r) => !r.money) || rows[0] || null
 
+// WeUMS (SMS) totals for one report/month, summed across every usage row (each
+// row can carry its own Buy In / Sell Out rate, e.g. different SMS routes):
+// usage is the sum of every count row's weekly total, amount is the sum of
+// each of those rows' usage × its OWN Sell Out rate. `amount` stays null until
+// at least one row has both usage and a Sell Out rate to calculate from.
+const smsMonthlyTotals = (report, t) => {
+  let usage = null
+  let amount = null
+  for (const row of normalize(report, t).rows) {
+    if (row.money) continue // Sell Out only prices count-style usage rows
+    const u = weekTotal(row.weeks)
+    if (u == null) continue
+    usage = (usage ?? 0) + u
+    if (isNum(row.sellOut)) amount = (amount ?? 0) + u * Number(row.sellOut)
+  }
+  return { usage, amount }
+}
+
 function ReportChart({ report, reports }) {
   const { t, lang } = useT()
+  const isSms = report.account === 'SMS'
 
   const norm = useMemo(() => normalize(report, t), [report, t])
   const countLabel = countRowOf(norm.rows)?.label || ''
 
   // Monthly totals for this account, keyed YYYY-MM. Imported annual history has
-  // no weekly breakdown, so it contributes nothing here.
+  // no weekly breakdown, so it contributes nothing here. WeUMS sums every usage
+  // row instead of following one label, since a month can have several.
   const autoByKey = useMemo(() => {
     const out = {}
     for (const r of reports || []) {
       if (r.account !== report.account || r.data?.imported) continue
-      const row = countRowOf(normalize(r, t).rows, countLabel)
-      const tot = row ? weekTotal(row.weeks) : null
+      const tot = isSms ? smsMonthlyTotals(r, t).usage : (() => {
+        const row = countRowOf(normalize(r, t).rows, countLabel)
+        return row ? weekTotal(row.weeks) : null
+      })()
       if (tot != null) out[ymKey(r.year, r.month)] = tot
     }
     return out
-  }, [reports, report.account, countLabel, t])
+  }, [reports, report.account, countLabel, isSms, t])
+
+  // WeUMS only: total amount of usage per month, summed across every row's own
+  // usage × Sell Out, keyed the same way so it lines up with the usage series.
+  const amountByKey = useMemo(() => {
+    if (!isSms) return {}
+    const out = {}
+    for (const r of reports || []) {
+      if (r.account !== 'SMS' || r.data?.imported) continue
+      const amt = smsMonthlyTotals(r, t).amount
+      if (amt != null) out[ymKey(r.year, r.month)] = amt
+    }
+    return out
+  }, [reports, isSms, t])
 
   // The six months ending at this report's month.
   const months = useMemo(() => {
@@ -965,18 +1050,34 @@ function ReportChart({ report, reports }) {
     return out
   }, [report.year, report.month])
 
-  const points = months.map((mo) => ({
+  // WeUMS (SMS) carries the total-amount figure alongside each point as
+  // `secondary` — one chart shows usage, and the amount surfaces on hover
+  // instead of a second stacked chart.
+  const usagePoints = months.map((mo) => ({
     label: monthLabel(mo.y, mo.m, lang),
     value: autoByKey[mo.key] ?? null,
+    ...(isSms ? { secondary: amountByKey[mo.key] ?? null } : {}),
   }))
 
-  return <AreaChartSVG points={points} money={false} />
+  const secondaryFmt = isSms
+    ? (v) => `${t('report.sms.amountChart')}: $${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : undefined
+
+  return (
+    <div className="space-y-2">
+      <AreaChartSVG points={usagePoints} money={false} secondaryFmt={secondaryFmt} />
+      {isSms && <p className="text-center text-[11px] text-graphite">{t('report.sms.hoverHint')}</p>}
+    </div>
+  )
 }
 
 // Dependency-free single-series area chart (SVG). Direct value labels on every
-// point, matching the WeBill365 report look; app-green single hue.
-function AreaChartSVG({ points, money }) {
+// point, matching the WeBill365 report look; app-green single hue. A point may
+// also carry a `secondary` figure (e.g. WeUMS's total amount for that month),
+// which surfaces in a tooltip on hover rather than as a second chart.
+function AreaChartSVG({ points, money, secondaryFmt }) {
   const { t } = useT()
+  const [hoverIdx, setHoverIdx] = useState(null)
   const vals = points.map((p) => p.value).filter((v) => v !== null && v !== undefined && !Number.isNaN(v))
   if (!vals.length) return <p className="py-8 text-center text-sm text-graphite">{t('report.chart.empty')}</p>
 
@@ -1002,6 +1103,8 @@ function AreaChartSVG({ points, money }) {
     : ''
   const fmt = (v) => (money ? '$' : '') + Number(v).toLocaleString('en-US')
   const gridY = [0.25, 0.5, 0.75].map((f) => padT + f * plotH)
+  const hasSecondary = linePts.some((p) => p.secondary !== null && p.secondary !== undefined)
+  const hovered = hasSecondary ? linePts.find((p) => p.i === hoverIdx) : null
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={t('report.chart')}>
@@ -1032,8 +1135,37 @@ function AreaChartSVG({ points, money }) {
           >
             {fmt(p.value)}
           </text>
+          {/* Larger, invisible hit-area so the secondary (e.g. total amount)
+              tooltip is easy to trigger without needing to land on the 5px dot. */}
+          {hasSecondary && p.secondary !== null && p.secondary !== undefined && (
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r="16"
+              fill="transparent"
+              className="cursor-pointer"
+              onMouseEnter={() => setHoverIdx(p.i)}
+              onMouseLeave={() => setHoverIdx((h) => (h === p.i ? null : h))}
+            />
+          )}
         </g>
       ))}
+      {hovered && (() => {
+        const label = secondaryFmt ? secondaryFmt(hovered.secondary) : String(hovered.secondary)
+        const boxW = Math.max(90, label.length * 7 + 24)
+        const boxH = 30
+        const boxX = Math.min(Math.max(hovered.x - boxW / 2, padL), padL + plotW - boxW)
+        const above = hovered.y - 14 - boxH - 8 >= 4
+        const boxY = above ? hovered.y - 14 - boxH - 8 : hovered.y + 16
+        return (
+          <g pointerEvents="none">
+            <rect x={boxX} y={boxY} width={boxW} height={boxH} rx="8" fill="#0E0F0C" fillOpacity="0.92" />
+            <text x={boxX + boxW / 2} y={boxY + boxH / 2 + 5} textAnchor="middle" fill="#FFFFFF" fontSize="13" fontWeight="700">
+              {label}
+            </text>
+          </g>
+        )
+      })()}
       {pts.map((p) => (
         <text key={p.i} x={p.x} y={H - 12} textAnchor="middle" className="fill-graphite" fontSize="14" fontWeight="600">
           {p.label}
@@ -1445,6 +1577,81 @@ const alignRows = (combinedRows, refRows) => {
   )
 }
 
+// Duplicate an existing report's rows into a different year/month, for when a
+// period should start from a prior report's actual numbers instead of the
+// standard blank rows. Target defaults to the month right after the source.
+function DuplicateForm({ report, onSubmit, onCancel }) {
+  const { t } = useT()
+  const nextMonth = report.month === 12 ? 1 : report.month + 1
+  const nextYear = report.month === 12 ? report.year + 1 : report.year
+  const [year, setYear] = useState(nextYear)
+  const [month, setMonth] = useState(nextMonth)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault()
+        setErr('')
+        setBusy(true)
+        try {
+          await onSubmit(report, Number(year), Number(month))
+        } catch (e2) {
+          setErr(e2?.message || t('report.error.generic'))
+        } finally {
+          setBusy(false)
+        }
+      }}
+      className="space-y-3"
+    >
+      <p className="text-sm text-graphite">
+        {t('report.duplicate.hint', {
+          account: t(`report.account.${report.account}`),
+          year: report.year,
+          month: String(report.month).padStart(2, '0'),
+        })}
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">{t('report.year')}</label>
+          <input
+            className="input" type="number" min="2000" max="2100" value={year}
+            onChange={(e) => setYear(e.target.value)} disabled={busy}
+          />
+        </div>
+        <div>
+          <label className="label">{t('report.month')}</label>
+          <select className="input" value={month} onChange={(e) => setMonth(e.target.value)} disabled={busy}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <option key={i + 1} value={i + 1}>{i + 1}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {err && (
+        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span className="flex-1">{err}</span>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button type="submit" className="btn-primary flex-1" disabled={busy}>
+          <Copy className="w-4 h-4" /> {busy ? t('common.saving') : t('report.duplicate.submit')}
+        </button>
+        <button
+          type="button" onClick={onCancel} disabled={busy}
+          className="rounded-xl px-4 text-sm font-semibold border border-shadow hover:bg-iron"
+        >
+          {t('common.cancel')}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 function CreateForm({ onSubmit, onTemplate }) {
   const { t } = useT()
   const now = new Date()
@@ -1538,6 +1745,10 @@ function CreateForm({ onSubmit, onTemplate }) {
         </div>
       </div>
 
+      {account === 'SMS' && (
+        <p className="text-[11px] text-graphite">{t('report.sms.pricingHint')}</p>
+      )}
+
       {importErr && (
         <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -1579,6 +1790,7 @@ function CreateForm({ onSubmit, onTemplate }) {
 
 function ReportEditor({ report, reports, onSave, onDelete }) {
   const { t } = useT()
+  const isSms = report.account === 'SMS'
   const [form, setForm] = useState(() => normalize(report, t))
   const [busy, setBusy] = useState(false)
   const [saveErr, setSaveErr] = useState('')
@@ -1632,17 +1844,73 @@ function ReportEditor({ report, reports, onSave, onDelete }) {
     deleteRow: (id) => setForm((s) => ({ ...s, rows: s.rows.filter((r) => r.id !== id) })),
   }
 
+  // WeUMS (SMS) usage rows — each can carry its own Buy In / Sell Out rate
+  // (different SMS types/routes bill differently), so pricing is entered per
+  // row rather than once for the whole report. Money-format rows (e.g. an
+  // "SMS cost" row already in dollars) aren't priced — only usage counts are.
+  const smsRows = useMemo(() => (isSms ? form.rows.filter((r) => !r.money) : []), [isSms, form.rows])
+  const smsGrandTotal = useMemo(() => {
+    let total = null
+    for (const row of smsRows) {
+      const usage = weekTotal(row.weeks)
+      if (usage != null && isNum(row.sellOut)) total = (total ?? 0) + usage * Number(row.sellOut)
+    }
+    return total
+  }, [smsRows])
+
   const addRow = () =>
     setForm((s) => ({
       ...s,
       rows: [
         ...s.rows,
-        { id: newId(), label: '', money: false, currency: 'USD', prevYear: null, currentYear: null, weeks: Array(s.headers.weeks.length).fill(null) },
+        { id: newId(), label: '', money: false, currency: 'USD', prevYear: null, currentYear: null, buyIn: null, sellOut: null, weeks: Array(s.headers.weeks.length).fill(null) },
       ],
     }))
 
   return (
     <div className="space-y-3">
+      {isSms && smsRows.length > 0 && (
+        <div className="rounded-2xl border border-shadow overflow-hidden">
+          <div className="grid grid-cols-[1fr_100px_100px_110px] gap-2 items-center bg-sky-100 px-3 py-2 text-xs font-bold text-near-black">
+            <span>{t('report.sms.pricing')}</span>
+            <span className="text-center" title={t('report.sms.buyIn.hint')}>{t('report.sms.buyIn')}</span>
+            <span className="text-center" title={t('report.sms.sellOut.hint')}>{t('report.sms.sellOut')}</span>
+            <span className="text-right">{t('report.hdr.total')}</span>
+          </div>
+          <div className="divide-y divide-shadow">
+            {smsRows.map((row) => {
+              const usage = weekTotal(row.weeks)
+              const total = usage != null && isNum(row.sellOut) ? usage * Number(row.sellOut) : null
+              return (
+                <div key={row.id} className="grid grid-cols-[1fr_100px_100px_110px] gap-2 items-center px-3 py-1.5">
+                  <span className="truncate text-sm font-medium" title={row.label}>{row.label || '—'}</span>
+                  <input
+                    className="input !py-1.5 text-center" type="number" step="any"
+                    value={row.buyIn ?? ''}
+                    onChange={(e) => on.row(row.id, { buyIn: e.target.value === '' ? null : Number(e.target.value) })}
+                    disabled={busy}
+                  />
+                  <input
+                    className="input !py-1.5 text-center" type="number" step="any"
+                    value={row.sellOut ?? ''}
+                    onChange={(e) => on.row(row.id, { sellOut: e.target.value === '' ? null : Number(e.target.value) })}
+                    disabled={busy}
+                  />
+                  <span className="text-right text-sm font-semibold tabular-nums">
+                    {total != null ? fmtFull(total, true) : '—'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          <p className="border-t border-shadow bg-iron/40 px-3 py-2 text-right text-sm font-bold">
+            {isNum(smsGrandTotal)
+              ? t('report.sms.grandTotal', { total: fmtFull(smsGrandTotal, true) })
+              : t('report.sms.grandTotal.empty')}
+          </p>
+        </div>
+      )}
+
       <ReportGrid headers={form.headers} rows={form.rows} editable on={on} yearMap={yearMap} prevMap={prevMap} />
 
       <p className="text-[11px] text-graphite">{t('report.editor.hint')}</p>
