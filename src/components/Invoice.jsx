@@ -398,8 +398,13 @@ export function InvoiceForm({
   const [customerNo, setCustomerNo] = useState(
     initial?.customerNo ?? defaultCustomer.customerNo ?? '',
   )
+  // Older invoices only ever wrote `source` (before `customerName` existed as
+  // its own field) — fall back the same way the read-side display does
+  // (e.g. `invoice.customerName || invoice.source`), or the Customer field
+  // opens blank-looking even though customerId is valid, and Save silently
+  // no-ops on the empty-name guard below.
   const [customerName, setCustomerName] = useState(
-    initial?.customerName ?? defaultCustomer.customerName ?? '',
+    initial?.customerName || initial?.source || defaultCustomer.customerName || '',
   )
 
   // Email section — the linked customer's Email tab is the source of truth, so
