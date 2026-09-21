@@ -411,9 +411,7 @@ export function StoreProvider({ children }) {
             ...entry,
             customerId,
           }
-          const res = await api.patch(`/products/${productId}`, {
-            income: [income, ...(p.income || [])],
-          })
+          const res = await api.post(`/products/${productId}/income`, { item: income })
           replaceIn('products', res.data.product)
           await api.post(`/customers/${customerId}/logs`, {
             type: 'product.income',
@@ -433,9 +431,7 @@ export function StoreProvider({ children }) {
           const p = getProduct(productId)
           if (!p) return
           const entry = (p.income || []).find((i) => i.id === incomeId)
-          const res = await api.patch(`/products/${productId}`, {
-            income: (p.income || []).filter((i) => i.id !== incomeId),
-          })
+          const res = await api.delete(`/products/${productId}/income/${incomeId}`)
           replaceIn('products', res.data.product)
           await api.post(`/customers/${customerId}/logs`, {
             type: 'product.income.delete',
@@ -463,9 +459,7 @@ export function StoreProvider({ children }) {
             ...entry,
             customerId,
           }
-          const res = await api.patch(`/products/${productId}`, {
-            expenses: [expense, ...(p.expenses || [])],
-          })
+          const res = await api.post(`/products/${productId}/expenses`, { item: expense })
           replaceIn('products', res.data.product)
           await api.post(`/customers/${customerId}/logs`, {
             type: 'product.expense',
@@ -485,9 +479,7 @@ export function StoreProvider({ children }) {
           const p = getProduct(productId)
           if (!p) return
           const entry = (p.expenses || []).find((e) => e.id === expenseId)
-          const res = await api.patch(`/products/${productId}`, {
-            expenses: (p.expenses || []).filter((e) => e.id !== expenseId),
-          })
+          const res = await api.delete(`/products/${productId}/expenses/${expenseId}`)
           replaceIn('products', res.data.product)
           await api.post(`/customers/${customerId}/logs`, {
             type: 'product.expense.delete',
@@ -682,47 +674,31 @@ export function StoreProvider({ children }) {
           await api.delete(`/products/${id}`)
           removeFrom('products', id)
         }),
+      // income/expenses go through per-entry routes: the server splices the
+      // entry into the array, so the request carries one invoice rather than
+      // the product's whole billing history — which outgrew proxy body limits
+      // and silently 413'd. It also stops two editors from overwriting each
+      // other, since neither side sends a list built from its own stale copy.
       addProductChild: (id, field, item) =>
         run(async () => {
-          const p = getProduct(id)
-          if (!p) return
-          const newItem = { id: uid(field[0]), ...item }
-          const res = await api.patch(`/products/${id}`, {
-            [field]: [newItem, ...(p[field] || [])],
-          })
+          const res = await api.post(`/products/${id}/${field}`, { item })
           replaceIn('products', res.data.product)
         }),
-      // Append several children in ONE patch (safe for bulk actions — looping
-      // addProductChild would race, as each call reads the same base list).
       addProductChildren: (id, field, newItems) =>
         run(async () => {
-          const p = getProduct(id)
-          if (!p) return
-          const list = Array.isArray(newItems) ? newItems : []
-          if (!list.length) return
-          const prepared = list.map((item) => ({ id: uid(field[0]), ...item }))
-          const res = await api.patch(`/products/${id}`, {
-            [field]: [...prepared, ...(p[field] || [])],
-          })
+          const items = Array.isArray(newItems) ? newItems : []
+          if (!items.length) return
+          const res = await api.post(`/products/${id}/${field}`, { items })
           replaceIn('products', res.data.product)
         }),
       updateProductChild: (id, field, entryId, patch) =>
         run(async () => {
-          const p = getProduct(id)
-          if (!p) return
-          const list = (p[field] || []).map((x) =>
-            x.id === entryId ? { ...x, ...patch, id: entryId } : x,
-          )
-          const res = await api.patch(`/products/${id}`, { [field]: list })
+          const res = await api.patch(`/products/${id}/${field}/${entryId}`, { patch })
           replaceIn('products', res.data.product)
         }),
       removeProductChild: (id, field, entryId) =>
         run(async () => {
-          const p = getProduct(id)
-          if (!p) return
-          const res = await api.patch(`/products/${id}`, {
-            [field]: (p[field] || []).filter((x) => x.id !== entryId),
-          })
+          const res = await api.delete(`/products/${id}/${field}/${entryId}`)
           replaceIn('products', res.data.product)
         }),
 
