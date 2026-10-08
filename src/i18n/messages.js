@@ -138,7 +138,7 @@ export const messages = {
     'more.language':      'Language',
     'more.logout':        'Logout',
     'more.confirmLogout': 'Sign out?',
-    'more.versionLine':   'OhMyCMO · v0.1',
+    'more.versionLine':   'WeCRM · v0.1',
 
     // Profile
     'profile.displayName': 'Display name',
@@ -148,7 +148,7 @@ export const messages = {
     'profile.role.admin':  'Administrator',
     'profile.role.user':   'User',
     'profile.signOut':     'Sign out',
-    'profile.note':        'Signed in via the OhMyCMO API. Other CRM data on this device is still stored locally.',
+    'profile.note':        'Signed in via the WeCRM API. Other CRM data on this device is still stored locally.',
     'profile.editProfile':      'Edit profile',
     'profile.changeAvatar':     'Change photo',
     'profile.avatarError':      'Could not read that image — try a different file.',
@@ -173,7 +173,7 @@ export const messages = {
     'profile.hidePassword':    'Hide password',
 
     // Login
-    'login.title':       'OhMyCMO',
+    'login.title':       'WeCRM',
     'login.subtitle':    'Sign in to continue',
     'login.identifier':  'Email or username',
     'login.password':    'Password',
@@ -741,7 +741,7 @@ export const messages = {
     'more.language':      '언어',
     'more.logout':        '로그아웃',
     'more.confirmLogout': '로그아웃하시겠습니까?',
-    'more.versionLine':   'OhMyCMO · v0.1',
+    'more.versionLine':   'WeCRM · v0.1',
 
     'profile.displayName': '표시 이름',
     'profile.email':       '이메일',
@@ -750,7 +750,7 @@ export const messages = {
     'profile.role.admin':  '관리자',
     'profile.role.user':   '사용자',
     'profile.signOut':     '로그아웃',
-    'profile.note':        'OhMyCMO API로 로그인되어 있습니다. 이 기기의 다른 CRM 데이터는 여전히 로컬에 저장됩니다.',
+    'profile.note':        'WeCRM API로 로그인되어 있습니다. 이 기기의 다른 CRM 데이터는 여전히 로컬에 저장됩니다.',
     'profile.editProfile':      '프로필 편집',
     'profile.changeAvatar':     '사진 변경',
     'profile.avatarError':      '이미지를 읽을 수 없습니다 — 다른 파일을 선택해 주세요.',
@@ -774,7 +774,7 @@ export const messages = {
     'profile.showPassword':    '비밀번호 표시',
     'profile.hidePassword':    '비밀번호 숨기기',
 
-    'login.title':       'OhMyCMO',
+    'login.title':       'WeCRM',
     'login.subtitle':    '계속하려면 로그인하세요',
     'login.identifier':  '이메일 또는 사용자명',
     'login.password':    '비밀번호',

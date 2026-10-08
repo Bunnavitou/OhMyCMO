@@ -82,7 +82,7 @@ export default function Home() {
           className="display text-near-black"
           style={{ fontSize: 'clamp(56px, 13vw, 126px)' }}
         >
-          OhMyCMO.
+          WeCRM.
         </h1>
         <p className="text-base md:text-lg text-graphite mt-4 max-w-2xl">
           {t('home.tagline')}

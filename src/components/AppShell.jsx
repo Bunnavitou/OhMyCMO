@@ -94,7 +94,7 @@ function useNavMeta() {
   return {
     crumbs,
     level: crumbs.length,
-    title: crumbs[crumbs.length - 1]?.label || 'OhMyCMO',
+    title: crumbs[crumbs.length - 1]?.label || 'WeCRM',
   }
 }
 
@@ -119,7 +119,7 @@ export default function AppShell() {
             to="/"
             className="display text-[26px] leading-none text-near-black"
           >
-            OhMyCMO
+            WeCRM
           </Link>
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">

@@ -8,12 +8,12 @@ export default function MoreTCs() {
         </header>
 
         <Section title="1. Acceptance of terms">
-          By using OhMyCMO you agree to these terms. If you do not agree, please stop
+          By using WeCRM you agree to these terms. If you do not agree, please stop
           using the app.
         </Section>
 
         <Section title="2. Local data storage">
-          OhMyCMO currently stores all your work inside this device's browser
+          WeCRM currently stores all your work inside this device's browser
           storage. We do not transmit your customer, partner or financial data to a
           remote server. Clearing site data, switching browsers or signing out via
           the More menu will remove this data permanently.

@@ -1,4 +1,4 @@
-// Lightweight fetch wrapper for the OhMyCMO API.
+// Lightweight fetch wrapper for the WeCRM API.
 //
 // - Base URL comes from VITE_API_URL ("/api" in dev/prod via the Vite proxy
 //   and nginx in production), so all calls are same-origin.
