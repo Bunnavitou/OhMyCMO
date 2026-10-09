@@ -12,7 +12,7 @@ import Modal from '../components/Modal.jsx'
 import { InvoiceForm, MonthlyIncomeList, InvoiceDetail } from '../components/Invoice.jsx'
 import AuthImage from '../components/AuthImage.jsx'
 import { uploadImageRef, hasImage } from '../utils/imageRef.js'
-import { validRecipients } from '../utils/email.js'
+import { fmtMoney, validRecipients } from '../utils/email.js'
 import { memberName } from '../utils/tasks.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 
@@ -172,18 +172,18 @@ export default function ProductDetail() {
             <div className="text-xs text-graphite flex items-center gap-1">
               <TrendingUp className="w-3 h-3" /> {t('product.metric.income')}
             </div>
-            <p className="text-lg font-bold text-emerald-700 mt-1">${income.toLocaleString()}</p>
+            <p className="text-lg font-bold text-emerald-700 mt-1">${fmtMoney(income)}</p>
           </div>
           <div className="card !p-3">
             <div className="text-xs text-graphite flex items-center gap-1">
               <TrendingDown className="w-3 h-3" /> {t('product.metric.expense')}
             </div>
-            <p className="text-lg font-bold text-rose-700 mt-1">${expense.toLocaleString()}</p>
+            <p className="text-lg font-bold text-rose-700 mt-1">${fmtMoney(expense)}</p>
           </div>
           <div className="card !p-3">
             <div className="text-xs text-graphite">{t('product.metric.net')}</div>
             <p className={`text-lg font-bold mt-1 ${net >= 0 ? 'text-brand-700' : 'text-amber-700'}`}>
-              ${net.toLocaleString()}
+              ${fmtMoney(net)}
             </p>
           </div>
         </section>
@@ -297,7 +297,7 @@ export default function ProductDetail() {
               const label = d.invoiceNo ? `invoice "${d.invoiceNo}"` : 'invoice'
               appendCustomerLog(d.customerId, {
                 type: 'invoice.create',
-                message: `Created ${label} ($${Number(d.amount || 0).toLocaleString()})`,
+                message: `Created ${label} ($${fmtMoney(d.amount || 0)})`,
                 meta: { invoiceNo: d.invoiceNo, amount: d.amount, by: user?.id, byName: memberName(user) },
               })
             }
@@ -655,7 +655,7 @@ function ExpenseLines({ items, onAdd, onDelete }) {
                 </p>
               </div>
               <p className="font-semibold text-sm text-rose-700">
-                -${Number(x.amount || 0).toLocaleString()}
+                -${fmtMoney(x.amount || 0)}
               </p>
               <button
                 onClick={() => onDelete(x.id)}

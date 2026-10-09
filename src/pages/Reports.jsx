@@ -52,7 +52,11 @@ const isNum = (v) => v !== null && v !== undefined && v !== '' && !Number.isNaN(
 // prefix here rather than the ៛ glyph, matching how the team already writes it.
 const CURRENCY_SYMBOL = { USD: '$', KHR: 'R' }
 const fmtFull = (v, money, currency = 'USD') =>
-  isNum(v) ? (money ? (CURRENCY_SYMBOL[currency] || '$') : '') + Number(v).toLocaleString('en-US') : ''
+  isNum(v)
+    ? (money ? (CURRENCY_SYMBOL[currency] || '$') : '') +
+      // USD shows cents ($30.30); Riel has no subunit in practice, so stays whole.
+      Number(v).toLocaleString('en-US', money && currency !== 'KHR' ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : undefined)
+    : ''
 const weekTotal = (weeks) => {
   const vals = (weeks || []).filter(isNum).map(Number)
   return vals.length ? vals.reduce((s, n) => s + n, 0) : null

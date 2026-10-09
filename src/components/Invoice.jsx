@@ -998,7 +998,7 @@ export function MonthlyIncomeList({ items, onTap, productName, query = '', onBul
               </h3>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-emerald-700">
-                  ${Number(monthTotal).toLocaleString()}
+                  ${fmtMoney(monthTotal)}
                 </span>
                 <button
                   type="button"
@@ -1042,7 +1042,7 @@ export function MonthlyIncomeList({ items, onTap, productName, query = '', onBul
                         </p>
                       </div>
                       <p className="font-semibold text-sm text-emerald-700">
-                        +${Number(x.amount || 0).toLocaleString()}
+                        +${fmtMoney(x.amount || 0)}
                       </p>
                     </button>
                   </li>
@@ -1413,7 +1413,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         </>
       ) : (
         <div className="card !p-3 text-sm">
-          <Row label="Amount" value={`$${Number(invoice.amount || 0).toLocaleString()}`} bold />
+          <Row label="Amount" value={`$${fmtMoney(invoice.amount || 0)}`} bold />
         </div>
       )}
 

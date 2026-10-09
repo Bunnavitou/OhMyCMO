@@ -7,8 +7,9 @@ import {
 import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { collectTasks, dueBucket, dueTextStyle, sourceStyle } from '../utils/tasks.js'
+import { fmtMoney as fmtAmount } from '../utils/email.js'
 
-const fmtMoney = (n) => `$${Number(n || 0).toLocaleString()}`
+const fmtMoney = (n) => `$${fmtAmount(n)}`
 
 export default function Home() {
   const { state } = useStore()

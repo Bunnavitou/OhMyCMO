@@ -14,6 +14,7 @@ import AuthImage from '../components/AuthImage.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
 import { persistImageRef, hasImage } from '../utils/imageRef.js'
 import { compressImage } from '../utils/imageCompress.js'
+import { fmtMoney } from '../utils/email.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 
 const LOGO_LIMIT_BYTES = 2 * 1024 * 1024
@@ -109,7 +110,7 @@ export default function Products() {
                 <TrendingUp className="w-3.5 h-3.5" /> {t('product.overview.totalIncome')}
               </div>
               <p className="mt-1 text-base md:text-lg font-bold">
-                ${overview.totalIncome.toLocaleString()}
+                ${fmtMoney(overview.totalIncome)}
               </p>
             </div>
             <div className="rounded-lg p-2.5 md:p-3 bg-rose-50 text-rose-700">
@@ -117,7 +118,7 @@ export default function Products() {
                 <TrendingDown className="w-3.5 h-3.5" /> {t('product.overview.totalExpense')}
               </div>
               <p className="mt-1 text-base md:text-lg font-bold">
-                ${overview.totalExpense.toLocaleString()}
+                ${fmtMoney(overview.totalExpense)}
               </p>
             </div>
             <div className="rounded-lg p-2.5 md:p-3 bg-brand-50 text-brand-700">
@@ -196,15 +197,15 @@ export default function Products() {
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="bg-emerald-50 text-emerald-700 rounded-lg p-2">
                         <div className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> {t('product.metric.income')}</div>
-                        <p className="font-semibold mt-0.5">${income.toLocaleString()}</p>
+                        <p className="font-semibold mt-0.5">${fmtMoney(income)}</p>
                       </div>
                       <div className="bg-rose-50 text-rose-700 rounded-lg p-2">
                         <div className="flex items-center gap-1"><TrendingDown className="w-3 h-3" /> {t('product.metric.expense')}</div>
-                        <p className="font-semibold mt-0.5">${expense.toLocaleString()}</p>
+                        <p className="font-semibold mt-0.5">${fmtMoney(expense)}</p>
                       </div>
                       <div className={`rounded-lg p-2 ${net >= 0 ? 'bg-brand-50 text-brand-700' : 'bg-amber-50 text-amber-700'}`}>
                         <div>{t('product.metric.net')}</div>
-                        <p className="font-semibold mt-0.5">${net.toLocaleString()}</p>
+                        <p className="font-semibold mt-0.5">${fmtMoney(net)}</p>
                       </div>
                     </div>
                   </Link>

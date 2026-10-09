@@ -16,6 +16,7 @@ import { useT } from '../i18n/LanguageContext.jsx'
 import AuthImage from '../components/AuthImage.jsx'
 import { uploadImageRef, hasImage } from '../utils/imageRef.js'
 import { TASK_STATUSES, statusStyle, memberName, clampProgress, progressForStatus, doneStamp } from '../utils/tasks.js'
+import { fmtMoney } from '../utils/email.js'
 
 const CARD_LIMIT_BYTES = 2 * 1024 * 1024
 
@@ -219,7 +220,7 @@ export default function PartnerDetail() {
                   {t('partner.task.totalExpense')}
                 </span>
                 <span className="text-base font-bold text-rose-700">
-                  ${totalExpense.toLocaleString()}
+                  ${fmtMoney(totalExpense)}
                 </span>
               </div>
             )}
@@ -272,7 +273,7 @@ export default function PartnerDetail() {
                           {Number(task.expense) > 0 && (
                             <span className="flex items-center gap-1 text-rose-700 font-medium">
                               <DollarSign className="w-3 h-3" />
-                              {Number(task.expense).toLocaleString()}
+                              {fmtMoney(task.expense)}
                             </span>
                           )}
                           {task.file && (

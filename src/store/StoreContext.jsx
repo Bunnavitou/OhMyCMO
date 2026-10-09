@@ -18,6 +18,7 @@ import { api } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { memberName, editLogEntry } from '../utils/tasks.js'
+import { fmtMoney } from '../utils/email.js'
 
 const StoreContext = createContext(null)
 
@@ -404,7 +405,7 @@ export function StoreProvider({ children }) {
           replaceIn('products', res.data.product)
           await api.post(`/customers/${customerId}/logs`, {
             type: 'product.income',
-            message: `Recorded income $${Number(income.amount).toLocaleString()} on "${p.name}"`,
+            message: `Recorded income $${fmtMoney(income.amount)} on "${p.name}"`,
             meta: { productId, incomeId: income.id, amount: income.amount },
           }).then((r) => {
             setState((s) => ({
@@ -424,7 +425,7 @@ export function StoreProvider({ children }) {
           replaceIn('products', res.data.product)
           await api.post(`/customers/${customerId}/logs`, {
             type: 'product.income.delete',
-            message: `Deleted income $${Number(entry?.amount || 0).toLocaleString()} on "${p.name}"`,
+            message: `Deleted income $${fmtMoney(entry?.amount || 0)} on "${p.name}"`,
             meta: { productId, incomeId },
           }).then((r) => {
             setState((s) => ({
@@ -452,7 +453,7 @@ export function StoreProvider({ children }) {
           replaceIn('products', res.data.product)
           await api.post(`/customers/${customerId}/logs`, {
             type: 'product.expense',
-            message: `Recorded expense $${Number(expense.amount).toLocaleString()} on "${p.name}"`,
+            message: `Recorded expense $${fmtMoney(expense.amount)} on "${p.name}"`,
             meta: { productId, expenseId: expense.id, amount: expense.amount },
           }).then((r) => {
             setState((s) => ({
@@ -472,7 +473,7 @@ export function StoreProvider({ children }) {
           replaceIn('products', res.data.product)
           await api.post(`/customers/${customerId}/logs`, {
             type: 'product.expense.delete',
-            message: `Deleted expense $${Number(entry?.amount || 0).toLocaleString()} on "${p.name}"`,
+            message: `Deleted expense $${fmtMoney(entry?.amount || 0)} on "${p.name}"`,
             meta: { productId, expenseId },
           }).then((r) => {
             setState((s) => ({
