@@ -22,8 +22,6 @@ const More = lazy(() => import('./pages/More.jsx'))
 const MoreProfile = lazy(() => import('./pages/MoreProfile.jsx'))
 const MoreSubUsers = lazy(() => import('./pages/MoreSubUsers.jsx'))
 const MoreMailSettings = lazy(() => import('./pages/MoreMailSettings.jsx'))
-const Pmo = lazy(() => import('./pages/Pmo.jsx'))
-const PmoDetail = lazy(() => import('./pages/PmoDetail.jsx'))
 const MoreInfluencers = lazy(() => import('./pages/MoreInfluencers.jsx'))
 const MoreTCs = lazy(() => import('./pages/MoreTCs.jsx'))
 const MoreLanguage = lazy(() => import('./pages/MoreLanguage.jsx'))
@@ -66,8 +64,6 @@ export default function App() {
           <Route path="more/profile" element={<MoreProfile />} />
           <Route path="more/sub-users" element={<MoreSubUsers />} />
           <Route path="more/mail-settings" element={<MoreMailSettings />} />
-          <Route path="pmo" element={<Pmo />} />
-          <Route path="pmo/:id" element={<PmoDetail />} />
           <Route path="more/influencers" element={<MoreInfluencers />} />
           <Route path="more/tcs" element={<MoreTCs />} />
           <Route path="more/language" element={<MoreLanguage />} />

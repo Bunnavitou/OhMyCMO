@@ -6,7 +6,6 @@ import {
   ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
-import { usePmos } from '../api/pmo.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 import { useT } from '../i18n/LanguageContext.jsx'
@@ -17,7 +16,7 @@ import DateFilterButton from '../components/DateFilterButton.jsx'
 import {
   TASK_STATUSES, TASK_PRIORITIES, statusStyle, priorityStyle, sourceStyle, dueBucket, dueTextStyle, collectTasks, memberName,
   POST_STATUS_TO_TASK, TASK_TO_POST_STATUS, MARKETING_POST_TYPES, MARKETING_POST_CHANNELS,
-  clampProgress, progressForStatus, progressBarStyle, doneStamp, editLogEntry, pmoLogEntry,
+  clampProgress, progressForStatus, progressBarStyle, doneStamp,
 } from '../utils/tasks.js'
 
 const DUE_FILTERS = ['all', 'overdue', 'today', 'soon', 'open', 'none']
@@ -40,35 +39,6 @@ export default function Tasks() {
   } = useStore()
   const { user } = useAuth()
   const { t } = useT()
-  const { items: pmos, update: updatePmo } = usePmos()
-
-  const patchPmoTask = (pmoId, taskId, patch) => {
-    const pmo = pmos.find((u) => u.id === pmoId)
-    if (!pmo) return
-    const before = (pmo.tasks || []).find((t) => t.id === taskId)
-    const after = { ...(before || {}), ...patch }
-    const nextTasks = (pmo.tasks || []).map((t) => (t.id === taskId ? after : t))
-    const body = { tasks: nextTasks }
-    const changed = before
-      ? Object.keys(patch).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
-      : []
-    const meaningful = changed.filter((k) => k !== 'doneAt')
-    if (changed.length) {
-      const { type, message } = editLogEntry(before, after, meaningful, { noun: 'Task', name: after.name })
-      body.logs = [pmoLogEntry(type, message, { taskId, changed }, user), ...(pmo.logs || [])]
-    }
-    updatePmo(pmoId, body)
-  }
-  const removePmoTask = (pmoId, taskId) => {
-    const pmo = pmos.find((u) => u.id === pmoId)
-    if (!pmo) return
-    const removed = (pmo.tasks || []).find((t) => t.id === taskId)
-    const log = pmoLogEntry('task.delete', `Deleted task "${removed?.name || 'Untitled'}"`, { taskId }, user)
-    updatePmo(pmoId, {
-      tasks: (pmo.tasks || []).filter((t) => t.id !== taskId),
-      logs: [log, ...(pmo.logs || [])],
-    })
-  }
 
   const isOwner = !!user && !user.ownerId // owners/admins see the whole team by default
   const canViewTeam = isOwner || hasPermission(user, 'tasks.team')
@@ -128,7 +98,7 @@ export default function Tasks() {
   const [activityDateRange, setActivityDateRange] = useState(null)
   const [editingKey, setEditingKey] = useState(null)
 
-  const allTasks = useMemo(() => collectTasks(state, pmos), [state, pmos])
+  const allTasks = useMemo(() => collectTasks(state), [state])
 
   // Scope first: a member's board defaults to tasks assigned to their account.
   // Without the 'tasks.team' ability, the team view is unavailable entirely.
@@ -197,11 +167,8 @@ export default function Tasks() {
     for (const cam of state.campaigns || []) {
       for (const l of cam.logs || []) logs.push({ ...l, ownerName: cam.name, link: `/marketing/${cam.id}`, actorName: actorName(l) })
     }
-    for (const u of pmos) {
-      for (const l of u.logs || []) logs.push({ ...l, ownerName: u.name || u.username, link: `/pmo/${u.id}`, actorName: actorName(l) })
-    }
     return logs.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''))
-  }, [state.customers, state.partners, state.campaigns, state.team, pmos])
+  }, [state.customers, state.partners, state.campaigns, state.team])
 
   const filteredActivity = useMemo(() => {
     const needle = activityQuery.trim().toLowerCase()
@@ -225,11 +192,6 @@ export default function Tasks() {
   // assertOwnTaskChangesOnly (OhMyCMO_API/src/utils/tenant.js).
   const canEditTask = (task) => {
     const selfService = isOwner || !task.assigneeId || task.assigneeId === user?.id
-    // A PMO task assigned to someone else additionally needs 'pmo.manage' —
-    // everyone can self-service their own (or an unassigned) PMO task same as
-    // customer/partner tasks; only reaching into someone ELSE's PMO task is
-    // the step up, matching the backend's PATCH /pmo/:id field-level check.
-    if (task.source === 'pmo' && !selfService) return hasPermission(user, 'pmo.manage')
     return selfService
   }
   const canDeleteTask = (task) => canEditTask(task) && hasPermission(user, 'tasks.delete')
@@ -245,7 +207,6 @@ export default function Tasks() {
     if (status === 'Done') stamp.progress = 100
     if (task.source === 'customer') updateCustomerTask(task.ownerId, task.taskId, { status, ...stamp })
     else if (task.source === 'partner') updatePartnerTask(task.ownerId, task.taskId, { status, ...stamp })
-    else if (task.source === 'pmo') patchPmoTask(task.ownerId, task.taskId, { status, ...stamp })
     else updateCampaignTodo(task.ownerId, task.taskId, { postStatus: TASK_TO_POST_STATUS[status] || 'draft', ...stamp })
   }
 
@@ -264,21 +225,19 @@ export default function Tasks() {
     if (!flat) return null
     const list = flat.source === 'customer' ? state.customers
       : flat.source === 'partner' ? state.partners
-      : flat.source === 'pmo' ? pmos
       : state.campaigns
     const parent = (list || []).find((e) => e.id === flat.ownerId)
     const items = flat.source === 'marketing' ? parent?.todos : parent?.tasks
     const raw = (items || []).find((tk) => tk.id === flat.taskId)
     if (!raw) return null
     return { flat, parent, raw }
-  }, [editingKey, allTasks, state.customers, state.partners, state.campaigns, pmos])
+  }, [editingKey, allTasks, state.customers, state.partners, state.campaigns])
 
   const saveTask = (patch) => {
     if (!editing) return
     const { source, ownerId, taskId } = editing.flat
     if (source === 'customer') updateCustomerTask(ownerId, taskId, patch)
     else if (source === 'partner') updatePartnerTask(ownerId, taskId, patch)
-    else if (source === 'pmo') patchPmoTask(ownerId, taskId, patch)
     else updateCampaignTodo(ownerId, taskId, patch)
   }
 
@@ -287,7 +246,6 @@ export default function Tasks() {
     const { source, ownerId, taskId } = editing.flat
     if (source === 'customer') removeCustomerTask(ownerId, taskId)
     else if (source === 'partner') removePartnerTask(ownerId, taskId)
-    else if (source === 'pmo') removePmoTask(ownerId, taskId)
     else removeCampaignTodo(ownerId, taskId)
     setEditingKey(null)
   }
@@ -353,7 +311,6 @@ export default function Tasks() {
           <option value="customer">{t('tasks.filter.customers')}</option>
           <option value="partner">{t('tasks.filter.partners')}</option>
           <option value="marketing">{t('tasks.filter.marketing')}</option>
-          <option value="pmo">{t('tasks.filter.pmo')}</option>
         </select>
         <div className="flex rounded-xl border border-shadow overflow-hidden">
           <button
@@ -699,7 +656,6 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
   const { flat, parent, raw } = editing
   const isCustomer = flat.source === 'customer'
   const isMarketing = flat.source === 'marketing'
-  const isPmo = flat.source === 'pmo'
   const groups = isCustomer ? (parent?.taskGroups || []) : []
 
   const [form, setForm] = useState({
@@ -732,7 +688,7 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
     // on leaving Done. Marketing "published" maps to the board's Done column.
     const doneAt = doneStamp(form.status, raw.doneAt)
     const progress = progressForStatus(form.status, form.progress)
-    const patch = isCustomer || isPmo
+    const patch = isCustomer
       ? {
           name: form.name.trim(), description: form.description, status: form.status,
           due: form.due, assignee: form.assignee, assigneeId: form.assigneeId,
@@ -805,7 +761,7 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
           onChange={(progress) => update({ progress })}
         />
 
-        {isCustomer || isPmo ? (
+        {isCustomer ? (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">{t('tasks.field.priority')}</label>

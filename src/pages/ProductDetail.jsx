@@ -164,14 +164,6 @@ export default function ProductDetail() {
           <div className="min-w-0 flex-1">
             <p className="font-bold truncate text-near-black">{product.name}</p>
             <p className="text-xs text-graphite">{product.type}</p>
-            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-graphite mt-1">
-              <span className="flex items-center gap-1">
-                {t('product.pmoOwner.short')}:
-                <span className="font-medium">
-                  {product.pmoOwner ? (product.pmoOwner.name || product.pmoOwner.username) : t('product.pmoOwner.none')}
-                </span>
-              </span>
-            </div>
           </div>
         </section>
 

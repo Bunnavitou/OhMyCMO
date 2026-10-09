@@ -18,14 +18,6 @@ import { useT } from '../i18n/LanguageContext.jsx'
 
 const LOGO_LIMIT_BYTES = 2 * 1024 * 1024
 
-function initialsOf(nameOrId) {
-  if (!nameOrId) return '?'
-  const base = nameOrId.includes('@') ? nameOrId.split('@')[0] : nameOrId
-  const parts = base.split(/[\s._-]+/).filter(Boolean)
-  const letters = (parts[0]?.[0] || '') + (parts[1]?.[0] || '')
-  return (letters || base.slice(0, 2)).toUpperCase()
-}
-
 export default function Products() {
   const { state, addProduct } = useStore()
   const { user } = useAuth()
@@ -200,27 +192,6 @@ export default function Products() {
                           {t(isService ? 'product.type.service' : 'product.type.product')}
                         </span>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-graphite">
-                      {p.pmoOwner && hasImage(p.pmoOwner.avatar) ? (
-                        <AuthImage
-                          value={p.pmoOwner.avatar}
-                          alt={p.pmoOwner.name || p.pmoOwner.username}
-                          className="w-6 h-6 rounded-lg object-cover border border-shadow bg-iron shrink-0"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold shrink-0">
-                          {p.pmoOwner ? initialsOf(p.pmoOwner.name || p.pmoOwner.username) : '?'}
-                        </div>
-                      )}
-                      <span className="truncate">
-                        {p.pmoOwner ? (p.pmoOwner.name || p.pmoOwner.username) : t('product.pmoOwner.none')}
-                      </span>
-                      {p.pmoOwner && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wider px-1 py-0.5 rounded bg-brand-50 text-brand-700 shrink-0">
-                          {t('product.pmoOwner.short')}
-                        </span>
-                      )}
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="bg-emerald-50 text-emerald-700 rounded-lg p-2">

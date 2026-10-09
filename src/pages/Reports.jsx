@@ -1,7 +1,6 @@
 import { Fragment, useState, useMemo, useRef, useEffect } from 'react'
 import { Plus, FileBarChart, Pencil, Trash2, Save, AlertCircle, X, Download, Upload, Table2, FileDown, History, TrendingUp, Calendar, Copy } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
-import { useSubUsers } from '../api/subUsers.js'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -1192,9 +1191,7 @@ const STATUS_KEYS = ['Todo', 'In Progress', 'Done', 'Blocked']
 function TeamTaskReport() {
   const { state } = useStore()
   const { t } = useT()
-  const { items: subUsers } = useSubUsers()
-  const pmos = useMemo(() => subUsers.filter((u) => u.isPmo), [subUsers])
-  const allTasks = useMemo(() => collectTasks(state, pmos), [state, pmos])
+  const allTasks = useMemo(() => collectTasks(state), [state])
   const team = useMemo(() => state.team || [], [state.team])
 
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | one of STATUS_KEYS

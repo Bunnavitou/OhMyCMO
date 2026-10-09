@@ -2,8 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Mail, Briefcase, LogOut, AtSign, KeyRound, Pencil, Camera, Check, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext.jsx'
-import { hasPermission } from '../auth/permissions.js'
-import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import AuthImage from '../components/AuthImage.jsx'
 import ImageCropModal from '../components/ImageCropModal.jsx'
@@ -102,15 +100,8 @@ function PasswordInput({ label, value, onChange, autoComplete, required, minLeng
 // as plain text rather than pulled into edit mode.
 function ProfileCard({ displayName, role }) {
   const { user, updateProfile } = useAuth()
-  const { refreshProducts } = useStore()
   const { t } = useT()
   const initials = initialsOf(user?.name || user?.email || user?.username)
-  // Products denormalize their PMO owner's name/avatar at fetch time — an
-  // edit here needs a manual refetch so the Billing page picks it up
-  // without waiting for a full app reload.
-  const syncOwnedProducts = () => {
-    if (hasPermission(user, 'products')) refreshProducts()
-  }
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
   const [avatarError, setAvatarError] = useState('')
@@ -146,7 +137,6 @@ function ProfileCard({ displayName, role }) {
     })
     await updateProfile({ avatar })
     setCropFile(null)
-    syncOwnedProducts()
   }
 
   async function submit(e) {
@@ -158,7 +148,6 @@ function ProfileCard({ displayName, role }) {
     try {
       await updateProfile({ name: trimmedName })
       setEditing(false)
-      syncOwnedProducts()
     } catch (err) {
       setError(err?.message || t('profile.profileUpdateFailed'))
     } finally {

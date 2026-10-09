@@ -72,7 +72,6 @@ export const priorityStyle = (p) =>
 export const sourceStyle = (source) =>
   source === 'partner' ? 'bg-violet-100 text-violet-700'
   : source === 'marketing' ? 'bg-amber-100 text-amber-700'
-  : source === 'pmo' ? 'bg-emerald-100 text-emerald-700'
   : 'bg-sky-100 text-sky-700'
 
 export const todayStr = () => new Date().toISOString().slice(0, 10)
@@ -140,24 +139,8 @@ export const editLogEntry = (before, after, meaningful, { noun, name, statusKey 
   }
 }
 
-// One audit-log entry for a PMO task change — same shape as the
-// Customer/Partner/Campaign task logs so the Tasks "Team activity" feed
-// renders them all uniformly. PMO logs are a plain JSON column (like
-// Campaign.logs), built client-side rather than via a dedicated log table.
-export function pmoLogEntry(type, message, meta, user) {
-  return {
-    id: `ulog-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-    ts: new Date().toISOString(),
-    type,
-    message,
-    meta: { ...meta, by: user?.id, byName: memberName(user) },
-  }
-}
-
-// Flatten every customer + partner + marketing + PMO task into one comparable
-// shape. PMO tasks live on sub-user accounts (fetched separately via
-// useSubUsers, not part of `state`), so they're passed in as `pmos`.
-export function collectTasks(state, pmos) {
+// Flatten every customer + partner + marketing task into one comparable shape.
+export function collectTasks(state) {
   const out = []
   for (const c of state.customers || []) {
     const groups = c.taskGroups || []
@@ -236,31 +219,6 @@ export function collectTasks(state, pmos) {
         groupName: t.channel || '',
         doneAt: t.doneAt || '',
         progress: progressForStatus(POST_STATUS_TO_TASK[t.postStatus] || 'Todo', t.progress),
-      })
-    }
-  }
-  for (const u of pmos || []) {
-    for (const t of u.tasks || []) {
-      out.push({
-        key: `u:${u.id}:${t.id}`,
-        source: 'pmo',
-        ownerId: u.id,
-        ownerName: u.name || u.username,
-        ownerCompany: u.name || u.username,
-        ownerLabel: 'PM',
-        link: `/pmo/${u.id}`,
-        taskId: t.id,
-        name: t.name || 'Untitled',
-        description: t.description || '',
-        status: t.status || 'Todo',
-        due: t.due || '',
-        assignee: t.assignee || '',
-        assigneeId: t.assigneeId || '',
-        createdByName: t.createdByName || '',
-        priority: t.priority || '',
-        groupName: '',
-        doneAt: t.doneAt || '',
-        progress: progressForStatus(t.status || 'Todo', t.progress),
       })
     }
   }
