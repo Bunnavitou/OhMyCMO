@@ -32,6 +32,8 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
   const { user } = useAuth()
   const { t, lang } = useT()
   const isOwner = !user?.ownerId
+  // Choosing the sales officer: the owner, or a sub-user given 'sales.assign'.
+  const canAssign = hasPermission(user, 'sales.assign')
   const canDelete = sale && (isOwner || sale.userId === user?.id) && hasPermission(user, 'sales.delete')
 
   const [form, setForm] = useState(() => {
@@ -103,7 +105,7 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
       dueDate: a.dueDate || null,
       assigneeId: a.assigneeId || null,
     })),
-    ...(isOwner ? { userId: form.userId } : {}),
+    ...(canAssign ? { userId: form.userId } : {}),
   })
   const save = () => (sale ? saleApi.update(sale.id, buildBody()) : saleApi.create(buildBody()))
 
@@ -214,7 +216,7 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
             )}
           </Row>
           <Row label={t('sales.field.officer')}>
-            {isOwner ? (
+            {canAssign ? (
               <Select className="input" value={form.userId} onChange={set('userId')}>
                 {(state.team || []).filter((m) => m.active !== false || m.id === form.userId)
                   .map((m) => <option key={m.id} value={m.id}>{memberName(m)}</option>)}

@@ -21,7 +21,8 @@ const ACCESS_MENUS = [
 ]
 
 // Per-menu action abilities (opt-OUT: allowed by default, turned off to
-// restrict). Shown nested under their parent menu. Keys are menu-scoped.
+// restrict), except those marked optIn (off by default — see
+// auth/permissions.js). Shown nested under their parent menu.
 const MENU_ABILITIES = {
   tasks: [
     { key: 'tasks.team',   label: 'View team tasks' },
@@ -33,6 +34,7 @@ const MENU_ABILITIES = {
   ],
   sales: [
     { key: 'sales.delete', label: 'Delete sales' },
+    { key: 'sales.assign', label: 'Assign sales officer (add sales for others)', optIn: true },
   ],
   products: [
     { key: 'billing.create',    label: 'Create products/services' },
@@ -235,7 +237,8 @@ function SubUserForm({ initial, peers = [], submitting, error, onSubmit, onDelet
   const togglePermission = (k) => setPermissions((a) => ({ ...a, [k]: !a[k] }))
   // Abilities are opt-out: allowed unless explicitly false. Flipping the
   // effective state (absent/true → false, false → true).
-  const toggleAbility = (k) => setPermissions((a) => ({ ...a, [k]: a[k] === false }))
+  const abilityOn = (a) => (a.optIn ? permissions[a.key] === true : permissions[a.key] !== false)
+  const toggleAbility = (a) => setPermissions((p) => ({ ...p, [a.key]: a.optIn ? p[a.key] !== true : p[a.key] === false }))
 
   const handleSelectAll = () => {
     const allOn = ACCESS_MENUS.every((m) => permissions[m.key])
@@ -368,7 +371,7 @@ function SubUserForm({ initial, peers = [], submitting, error, onSubmit, onDelet
                 {on && abilities.length > 0 && (
                   <div className="border-t border-shadow divide-y divide-shadow bg-iron/30">
                     {abilities.map((a) => {
-                      const aon = permissions[a.key] !== false
+                      const aon = abilityOn(a)
                       return (
                         <label
                           key={a.key}
@@ -377,14 +380,17 @@ function SubUserForm({ initial, peers = [], submitting, error, onSubmit, onDelet
                           <input
                             type="checkbox"
                             checked={aon}
-                            onChange={() => toggleAbility(a.key)}
+                            onChange={() => toggleAbility(a)}
                             className="w-4 h-4 accent-wise-green"
                           />
-                          <span className="flex-1 text-[13px] text-near-black">{a.label}</span>
+                          <span className="flex-1 text-[13px] text-near-black">
+                            {a.label}
+                            {a.optIn && <span className="ml-1.5 text-[11px] text-graphite">· off by default</span>}
+                          </span>
                           <span
                             className={`pill ${aon ? 'bg-wise-green text-wise-dark' : 'bg-danger-100 text-danger-700'}`}
                           >
-                            {aon ? 'Allowed' : 'Restricted'}
+                            {aon ? 'Allowed' : a.optIn ? 'Off' : 'Restricted'}
                           </span>
                         </label>
                       )
