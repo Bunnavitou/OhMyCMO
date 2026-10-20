@@ -16,10 +16,10 @@ export const useCustomerHealth = () => {
   return { ...r, byId, thresholds: r.data?.thresholds }
 }
 
-// Check-ins due in from..to (plus overdue ones) for the Weekly Plan;
-// `userId` = one care owner's customers.
+// Check-ins for the Weekly Plan: `items` due in from..to (plus overdue ones),
+// `done` logged in from..to; `userId` = one person's.
 export const useCheckins = ({ from, to, userId }) => {
   const q = new URLSearchParams({ from, to, ...(userId ? { userId } : {}) })
   const r = useLoader(`/customers/checkins?${q}`)
-  return { ...r, items: r.data?.items || [] }
+  return { ...r, items: r.data?.items || [], done: r.data?.done || [] }
 }

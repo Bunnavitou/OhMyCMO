@@ -272,12 +272,16 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
   const days = weekDays(monday)
   const { items, loading, refresh } = useCalendar({ from: monday, to: addDays(monday, 6), userId: person })
   // Regular check-ins due this week; overdue ones sit on today (this week only).
-  const { items: checkins, refresh: refreshCheckins } = useCheckins({ from: monday, to: addDays(monday, 6), userId: person })
+  const { items: checkins, done: checkinsDone, refresh: refreshCheckins } = useCheckins({ from: monday, to: addDays(monday, 6), userId: person })
   const checkinDay = (c) => (c.status === 'overdue' ? (days.includes(today) ? today : null) : c.nextDue)
   const checkinsOn = (d) => checkins.filter((c) => checkinDay(c) === d)
+  const doneCheckinsOn = (d) => checkinsDone.filter((c) => c.date === d)
+  const countOn = (d) => byDay(d).length + checkinsOn(d).length + doneCheckinsOn(d).length
 
   const byDay = (d) => items.filter((a) => dateOnly(a.dueDate) === d)
-  const done = items.filter((a) => a.status === 'Done').length
+  // Logged check-ins count as done; due ones as still planned.
+  const done = items.filter((a) => a.status === 'Done').length + checkinsDone.length
+  const planned = items.length + checkins.length + checkinsDone.length
   const canTouch = (a) => !user?.ownerId || a.assigneeId === user?.id || a.sale?.userId === user?.id
 
   const moveWeek = (n) => { const m = addDays(monday, 7 * n); setMonday(m); setDay(m) }
@@ -320,6 +324,10 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
       onOpen={() => navigate(`/customers/${c.customerId}`)}
       onLog={canCheckin(c) ? () => logCheckin(c) : null} />
   )
+  const doneCheckinCard = (c) => (
+    <DoneCheckinCard key={`care-done-${c.id}`} c={c} by={(state.team || []).find((m) => m.id === c.byId)}
+      onOpen={() => navigate(`/customers/${c.customerId}`)} />
+  )
 
   return (
     <div className="space-y-3">
@@ -338,7 +346,7 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
             <option key={m.id} value={m.id}>{m.id === user?.id ? t('sales.me') : memberName(m)}</option>
           ))}
         </Select>
-        <span className="text-sm text-graphite md:ml-auto">{t('sales.completion', { done, planned: items.length })}</span>
+        <span className="text-sm text-graphite md:ml-auto">{t('sales.completion', { done, planned })}</span>
       </div>
       {error && <p className="text-sm text-danger-700">{error}</p>}
 
@@ -352,6 +360,7 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
             <div className="group min-h-[320px] rounded-2xl bg-iron p-1.5 space-y-1.5">
               {checkinsOn(d).map(checkinCard)}
               {byDay(d).map(card)}
+              {doneCheckinsOn(d).map(doneCheckinCard)}
               <button onClick={() => onAdd({ date: d })} className="w-full py-1 text-xs text-graphite opacity-0 group-hover:opacity-100 hover:text-wise-dark">+ {t('sales.new')}</button>
             </div>
           </div>
@@ -365,19 +374,20 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
             <button key={d} onClick={() => setDay(d)}
               className={`py-2 rounded-xl text-xs font-bold ${d === day ? 'bg-wise-dark text-white' : d === today ? 'bg-brand-50 text-brand-700' : 'bg-iron text-graphite'}`}>
               {fmtDay(d, lang, { weekday: 'narrow' })}<br />{fmtDay(d, lang, { day: 'numeric' })}
-              {byDay(d).length + checkinsOn(d).length > 0 && <span className="block text-[10px] font-semibold opacity-80">{byDay(d).length + checkinsOn(d).length}</span>}
+              {countOn(d) > 0 && <span className="block text-[10px] font-semibold opacity-80">{countOn(d)}</span>}
             </button>
           ))}
         </div>
         <div className="space-y-2">
           {checkinsOn(day).map(checkinCard)}
           {byDay(day).map(card)}
+          {doneCheckinsOn(day).map(doneCheckinCard)}
           <button className="w-full rounded-2xl border border-dashed border-shadow py-3 text-sm text-graphite" onClick={() => onAdd({ date: day })}>
             + {t('sales.new')}
           </button>
         </div>
       </div>
-      {!loading && items.length === 0 && checkins.length === 0 && <p className="text-sm text-graphite">{t('sales.week.empty')}</p>}
+      {!loading && planned === 0 && <p className="text-sm text-graphite">{t('sales.week.empty')}</p>}
       {winning && (
         <WinDialog partner={winning.sale.partner} productId={winning.sale.productId}
           onClose={() => setWinning(null)} onConfirm={win} />
@@ -440,6 +450,28 @@ function CheckinCard({ c, onOpen, onLog }) {
         </div>
       </button>
     </div>
+  )
+}
+
+// A check-in logged this week: ticked, with who did it and the note.
+function DoneCheckinCard({ c, by, onOpen }) {
+  const { t } = useT()
+  return (
+    <button type="button" onClick={onOpen} aria-label={t('care.openCustomer')}
+      className="card !p-2 w-full flex gap-1.5 items-start text-left hover:ring-2 hover:ring-brand-300">
+      <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-success-600" />
+      <span className="flex-1 min-w-0 space-y-0.5">
+        <span className="text-[12px] font-bold truncate flex items-center gap-1 line-through text-graphite">
+          <HeartHandshake className="w-3.5 h-3.5 shrink-0" /> {t('care.checkin')}
+        </span>
+        <span className="block text-xs font-semibold text-graphite truncate">{c.name}</span>
+        {c.note && <span className="block text-[11px] text-graphite truncate" title={c.note}>{c.note}</span>}
+        <span className="flex items-center gap-1 flex-wrap">
+          <span className="pill !text-[10px] !px-1.5 !py-0 bg-success-100 text-success-700">{t('care.logged')}</span>
+          {by && <span className="text-[10px] text-graphite truncate">{memberName(by)}</span>}
+        </span>
+      </span>
+    </button>
   )
 }
 
