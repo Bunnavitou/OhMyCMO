@@ -88,7 +88,7 @@ export default function CustomerDetailAgreement({ customer }) {
       <p className="text-[11px] text-graphite px-1">
         Agreement documents are stored on this device. 1 MB max per file.
       </p>
-      {error && <p className="text-xs text-rose-600 px-1">{error}</p>}
+      {error && <p className="text-xs text-danger-600 px-1">{error}</p>}
 
       {sorted.length === 0 ? (
         <p className="text-center text-sm text-graphite py-6">No agreements recorded yet.</p>
@@ -148,7 +148,7 @@ export default function CustomerDetailAgreement({ customer }) {
                 {canManage && (
                   <button
                     onClick={() => handleDelete(a.id)}
-                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"
+                    className="p-2 text-danger-500 hover:bg-danger-50 rounded-lg"
                     aria-label="Delete agreement"
                   >
                     <Trash2 className="w-4 h-4" />

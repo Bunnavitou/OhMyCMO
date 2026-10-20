@@ -9,6 +9,7 @@ import { ProfileImagePicker } from './Customers.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import AuthImage from '../components/AuthImage.jsx'
 import { persistImageRef, hasImage } from '../utils/imageRef.js'
+import Select from '../components/Select.jsx'
 
 const stages = ['Prospect', 'Active', 'On hold', 'Churned']
 
@@ -70,7 +71,7 @@ export default function CustomerDetailOrg({ customer }) {
               {canDelete && (
                 <button
                   onClick={onDelete}
-                  className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
+                  className="p-2 rounded-full hover:bg-danger-50 text-danger-500 transition-transform hover:scale-105 active:scale-95"
                   aria-label="Delete customer"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -203,19 +204,19 @@ function CustomerForm({ initial, groups, onSubmit, t }) {
         </div>
         <div>
           <label className="label">Stage</label>
-          <select className="input" value={form.stage} onChange={change('stage')}>
+          <Select className="input" value={form.stage} onChange={change('stage')}>
             {stages.map((s) => <option key={s}>{s}</option>)}
-          </select>
+          </Select>
         </div>
       </div>
       <div>
         <label className="label">{t('customer.field.group')}</label>
-        <select className="input" value={form.groupId} onChange={change('groupId')}>
+        <Select className="input" value={form.groupId} onChange={change('groupId')}>
           <option value="">{t('customer.field.groupNone')}</option>
           {groups.map((g) => (
             <option key={g.id} value={g.id}>{g.name}</option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

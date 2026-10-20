@@ -7,8 +7,8 @@
     height: 100%;
   }
   body {
-    background-color: #FFFFFF;
-    color: #0E0F0C;
+    background-color: theme('colors.white');
+    color: theme('colors.near-black');
     font-family: Inter, "Noto Sans KR", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
     font-feature-settings: 'calt' 1; /* contextual alternates everywhere */
     font-weight: 600; /* Inter Semibold as default reading weight per Wise spec */
@@ -21,7 +21,7 @@
     font-weight: 900;
     line-height: 0.85;
     letter-spacing: -0.02em;
-    color: #0E0F0C;
+    color: theme('colors.near-black');
   }
 
   /* Korean: promote Noto Sans KR to the front. LanguageContext sets
@@ -47,9 +47,9 @@
     font-family: "Noto Sans KR", Inter, system-ui, sans-serif;
   }
   /* Native form controls. */
-  select option { background: #FFFFFF; color: #0E0F0C; }
+  select option { background: theme('colors.white'); color: theme('colors.near-black'); }
   input, textarea, select { color-scheme: light; }
-  ::placeholder { color: #868685; }
+  ::placeholder { color: theme('colors.ash'); }
   /* Hover register: links drift to dark green per Wise convention. */
   a { transition: color 150ms ease; }
 }
@@ -57,9 +57,9 @@
 @layer components {
   /* Surface — white card with hairline ring border + 30px radius. */
   .card {
-    background: #FFFFFF;
-    color: #0E0F0C;
-    border: 1px solid rgba(14, 15, 12, 0.12);
+    background: theme('colors.white');
+    color: theme('colors.near-black');
+    border: 1px solid theme('colors.near-black / 12%');
     border-radius: 30px;
     padding: 1rem;
   }
@@ -86,8 +86,8 @@
     justify-content: center;
     gap: 0.4rem;
     padding: 10px 22px;
-    background: #9FE870;
-    color: #163300;
+    background: theme('colors.brand.500');
+    color: theme('colors.brand.800');
     font-family: Inter, "Noto Sans KR", system-ui, sans-serif;
     font-size: 0.9375rem;
     font-weight: 600;
@@ -98,7 +98,7 @@
   }
   .btn-primary:hover {
     transform: scale(1.04);
-    background: #CDFFAD;
+    background: theme('colors.brand.200');
   }
   .btn-primary:active {
     transform: scale(0.96);
@@ -116,8 +116,8 @@
     justify-content: center;
     gap: 0.4rem;
     padding: 10px 18px;
-    background: rgba(22, 51, 0, 0.08);
-    color: #0E0F0C;
+    background: theme('colors.brand.800 / 8%');
+    color: theme('colors.near-black');
     font-family: Inter, "Noto Sans KR", system-ui, sans-serif;
     font-size: 0.9375rem;
     font-weight: 600;
@@ -128,7 +128,7 @@
   }
   .btn-ghost:hover {
     transform: scale(1.04);
-    background: rgba(22, 51, 0, 0.14);
+    background: theme('colors.brand.800 / 14%');
   }
   .btn-ghost:active { transform: scale(0.96); }
 
@@ -139,20 +139,20 @@
   .input {
     width: 100%;
     padding: 10px 14px;
-    background: #FFFFFF;
-    color: #0E0F0C;
-    border: 1px solid rgba(14, 15, 12, 0.18);
+    background: theme('colors.white');
+    color: theme('colors.near-black');
+    border: 1px solid theme('colors.near-black / 18%');
     border-radius: 10px;
     font-size: 0.9375rem;
     font-weight: 500;
     transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
   }
-  .input::placeholder { color: #868685; }
+  .input::placeholder { color: theme('colors.ash'); }
   .input:focus {
     outline: none;
-    border-color: #163300;
-    box-shadow: inset 0 0 0 1px #163300;
-    background: #FFFFFF;
+    border-color: theme('colors.brand.800');
+    box-shadow: inset 0 0 0 1px theme('colors.brand.800');
+    background: theme('colors.white');
   }
 
   /* Field label — small near-black semibold. */
@@ -160,7 +160,7 @@
     display: block;
     font-size: 12px;
     font-weight: 600;
-    color: #454745;
+    color: theme('colors.graphite');
     margin-bottom: 6px;
     letter-spacing: -0.005em;
   }
@@ -169,7 +169,7 @@
   .section-title {
     font-size: 14px;
     font-weight: 700;
-    color: #454745;
+    color: theme('colors.graphite');
     letter-spacing: -0.01em;
   }
 
@@ -179,7 +179,7 @@
     font-weight: 900;
     line-height: 0.85;
     letter-spacing: -0.025em;
-    color: #0E0F0C;
+    color: theme('colors.near-black');
   }
 
   /* Percentage slider (task / post completion). The filled portion is painted
@@ -200,10 +200,10 @@
     border-radius: 9999px;
     background: linear-gradient(
       to right,
-      #163300 0%,
-      #163300 var(--pct, 0%),
-      rgba(14, 15, 12, 0.12) var(--pct, 0%),
-      rgba(14, 15, 12, 0.12) 100%
+      theme('colors.brand.800') 0%,
+      theme('colors.brand.800') var(--pct, 0%),
+      theme('colors.near-black / 12%') var(--pct, 0%),
+      theme('colors.near-black / 12%') 100%
     );
   }
   .range::-webkit-slider-thumb {
@@ -213,32 +213,32 @@
     height: 18px;
     margin-top: -6px; /* centre the thumb on the 6px track */
     border-radius: 9999px;
-    background: #9FE870;
-    border: 2px solid #163300;
+    background: theme('colors.brand.500');
+    border: 2px solid theme('colors.brand.800');
     transition: transform 150ms ease;
   }
   .range:hover::-webkit-slider-thumb { transform: scale(1.12); }
   .range:active::-webkit-slider-thumb { transform: scale(0.94); }
-  .range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(22, 51, 0, 0.25); }
+  .range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px theme('colors.brand.800 / 25%'); }
 
   .range::-moz-range-track {
     height: 6px;
     border-radius: 9999px;
-    background: rgba(14, 15, 12, 0.12);
+    background: theme('colors.near-black / 12%');
   }
   .range::-moz-range-progress {
     height: 6px;
     border-radius: 9999px;
-    background: #163300;
+    background: theme('colors.brand.800');
   }
   .range::-moz-range-thumb {
     width: 14px;
     height: 14px;
     border-radius: 9999px;
-    background: #9FE870;
-    border: 2px solid #163300;
+    background: theme('colors.brand.500');
+    border: 2px solid theme('colors.brand.800');
   }
   .range:focus { outline: none; }
 
-  .hairline { border-color: rgba(14, 15, 12, 0.12); }
+  .hairline { border-color: theme('colors.near-black / 12%'); }
 }

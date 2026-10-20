@@ -88,7 +88,7 @@ export default function CustomerDetailEmail({ customer }) {
         <label className="label">{t('customer.email.to')} *</label>
         <CcEditor value={to} onChange={setTo} />
         {to.length > 0 && !toValid && (
-          <p className="text-xs text-red-600 mt-1">{t('customer.email.invalid')}</p>
+          <p className="text-xs text-danger-600 mt-1">{t('customer.email.invalid')}</p>
         )}
       </div>
 
@@ -134,7 +134,7 @@ export default function CustomerDetailEmail({ customer }) {
       </button>
 
       {savedFlash && (
-        <p className="text-xs text-emerald-700 text-center">{t('customer.email.saved')}</p>
+        <p className="text-xs text-success-700 text-center">{t('customer.email.saved')}</p>
       )}
 
       <div className="grid grid-cols-2 gap-2">

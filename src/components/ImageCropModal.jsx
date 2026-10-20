@@ -145,7 +145,7 @@ export default function ImageCropModal({ file, onCancel, onSave }) {
         </div>
 
         <p className="text-xs text-graphite text-center">{t('profile.cropHint')}</p>
-        {error && <p className="text-xs text-rose-600 text-center">{error}</p>}
+        {error && <p className="text-xs text-danger-600 text-center">{error}</p>}
 
         <div className="flex gap-2 w-full pt-1">
           <button

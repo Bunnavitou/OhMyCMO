@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, ArrowRight, Info } from 'lucide-react'
 import Modal from './Modal.jsx'
+import Select from './Select.jsx'
 
 const PRESETS = ['Today', 'Yesterday', 'Week', 'Last Week', 'This Month', 'Last Month', 'This Year']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -115,22 +116,22 @@ function MiniCalendar({ month, year, setMonth, setYear, start, end, role, onPick
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <select
+        <Select
           value={month}
           onChange={(e) => setMonth(Number(e.target.value))}
           className="flex-1 input !py-1.5 !text-sm appearance-none pr-7"
           style={{ backgroundImage: 'none' }}
         >
           {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-        </select>
-        <select
+        </Select>
+        <Select
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
           className="flex-1 input !py-1.5 !text-sm appearance-none pr-7"
           style={{ backgroundImage: 'none' }}
         >
           {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
+        </Select>
         <button
           type="button"
           onClick={() => stepMonth(1)}

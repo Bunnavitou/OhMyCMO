@@ -53,26 +53,26 @@ export const doneStamp = (status, previous) =>
   status === 'Done' ? (previous || new Date().toISOString()) : null
 
 export const progressBarStyle = (pct) =>
-  pct >= 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-wise-dark' : 'bg-shadow'
+  pct >= 100 ? 'bg-success-500' : pct > 0 ? 'bg-wise-dark' : 'bg-shadow'
 
 export const statusStyle = (s) =>
-  s === 'Done' ? 'bg-emerald-100 text-emerald-700'
+  s === 'Done' ? 'bg-success-100 text-success-700'
   : s === 'In Progress' ? 'bg-brand-100 text-brand-700'
-  : s === 'Blocked' ? 'bg-rose-100 text-rose-700'
+  : s === 'Blocked' ? 'bg-danger-100 text-danger-700'
   : 'bg-iron text-graphite'
 
 export const priorityStyle = (p) =>
-  p === 'High' ? 'bg-rose-100 text-rose-700'
-  : p === 'Medium' ? 'bg-amber-100 text-amber-700'
-  : p === 'Low' ? 'bg-sky-100 text-sky-700'
+  p === 'High' ? 'bg-danger-100 text-danger-700'
+  : p === 'Medium' ? 'bg-warning-100 text-warning-700'
+  : p === 'Low' ? 'bg-info-100 text-info-700'
   : 'bg-iron text-graphite'
 
 // Distinguishes customer vs. partner tasks when both mix in one list (the
 // global Tasks board, Home's upcoming-tasks widget).
 export const sourceStyle = (source) =>
-  source === 'partner' ? 'bg-violet-100 text-violet-700'
-  : source === 'marketing' ? 'bg-amber-100 text-amber-700'
-  : 'bg-sky-100 text-sky-700'
+  source === 'partner' ? 'bg-accent-100 text-accent-700'
+  : source === 'marketing' ? 'bg-warning-100 text-warning-700'
+  : 'bg-info-100 text-info-700'
 
 export const todayStr = () => new Date().toISOString().slice(0, 10)
 
@@ -92,8 +92,8 @@ export function dueBucket(due, status) {
 }
 
 export const dueTextStyle = (bucket) =>
-  bucket === 'overdue' ? 'text-rose-600 font-semibold'
-  : bucket === 'today' ? 'text-amber-600 font-semibold'
+  bucket === 'overdue' ? 'text-danger-600 font-semibold'
+  : bucket === 'today' ? 'text-warning-600 font-semibold'
   : 'text-graphite'
 
 // Display label for a team member (falls back to username, then a short id).

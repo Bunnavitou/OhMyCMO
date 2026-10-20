@@ -7,7 +7,7 @@ export default function MoreLanguage() {
   return (
     <div className="space-y-3">
       <section className="card flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+        <div className="w-10 h-10 rounded-xl bg-info-100 text-info-700 flex items-center justify-center shrink-0">
           <Globe className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">

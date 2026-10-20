@@ -229,12 +229,12 @@ function ProfileCard({ displayName, role }) {
       </form>
 
       {avatarError && (
-        <p className="flex items-center gap-1.5 text-xs text-red-600">
+        <p className="flex items-center gap-1.5 text-xs text-danger-600">
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />{avatarError}
         </p>
       )}
       {error && (
-        <p className="flex items-center gap-1.5 text-xs text-red-600">
+        <p className="flex items-center gap-1.5 text-xs text-danger-600">
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
         </p>
       )}
@@ -321,12 +321,12 @@ function ChangePassword() {
       />
 
       {error && (
-        <p className="flex items-center gap-1.5 text-xs text-red-600">
+        <p className="flex items-center gap-1.5 text-xs text-danger-600">
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
         </p>
       )}
       {ok && (
-        <p className="flex items-center gap-1.5 text-xs text-green-600">
+        <p className="flex items-center gap-1.5 text-xs text-success-600">
           <Check className="w-3.5 h-3.5 shrink-0" />{t('profile.passwordUpdated')}
         </p>
       )}

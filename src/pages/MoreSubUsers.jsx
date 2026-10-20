@@ -6,10 +6,12 @@ import {
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import { useSubUsers } from '../api/subUsers.js'
+import Select from '../components/Select.jsx'
 
 const ACCESS_MENUS = [
   { key: 'tasks',     label: 'Tasks' },
   { key: 'customers', label: 'Customers' },
+  { key: 'sales',     label: 'Sales' },
   { key: 'products',  label: 'Billing' },
   { key: 'partners',  label: 'Partners' },
   { key: 'marketing', label: 'Marketing' },
@@ -28,6 +30,9 @@ const MENU_ABILITIES = {
   customers: [
     { key: 'customers.agreements', label: 'Manage agreements' },
     { key: 'customers.delete',     label: 'Delete records' },
+  ],
+  sales: [
+    { key: 'sales.delete', label: 'Delete sales' },
   ],
   products: [
     { key: 'billing.create',    label: 'Create products/services' },
@@ -103,7 +108,7 @@ export default function MoreSubUsers() {
 
   if (error) {
     return (
-      <div className="card flex items-start gap-3 text-sm text-rose-700 bg-rose-50 border-rose-200">
+      <div className="card flex items-start gap-3 text-sm text-danger-700 bg-danger-50 border-danger-200">
         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
         <div>
           <p className="font-semibold">Couldn't load sub users.</p>
@@ -166,7 +171,7 @@ export default function MoreSubUsers() {
               <button
                 disabled={busy}
                 onClick={() => onDelete(u)}
-                className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
+                className="p-2 rounded-full hover:bg-danger-50 text-danger-500 transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
                 aria-label="Remove sub user"
               >
                 <Trash2 className="w-4 h-4" />
@@ -177,7 +182,7 @@ export default function MoreSubUsers() {
       )}
 
       {opError && !open && (
-        <p className="text-xs text-rose-600 text-center">{opError}</p>
+        <p className="text-xs text-danger-600 text-center">{opError}</p>
       )}
 
       <p className="text-[11px] text-graphite text-center">
@@ -286,7 +291,7 @@ function SubUserForm({ initial, peers = [], submitting, error, onSubmit, onDelet
         <label className="label">Incharge (reports to)</label>
         <div className="relative">
           <UserCog className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-graphite" />
-          <select
+          <Select
             className="input pl-9"
             value={inChargeId}
             onChange={(e) => setInChargeId(e.target.value)}
@@ -295,7 +300,7 @@ function SubUserForm({ initial, peers = [], submitting, error, onSubmit, onDelet
             {peers.map((p) => (
               <option key={p.id} value={p.id}>{p.name || p.username}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <p className="text-[11px] text-graphite mt-1">
           Who this sub user's work is accountable to. Informational only — doesn't change menu access.
@@ -377,7 +382,7 @@ function SubUserForm({ initial, peers = [], submitting, error, onSubmit, onDelet
                           />
                           <span className="flex-1 text-[13px] text-near-black">{a.label}</span>
                           <span
-                            className={`pill ${aon ? 'bg-wise-green text-wise-dark' : 'bg-rose-100 text-rose-700'}`}
+                            className={`pill ${aon ? 'bg-wise-green text-wise-dark' : 'bg-danger-100 text-danger-700'}`}
                           >
                             {aon ? 'Allowed' : 'Restricted'}
                           </span>
@@ -403,7 +408,7 @@ function SubUserForm({ initial, peers = [], submitting, error, onSubmit, onDelet
       </label>
 
       {(err || error) && (
-        <p className="text-xs text-rose-600">{err || error}</p>
+        <p className="text-xs text-danger-600">{err || error}</p>
       )}
 
       <div className="flex gap-2 pt-2">
@@ -412,7 +417,7 @@ function SubUserForm({ initial, peers = [], submitting, error, onSubmit, onDelet
             type="button"
             disabled={submitting}
             onClick={onDelete}
-            className="px-4 py-2.5 rounded-full text-rose-600 hover:bg-rose-50 text-sm font-semibold disabled:opacity-50"
+            className="px-4 py-2.5 rounded-full text-danger-600 hover:bg-danger-50 text-sm font-semibold disabled:opacity-50"
           >
             Delete
           </button>

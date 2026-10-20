@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import Select from '../components/Select.jsx'
 
 const PHOTO_LIMIT_BYTES = 1024 * 1024 // 1 MB per photo
 
@@ -119,7 +120,7 @@ export default function Assets() {
               <ul className="card divide-y divide-shadow p-0">
                 {items.map((a) => (
                   <li key={a.id} className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-lg bg-info-50 text-info-700 flex items-center justify-center">
                       <Boxes className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -127,14 +128,14 @@ export default function Assets() {
                       <p className="text-xs text-graphite truncate">{a.assignee || t('asset.unassigned')} · {a.serial || '—'}</p>
                     </div>
                     <span className={`pill ${
-                      a.status === 'In use' || a.status === 'Active' ? 'bg-emerald-100 text-emerald-700'
+                      a.status === 'In use' || a.status === 'Active' ? 'bg-success-100 text-success-700'
                       : a.status === 'Storage' ? 'bg-iron text-graphite'
-                      : 'bg-rose-100 text-rose-700'
+                      : 'bg-danger-100 text-danger-700'
                     }`}>{labelOf(STATUSES, a.status, t)}</span>
                     <button onClick={() => setEditing(a)} className="p-1.5 rounded-full hover:bg-iron text-graphite" aria-label={t('common.edit')}><Pencil className="w-4 h-4" /></button>
                     <button
                       onClick={() => { if (confirm(t('asset.delete.confirm'))) removeAsset(a.id) }}
-                      className="p-1.5 rounded-full hover:bg-rose-50 text-rose-500"
+                      className="p-1.5 rounded-full hover:bg-danger-50 text-danger-500"
                       aria-label={t('common.delete')}
                     ><Trash2 className="w-4 h-4" /></button>
                   </li>
@@ -209,15 +210,15 @@ function AssetModal({ open, editing, onClose, onSubmit }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">{t('field.category')}</label>
-            <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+            <Select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
               {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{t(c.tKey)}</option>)}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="label">{t('field.status')}</label>
-            <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <Select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
               {STATUSES.map((s) => <option key={s.value} value={s.value}>{t(s.tKey)}</option>)}
-            </select>
+            </Select>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -261,7 +262,7 @@ function AssetModal({ open, editing, onClose, onSubmit }) {
                     <button
                       type="button"
                       onClick={() => removePhoto(idx)}
-                      className="absolute top-1 right-1 p-1 bg-white/90 text-rose-500 rounded-full shadow hover:bg-white"
+                      className="absolute top-1 right-1 p-1 bg-white/90 text-danger-500 rounded-full shadow hover:bg-white"
                       aria-label={t('asset.photos.remove')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -297,7 +298,7 @@ function AssetModal({ open, editing, onClose, onSubmit }) {
             />
           </label>
           <p className="text-[11px] text-graphite mt-1">{t('asset.photos.limit')}</p>
-          {photoError && <p className="text-xs text-rose-600 mt-1">{photoError}</p>}
+          {photoError && <p className="text-xs text-danger-600 mt-1">{photoError}</p>}
         </div>
 
         <button className="btn-primary w-full mt-2">{editing ? t('common.saveChanges') : t('asset.addNew')}</button>

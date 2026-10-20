@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Handshake, Mail, Phone, Camera, Pencil, Loader2, Sparkles, Trash2, ArrowDownAZ, ArrowDownZA, ArrowUpDown, Check, Building2 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
@@ -184,7 +185,7 @@ export default function Partners() {
 
       <div className="space-y-3">
         {scanError && (
-          <p className="card !p-3 text-xs text-rose-600 border-rose-100 bg-rose-50/60">
+          <p className="card !p-3 text-xs text-danger-600 border-danger-100 bg-danger-50/60">
             {scanError}
           </p>
         )}
@@ -472,7 +473,7 @@ export function TelegramQrPicker({ value, onChange }) {
           <button
             type="button"
             onClick={() => onChange(null)}
-            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"
+            className="p-1.5 text-danger-500 hover:bg-danger-50 rounded"
             aria-label="Remove"
           >
             <Trash2 className="w-4 h-4" />
@@ -485,14 +486,14 @@ export function TelegramQrPicker({ value, onChange }) {
           <input type="file" accept="image/*" className="hidden" onChange={onFile} />
         </label>
       )}
-      {error && <p className="text-xs text-rose-600 mt-1">{error}</p>}
+      {error && <p className="text-xs text-danger-600 mt-1">{error}</p>}
     </div>
   )
 }
 
 function ScanningOverlay() {
   const { t } = useT()
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="bg-charcoal rounded-2xl p-6 shadow-xl flex flex-col items-center gap-3 max-w-xs mx-4">
         <Loader2 className="w-8 h-8 text-brand-600 animate-spin" />
@@ -501,7 +502,8 @@ function ScanningOverlay() {
           {t('partner.scanning.note')}
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

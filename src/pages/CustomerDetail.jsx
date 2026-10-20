@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Navigate, Link as RouterLink } from 'react-router-dom'
 import {
   Plus, Trash2, Package, Link2Off, ChevronRight,
@@ -6,6 +6,8 @@ import {
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 
 import CustomerDetailOrg from './CustomerDetailOrg.jsx'
 import CustomerDetailTask from './CustomerDetailTask.jsx'
@@ -13,8 +15,12 @@ import CustomerDetailFile from './CustomerDetailFile.jsx'
 import CustomerDetailAgreement from './CustomerDetailAgreement.jsx'
 import CustomerDetailLog from './CustomerDetailLog.jsx'
 import CustomerDetailEmail from './CustomerDetailEmail.jsx'
+import CustomerDetailSales from './CustomerDetailSales.jsx'
+import { HealthCard } from '../components/CustomerHealth.jsx'
+import { useCustomerHealth } from '../api/customers.js'
 
 const TABS = [
+  { value: 'Sales',      tKey: 'customer.tab.sales',      perm: 'sales' },
   { value: 'Tasks',      tKey: 'customer.tab.tasks' },
   { value: 'Products',   tKey: 'customer.tab.products' },
   { value: 'Files',      tKey: 'customer.tab.files' },
@@ -31,9 +37,15 @@ export default function CustomerDetail() {
     removeCustomerProductLink,
   } = useStore()
   const { t } = useT()
+  const { user } = useAuth()
+  const tabs = TABS.filter((tabDef) => !tabDef.perm || hasPermission(user, tabDef.perm))
   const customer = state.customers.find((c) => c.id === id)
-  const [tab, setTab] = useState('Tasks')
+  const [tab, setTab] = useState(tabs[0].value)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const { byId: health, thresholds, refresh: refreshHealth } = useCustomerHealth()
+  // Recompute after any change to this customer (a task done, a product note).
+  const updatedAt = customer?.updatedAt
+  useEffect(() => { if (updatedAt) refreshHealth() }, [updatedAt, refreshHealth])
 
   if (!customer) return <Navigate to="/customers" replace />
 
@@ -41,9 +53,10 @@ export default function CustomerDetail() {
     <>
       <div className="space-y-4">
         <CustomerDetailOrg customer={customer} />
+        <HealthCard health={health.get(customer.id)} thresholds={thresholds} />
 
         <div className="flex bg-iron border border-shadow">
-          {TABS.map((tabDef) => (
+          {tabs.map((tabDef) => (
             <button
               key={tabDef.value}
               onClick={() => setTab(tabDef.value)}
@@ -56,6 +69,7 @@ export default function CustomerDetail() {
           ))}
         </div>
 
+        {tab === 'Sales' && <CustomerDetailSales customer={customer} />}
         {tab === 'Tasks' && <CustomerDetailTask customer={customer} />}
         {tab === 'Products' && (
           <PanelProducts
@@ -126,7 +140,7 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
                   <span className="text-sm text-graphite">{t('customer.products.missing')}</span>
                   <button
                     onClick={() => onUnlink(link.id)}
-                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"
+                    className="p-2 text-danger-500 hover:bg-danger-50 rounded-lg"
                     aria-label={t('common.remove')}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -160,7 +174,7 @@ function PanelProducts({ customer, products, onLink, onUnlink }) {
                 </RouterLink>
                 <button
                   onClick={() => onUnlink(link.id)}
-                  className="w-full text-xs text-rose-600 py-2 border-t border-shadow hover:bg-rose-50 flex items-center justify-center gap-1"
+                  className="w-full text-xs text-danger-600 py-2 border-t border-shadow hover:bg-danger-50 flex items-center justify-center gap-1"
                 >
                   <Link2Off className="w-3 h-3" /> {t('customer.products.removeRecord')}
                 </button>
@@ -205,7 +219,7 @@ function ProductPicker({ products, onPick }) {
                 onClick={() => onPick(p.id)}
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-iron active:bg-iron text-left"
               >
-                <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-lg bg-success-50 text-success-700 flex items-center justify-center shrink-0">
                   <Package className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">

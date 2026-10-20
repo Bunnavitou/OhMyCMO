@@ -1,7 +1,7 @@
 import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom'
 import {
   Home, Users, Package, Handshake, Megaphone, MoreHorizontal,
-  ChevronLeft, ChevronRight, ListChecks, FileBarChart,
+  ChevronLeft, ChevronRight, ListChecks, FileBarChart, CalendarDays,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
@@ -10,15 +10,17 @@ import { useT } from '../i18n/LanguageContext.jsx'
 
 // `ownerOnly` tabs are hidden from every sub-user regardless of their
 // permissions JSON — unlike `perm`, which an owner could opt a sub-user
-// into.
+// into. `desktopOnly` tabs are left out of the mobile bottom bar to keep it
+// at 8 slots; they are reachable from the More page there instead.
 const ALL_TABS = [
   { to: '/',          icon: Home,           labelKey: 'nav.home',      mobileLabelKey: 'nav.home',           isActive: (p) => p === '/',                                            perm: null },
   { to: '/tasks',     icon: ListChecks,     labelKey: 'nav.tasks',     mobileLabelKey: 'nav.tasks',          isActive: (p) => p.startsWith('/tasks'),                               perm: 'tasks' },
   { to: '/customers', icon: Users,          labelKey: 'nav.customers', mobileLabelKey: 'nav.customers',      isActive: (p) => p.startsWith('/customers'),                           perm: 'customers' },
+  { to: '/sales',     icon: CalendarDays,   labelKey: 'nav.sales',     mobileLabelKey: 'nav.sales',          isActive: (p) => p.startsWith('/sales'),                               perm: 'sales' },
   { to: '/products',  icon: Package,        labelKey: 'nav.products',  mobileLabelKey: 'nav.products.short', isActive: (p) => p.startsWith('/products'),                            perm: 'products' },
   { to: '/partners',  icon: Handshake,      labelKey: 'nav.partners',  mobileLabelKey: 'nav.partners',       isActive: (p) => p.startsWith('/partners'),                            perm: 'partners' },
   { to: '/marketing', icon: Megaphone,      labelKey: 'nav.marketing', mobileLabelKey: 'nav.marketing',      isActive: (p) => p.startsWith('/marketing'),                           perm: 'marketing' },
-  { to: '/reports',   icon: FileBarChart,   labelKey: 'nav.reports',   mobileLabelKey: 'nav.reports',        isActive: (p) => p.startsWith('/reports'),                             perm: 'reports' },
+  { to: '/reports',   icon: FileBarChart,   labelKey: 'nav.reports',   mobileLabelKey: 'nav.reports',        isActive: (p) => p.startsWith('/reports'),                             perm: 'reports', desktopOnly: true },
   { to: '/more',      icon: MoreHorizontal, labelKey: 'nav.more',      mobileLabelKey: 'nav.more',           isActive: (p) => p.startsWith('/more') || p.startsWith('/assets'),     perm: null },
 ]
 
@@ -72,6 +74,8 @@ function useNavMeta() {
       const c = state.campaigns?.find((x) => x.id === segs[1])
       crumbs.push({ label: c?.name || t('breadcrumb.campaign'), to: pathname })
     }
+  } else if (segs[0] === 'sales') {
+    crumbs.push({ label: t('nav.sales'), to: '/sales' })
   } else if (segs[0] === 'reports') {
     crumbs.push({ label: t('nav.reports'), to: '/reports' })
   } else if (segs[0] === 'assets') {
@@ -104,6 +108,7 @@ export default function AppShell() {
   const TABS = ALL_TABS.filter((tab) =>
     (!tab.perm || hasPermission(user, tab.perm)) && (!tab.ownerOnly || !user?.ownerId),
   )
+  const MOBILE_TABS = TABS.filter((tab) => !tab.desktopOnly)
 
   return (
     <div className="min-h-screen bg-white text-near-black md:flex">
@@ -124,12 +129,11 @@ export default function AppShell() {
               <Link
                 key={tab.to}
                 to={tab.to}
-                className={`flex items-center gap-2.5 px-3 py-2 text-sm font-semibold transition-all ${
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-pill text-sm font-semibold transition-all ${
                   active
                     ? 'bg-mint-bg text-wise-dark'
                     : 'text-near-black hover:bg-iron'
                 }`}
-                style={{ borderRadius: '9999px' }}
               >
                 <tab.icon className="w-4 h-4 shrink-0" strokeWidth={2.2} />
                 <span className="truncate">{t(tab.labelKey)}</span>
@@ -143,7 +147,8 @@ export default function AppShell() {
       </aside>
 
       {/* Main column */}
-      <div className="flex-1 md:ml-60 flex flex-col min-h-screen bg-white">
+      {/* min-w-0: wide content (e.g. a sales table) scrolls inside its card instead of stretching the page */}
+      <div className="flex-1 min-w-0 md:ml-60 flex flex-col min-h-screen bg-white">
         {/* Top bar */}
         <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-shadow h-12 md:h-16 flex items-center px-3 md:px-6">
           {isDetail && (
@@ -197,9 +202,9 @@ export default function AppShell() {
           >
             <ul
               className="grid h-16"
-              style={{ gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${MOBILE_TABS.length}, minmax(0, 1fr))` }}
             >
-              {TABS.map((tab) => {
+              {MOBILE_TABS.map((tab) => {
                 const active = tab.isActive(pathname)
                 return (
                   <li key={tab.to}>
@@ -211,9 +216,8 @@ export default function AppShell() {
                     >
                       <span
                         className={`flex items-center justify-center transition-all ${
-                          active ? 'bg-mint w-9 h-7' : 'w-9 h-7'
+                          active ? 'bg-mint w-9 h-7 rounded-pill' : 'w-9 h-7 rounded-none'
                         }`}
-                        style={{ borderRadius: active ? '9999px' : '0' }}
                       >
                         <tab.icon className="w-5 h-5" strokeWidth={active ? 2.6 : 2} />
                       </span>

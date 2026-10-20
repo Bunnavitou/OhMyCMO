@@ -7,6 +7,7 @@ import Login from './pages/Login.jsx'
 const Home = lazy(() => import('./pages/Home.jsx'))
 const Tasks = lazy(() => import('./pages/Tasks.jsx'))
 const Customers = lazy(() => import('./pages/Customers.jsx'))
+const Sales = lazy(() => import('./pages/Sales.jsx'))
 const CustomerDetail = lazy(() => import('./pages/CustomerDetail.jsx'))
 const CustomerStaff = lazy(() => import('./pages/CustomerStaff.jsx'))
 const CustomerProductDetail = lazy(() => import('./pages/CustomerProductDetail.jsx'))
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="customers/:id" element={<CustomerDetail />} />
           <Route path="customers/:id/staff" element={<CustomerStaff />} />
           <Route path="customers/:id/products/:linkId" element={<CustomerProductDetail />} />
+          <Route path="sales" element={<Sales />} />
           <Route path="products" element={<Products />} />
           <Route path="products/:id" element={<ProductDetail />} />
           <Route path="partners" element={<Partners />} />

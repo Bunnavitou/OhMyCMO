@@ -7,6 +7,7 @@ import { useStore } from '../store/StoreContext.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
+import Select from '../components/Select.jsx'
 
 export default function CustomerStaff() {
   const { id } = useParams()
@@ -212,7 +213,7 @@ function StaffRow({ staff, depth, hasChildren, onEdit, onDelete, children }) {
         </button>
         <button
           onClick={() => onDelete(staff)}
-          className="p-1.5 rounded-full hover:bg-rose-50 text-rose-500"
+          className="p-1.5 rounded-full hover:bg-danger-50 text-danger-500"
           aria-label="Remove"
         >
           <Trash2 className="w-4 h-4" />
@@ -293,7 +294,7 @@ function StaffForm({ initial, allStaff, onSubmit, onDelete }) {
       </div>
       <div>
         <label className="label">Reports to</label>
-        <select
+        <Select
           className="input"
           value={form.reportsTo}
           onChange={(e) => setForm({ ...form, reportsTo: e.target.value })}
@@ -304,7 +305,7 @@ function StaffForm({ initial, allStaff, onSubmit, onDelete }) {
               {s.name || 'Unnamed'}{s.role ? ` — ${s.role}` : ''}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -330,7 +331,7 @@ function StaffForm({ initial, allStaff, onSubmit, onDelete }) {
           <button
             type="button"
             onClick={onDelete}
-            className="px-4 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 text-sm font-semibold"
+            className="px-4 py-2.5 rounded-xl text-danger-600 hover:bg-danger-50 text-sm font-semibold"
           >
             Remove
           </button>

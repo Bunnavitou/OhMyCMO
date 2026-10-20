@@ -2,6 +2,7 @@
 export const PERMISSION_KEYS = [
   'tasks',
   'customers',
+  'sales',
   'products',
   'partners',
   'marketing',

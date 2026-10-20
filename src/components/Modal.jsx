@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useT } from '../i18n/LanguageContext.jsx'
 
@@ -22,18 +23,15 @@ export default function Modal({ open, onClose, title, size = 'md', children }) {
 
   if (!open) return null
   const sizeClass = SIZE_CLASS[size] || SIZE_CLASS.md
-  return (
+  // Portal to <body> so the page's layout (e.g. a space-y-* parent's margin) can't offset the overlay.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div
         className="absolute inset-0 bg-near-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
-        className={`relative w-full ${sizeClass} bg-white text-near-black border border-shadow mx-auto p-5 max-h-[92vh] overflow-y-auto animate-[slideUp_0.18s_ease-out]`}
-        style={{
-          borderRadius: '30px',
-          boxShadow: '0 0 0 1px rgba(14, 15, 12, 0.12)',
-        }}
+        className={`relative w-full ${sizeClass} bg-white text-near-black border border-shadow mx-auto p-5 max-h-[92vh] overflow-y-auto rounded-feature shadow-ring animate-[slideUp_0.18s_ease-out]`}
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="display text-xl md:text-2xl text-near-black">
@@ -52,6 +50,7 @@ export default function Modal({ open, onClose, title, size = 'md', children }) {
       <style>{`
         @keyframes slideUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   )
 }

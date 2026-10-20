@@ -105,7 +105,7 @@ export default function Products() {
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-            <div className="rounded-lg p-2.5 md:p-3 bg-emerald-50 text-emerald-700">
+            <div className="rounded-lg p-2.5 md:p-3 bg-success-50 text-success-700">
               <div className="flex items-center gap-1 text-[11px] md:text-xs font-semibold">
                 <TrendingUp className="w-3.5 h-3.5" /> {t('product.overview.totalIncome')}
               </div>
@@ -113,7 +113,7 @@ export default function Products() {
                 ${fmtMoney(overview.totalIncome)}
               </p>
             </div>
-            <div className="rounded-lg p-2.5 md:p-3 bg-rose-50 text-rose-700">
+            <div className="rounded-lg p-2.5 md:p-3 bg-danger-50 text-danger-700">
               <div className="flex items-center gap-1 text-[11px] md:text-xs font-semibold">
                 <TrendingDown className="w-3.5 h-3.5" /> {t('product.overview.totalExpense')}
               </div>
@@ -129,7 +129,7 @@ export default function Products() {
                 {overview.totalInvoice.toLocaleString()}
               </p>
             </div>
-            <div className="rounded-lg p-2.5 md:p-3 bg-amber-50 text-amber-700">
+            <div className="rounded-lg p-2.5 md:p-3 bg-warning-50 text-warning-700">
               <div className="flex items-center gap-1 text-[11px] md:text-xs font-semibold">
                 <Layers className="w-3.5 h-3.5" /> {t('product.overview.totalProducts')}
               </div>
@@ -183,27 +183,27 @@ export default function Products() {
                           className="h-11 w-auto max-w-[7rem] rounded-xl object-contain border border-shadow bg-white p-1 shrink-0"
                         />
                       ) : (
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${isService ? 'bg-violet-50 text-violet-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${isService ? 'bg-accent-50 text-accent-700' : 'bg-success-50 text-success-700'}`}>
                           <Package className="w-5 h-5" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{p.name}</p>
-                        <span className={`inline-block mt-0.5 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${isService ? 'bg-violet-50 text-violet-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                        <span className={`inline-block mt-0.5 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${isService ? 'bg-accent-50 text-accent-700' : 'bg-success-50 text-success-700'}`}>
                           {t(isService ? 'product.type.service' : 'product.type.product')}
                         </span>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div className="bg-emerald-50 text-emerald-700 rounded-lg p-2">
+                      <div className="bg-success-50 text-success-700 rounded-lg p-2">
                         <div className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> {t('product.metric.income')}</div>
                         <p className="font-semibold mt-0.5">${fmtMoney(income)}</p>
                       </div>
-                      <div className="bg-rose-50 text-rose-700 rounded-lg p-2">
+                      <div className="bg-danger-50 text-danger-700 rounded-lg p-2">
                         <div className="flex items-center gap-1"><TrendingDown className="w-3 h-3" /> {t('product.metric.expense')}</div>
                         <p className="font-semibold mt-0.5">${fmtMoney(expense)}</p>
                       </div>
-                      <div className={`rounded-lg p-2 ${net >= 0 ? 'bg-brand-50 text-brand-700' : 'bg-amber-50 text-amber-700'}`}>
+                      <div className={`rounded-lg p-2 ${net >= 0 ? 'bg-brand-50 text-brand-700' : 'bg-warning-50 text-warning-700'}`}>
                         <div>{t('product.metric.net')}</div>
                         <p className="font-semibold mt-0.5">${fmtMoney(net)}</p>
                       </div>
@@ -317,7 +317,7 @@ function NewProductModal({ open, onClose, onSubmit }) {
               <button
                 type="button"
                 onClick={() => set('logo', null)}
-                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"
+                className="p-1.5 text-danger-500 hover:bg-danger-50 rounded"
                 aria-label="Remove"
               >
                 <Trash2 className="w-4 h-4" />
@@ -329,7 +329,7 @@ function NewProductModal({ open, onClose, onSubmit }) {
               <input type="file" accept="image/*" className="hidden" onChange={onLogoFile} />
             </label>
           )}
-          {logoError && <p className="text-xs text-rose-600 mt-1">{logoError}</p>}
+          {logoError && <p className="text-xs text-danger-600 mt-1">{logoError}</p>}
         </div>
 
         <div>
@@ -383,7 +383,7 @@ function NewProductModal({ open, onClose, onSubmit }) {
         </div>
 
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
+          <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-md px-3 py-2">
             {error}
           </p>
         )}

@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { useParams, Navigate } from 'react-router-dom'
+import { useParams, Navigate, Link } from 'react-router-dom'
 import {
   Mail, Phone, Plus, Trash2, Calendar, User, UserPlus,
   Paperclip, Download, DollarSign, Briefcase, Building2,
-  Image as ImageIcon, Maximize2, Pencil, Send, Camera, Copy, Check,
+  Image as ImageIcon, Maximize2, Pencil, Send, Camera, Copy, Check, UserCheck,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
@@ -14,9 +14,12 @@ import ProgressField from '../components/ProgressField.jsx'
 import { TelegramQrPicker } from './Partners.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import AuthImage from '../components/AuthImage.jsx'
+import WinDialog from '../components/WinDialog.jsx'
+import { saleApi } from '../api/sales.js'
 import { uploadImageRef, hasImage } from '../utils/imageRef.js'
 import { TASK_STATUSES, statusStyle, memberName, clampProgress, progressForStatus, doneStamp } from '../utils/tasks.js'
 import { fmtMoney } from '../utils/email.js'
+import Select from '../components/Select.jsx'
 
 const CARD_LIMIT_BYTES = 2 * 1024 * 1024
 
@@ -31,6 +34,7 @@ export default function PartnerDetail() {
     removePartnerTask,
     removePartner,
     updatePartner,
+    applyConversion,
   } = useStore()
   const { user } = useAuth()
   const canDelete = hasPermission(user, 'partners.delete')
@@ -48,6 +52,7 @@ export default function PartnerDetail() {
   const [editPartnerOpen, setEditPartnerOpen] = useState(false)
   const [qrPreviewOpen, setQrPreviewOpen] = useState(false)
   const [emailCopied, setEmailCopied] = useState(false)
+  const [converting, setConverting] = useState(false)
 
   const copyEmail = async (email) => {
     try {
@@ -111,7 +116,7 @@ export default function PartnerDetail() {
                         history.back()
                       }
                     }}
-                    className="p-2 rounded-full hover:bg-rose-50 text-rose-500 transition-transform hover:scale-105 active:scale-95"
+                    className="p-2 rounded-full hover:bg-danger-50 text-danger-500 transition-transform hover:scale-105 active:scale-95"
                     aria-label={t('common.delete')}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -139,7 +144,7 @@ export default function PartnerDetail() {
                   title={emailCopied ? t('common.copied') : t('partner.copyEmail')}
                 >
                   {emailCopied
-                    ? <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ? <Check className="w-3.5 h-3.5 text-success-600" />
                     : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
@@ -155,6 +160,21 @@ export default function PartnerDetail() {
                 <Send className="w-4 h-4 text-graphite shrink-0" />
                 <span className="truncate">{partner.telegram}</span>
               </p>
+            )}
+            {/* Business card → customer (Sales, PHASE-1-ACTIVITIES.md §2.1) */}
+            {partner.customerId ? (
+              <p className="flex items-center gap-2 text-success-700">
+                <UserCheck className="w-4 h-4 shrink-0" />
+                <span>{t('partner.isCustomer')}</span>
+                <Link to={`/customers/${partner.customerId}`} className="font-semibold hover:underline">
+                  {state.customers.find((c) => c.id === partner.customerId)?.name || t('sales.openCustomer')} →
+                </Link>
+              </p>
+            ) : hasPermission(user, 'customers') && (
+              <button type="button" onClick={() => setConverting(true)}
+                className="mt-1 self-start inline-flex items-center gap-1.5 rounded-full bg-success-50 hover:bg-success-100 text-success-800 font-semibold text-sm px-3 py-1.5">
+                <UserCheck className="w-4 h-4" /> {t('partner.convert')}
+              </button>
             )}
             {hasImage(partner.telegramQr) && (
               <button
@@ -219,7 +239,7 @@ export default function PartnerDetail() {
                 <span className="text-xs font-semibold uppercase tracking-wider text-graphite">
                   {t('partner.task.totalExpense')}
                 </span>
-                <span className="text-base font-bold text-rose-700">
+                <span className="text-base font-bold text-danger-700">
                   ${fmtMoney(totalExpense)}
                 </span>
               </div>
@@ -271,7 +291,7 @@ export default function PartnerDetail() {
                             </span>
                           )}
                           {Number(task.expense) > 0 && (
-                            <span className="flex items-center gap-1 text-rose-700 font-medium">
+                            <span className="flex items-center gap-1 text-danger-700 font-medium">
                               <DollarSign className="w-3 h-3" />
                               {fmtMoney(task.expense)}
                             </span>
@@ -364,6 +384,15 @@ export default function PartnerDetail() {
           }}
         />
       </Modal>
+
+      {converting && (
+        <WinDialog mode="partner" partner={partner} onClose={() => setConverting(false)}
+          onConfirm={async (details) => {
+            const res = await saleApi.convertPartner(partner.id, details)
+            applyConversion(res.conversion)
+            setConverting(false)
+          }} />
+      )}
     </>
   )
 }
@@ -509,7 +538,7 @@ function EditPartnerForm({ partner, onSubmit }) {
               <button
                 type="button"
                 onClick={() => setForm({ ...form, cardImage: null })}
-                className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-sm"
+                className="px-3 py-2 rounded-xl text-danger-600 hover:bg-danger-50 text-sm"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -521,11 +550,11 @@ function EditPartnerForm({ partner, onSubmit }) {
             <input type="file" accept="image/*" className="hidden" onChange={onCardFile} />
           </label>
         )}
-        {cardError && <p className="text-xs text-rose-600 mt-1">{cardError}</p>}
+        {cardError && <p className="text-xs text-danger-600 mt-1">{cardError}</p>}
       </div>
 
       {error && (
-        <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
+        <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-md px-3 py-2">
           {error}
         </p>
       )}
@@ -645,13 +674,13 @@ function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">{t('field.status')}</label>
-          <select
+          <Select
             className="input"
             value={form.status}
             onChange={(e) => setStatus(e.target.value)}
           >
             {TASK_STATUSES.map((s) => <option key={s}>{s}</option>)}
-          </select>
+          </Select>
         </div>
         <div>
           <label className="label">{t('field.dueDate')}</label>
@@ -720,7 +749,7 @@ function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
             <button
               type="button"
               onClick={() => setForm({ ...form, file: null })}
-              className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"
+              className="p-1.5 text-danger-500 hover:bg-danger-50 rounded"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -732,7 +761,7 @@ function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
             <input type="file" className="hidden" onChange={onFile} />
           </label>
         )}
-        {fileError && <p className="text-xs text-rose-600 mt-1">{fileError}</p>}
+        {fileError && <p className="text-xs text-danger-600 mt-1">{fileError}</p>}
       </div>
 
       <div className="flex gap-2 pt-2">
@@ -740,7 +769,7 @@ function TaskForm({ initial, team = [], currentUser, onSubmit, onDelete }) {
           <button
             type="button"
             onClick={onDelete}
-            className="px-4 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 text-sm font-semibold"
+            className="px-4 py-2.5 rounded-xl text-danger-600 hover:bg-danger-50 text-sm font-semibold"
           >
             {t('common.delete')}
           </button>

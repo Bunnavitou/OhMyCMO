@@ -13,7 +13,7 @@ export default function MoreInfluencers() {
       </button>
 
       <div className="card text-center py-12">
-        <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-3">
+        <div className="w-12 h-12 mx-auto rounded-2xl bg-warning-100 text-warning-700 flex items-center justify-center mb-3">
           <Sparkles className="w-6 h-6" />
         </div>
         <p className="text-sm md:text-base font-semibold text-near-black">

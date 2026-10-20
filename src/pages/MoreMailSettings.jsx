@@ -133,7 +133,7 @@ export default function MoreMailSettings() {
       {saved && (
         saved.configured ? (
           <div className="card !p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-success-50 text-success-700 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
@@ -142,8 +142,8 @@ export default function MoreMailSettings() {
             </div>
           </div>
         ) : (
-          <div className="card !p-3 flex items-center gap-3 border-amber-200 bg-amber-50/60">
-            <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+          <div className="card !p-3 flex items-center gap-3 border-warning-200 bg-warning-50/60">
+            <div className="w-9 h-9 rounded-lg bg-warning-100 text-warning-700 flex items-center justify-center shrink-0">
               <AlertCircle className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
@@ -202,12 +202,12 @@ export default function MoreMailSettings() {
         </Field>
 
         {error && (
-          <p className="flex items-center gap-1.5 text-xs text-red-600">
+          <p className="flex items-center gap-1.5 text-xs text-danger-600">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
           </p>
         )}
         {ok && (
-          <p className="flex items-center gap-1.5 text-xs text-green-600">
+          <p className="flex items-center gap-1.5 text-xs text-success-600">
             <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />{ok}
           </p>
         )}
@@ -229,7 +229,7 @@ export default function MoreMailSettings() {
       {saved?.hasPassword && (
         <button
           type="button" onClick={clearCustom} disabled={busy}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-full text-rose-600 hover:bg-rose-50 font-semibold py-2.5 text-sm border border-rose-100 disabled:opacity-50"
+          className="w-full inline-flex items-center justify-center gap-2 rounded-full text-danger-600 hover:bg-danger-50 font-semibold py-2.5 text-sm border border-danger-100 disabled:opacity-50"
         >
           <Trash2 className="w-4 h-4" /> Remove this account
         </button>

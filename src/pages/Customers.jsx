@@ -9,6 +9,9 @@ import DateFilterButton from '../components/DateFilterButton.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import AuthImage from '../components/AuthImage.jsx'
 import { persistImageRef, hasImage } from '../utils/imageRef.js'
+import Select from '../components/Select.jsx'
+import { HealthPill } from '../components/CustomerHealth.jsx'
+import { useCustomerHealth, HEALTH_ORDER } from '../api/customers.js'
 
 const PROFILE_IMG_LIMIT_BYTES = 2 * 1024 * 1024
 
@@ -51,14 +54,14 @@ export function ProfileImagePicker({ value, onChange, fallbackInitial = '' }) {
             <button
               type="button"
               onClick={() => onChange(null)}
-              className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-sm"
+              className="px-3 py-2 rounded-xl text-danger-600 hover:bg-danger-50 text-sm"
               aria-label="Remove"
             >
               <Trash2 className="w-4 h-4" />
             </button>
           )}
         </div>
-        {error && <p className="text-xs text-rose-600">{error}</p>}
+        {error && <p className="text-xs text-danger-600">{error}</p>}
       </div>
     </div>
   )
@@ -103,6 +106,9 @@ export default function Customers() {
   const [dateRange, setDateRange] = useState(null)
   // 'all' | '<groupId>' | 'none' (= ungrouped)
   const [groupFilter, setGroupFilter] = useState('all')
+  // 'all' | 'red' | 'amber' | 'green' — only Active / On hold customers have one
+  const [healthFilter, setHealthFilter] = useState('all')
+  const { byId: health } = useCustomerHealth()
 
   const groups = state.customerGroups || []
 
@@ -118,9 +124,10 @@ export default function Customers() {
           if (groupFilter === 'none') return !c.groupId
           return c.groupId === groupFilter
         })
+        .filter((c) => healthFilter === 'all' || health.get(c.id)?.status === healthFilter)
         .slice()
         .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned)),
-    [state.customers, q, dateRange, groupFilter],
+    [state.customers, q, dateRange, groupFilter, healthFilter, health],
   )
 
   const closeGroupModal = () => setGroupModal({ open: false, editing: null })
@@ -161,6 +168,15 @@ export default function Customers() {
             onChange={setDateRange}
             storageKey="ohmycmo:filter:customers"
           />
+          <Select
+            className="input w-auto"
+            aria-label={t('health.title')}
+            value={healthFilter}
+            onChange={(e) => setHealthFilter(e.target.value)}
+          >
+            <option value="all">{t('health.filter.all')}</option>
+            {HEALTH_ORDER.map((s) => <option key={s} value={s}>{t(`health.status.${s}`)}</option>)}
+          </Select>
         </div>
 
         {/* Group filter strip + add group */}
@@ -212,12 +228,13 @@ export default function Customers() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold truncate">{c.name}</p>
                         <span className={`pill ${
-                          c.stage === 'Active' ? 'bg-emerald-100 text-emerald-700'
-                          : c.stage === 'Prospect' ? 'bg-amber-100 text-amber-700'
+                          c.stage === 'Active' ? 'bg-success-100 text-success-700'
+                          : c.stage === 'Prospect' ? 'bg-warning-100 text-warning-700'
                           : 'bg-iron text-graphite'
                         }`}>{stageLabel(c.stage, t)}</span>
+                        <HealthPill health={health.get(c.id)} />
                         {group && (
-                          <span className="pill bg-violet-100 text-violet-700">{group.name}</span>
+                          <span className="pill bg-accent-100 text-accent-700">{group.name}</span>
                         )}
                       </div>
                       <p className="text-xs text-graphite flex items-center gap-1 mt-0.5">
@@ -381,21 +398,21 @@ function NewCustomerModal({ open, groups, defaultGroupId, onClose, onSubmit }) {
           </div>
           <div>
             <label className="label">{t('field.stage')}</label>
-            <select className="input" value={form.stage} onChange={change('stage')}>
+            <Select className="input" value={form.stage} onChange={change('stage')}>
               {STAGES.map((s) => (
                 <option key={s.value} value={s.value}>{t(s.tKey)}</option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
         <div>
           <label className="label">{t('customer.field.group')}</label>
-          <select className="input" value={form.groupId} onChange={change('groupId')}>
+          <Select className="input" value={form.groupId} onChange={change('groupId')}>
             <option value="">{t('customer.field.groupNone')}</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>{g.name}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -480,7 +497,7 @@ function CustomerGroupForm({ initial, onSubmit, onDelete }) {
             type="button"
             disabled={submitting}
             onClick={onDelete}
-            className="px-4 py-2.5 rounded-full text-rose-600 hover:bg-rose-50 text-sm font-semibold disabled:opacity-50"
+            className="px-4 py-2.5 rounded-full text-danger-600 hover:bg-danger-50 text-sm font-semibold disabled:opacity-50"
           >
             <span className="inline-flex items-center gap-1.5">
               <Trash2 className="w-4 h-4" /> {t('common.delete')}

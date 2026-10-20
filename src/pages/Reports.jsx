@@ -9,6 +9,8 @@ import { exportFullExcel, parseReportFile, downloadMonthlyTemplate } from '../ut
 import {
   collectTasks, memberName, statusStyle, sourceStyle, dueBucket, clampProgress, progressBarStyle,
 } from '../utils/tasks.js'
+import Select from '../components/Select.jsx'
+import { chart, neutral } from '../theme/colors.js'
 
 // A report is a customizable table: fixed prev-year / current-year columns plus
 // a DYNAMIC set of weekly/period columns (add/remove) that feed the auto-summed
@@ -289,7 +291,7 @@ const buildCombined = (reports, account, t) => {
 // Read-only "all years" table: one column per year (compact figures).
 function CombinedTable({ years, rows }) {
   const { t } = useT()
-  const headBlue = 'bg-sky-100 text-near-black'
+  const headBlue = 'bg-info-100 text-near-black'
   if (!years.length || !rows.length) {
     return <p className="text-sm text-graphite py-2">{t('report.empty')}</p>
   }
@@ -330,7 +332,7 @@ function CombinedTable({ years, rows }) {
 // entered by hand.
 function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap }) {
   const { t } = useT()
-  const headBlue = 'bg-sky-100 text-near-black'
+  const headBlue = 'bg-info-100 text-near-black'
   const hInput =
     'w-full min-w-[70px] bg-transparent text-center font-bold outline-none focus:bg-white rounded px-1 py-0.5'
 
@@ -435,7 +437,7 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap
                         type="button"
                         onClick={() => on.deleteRow(row.id)}
                         aria-label="Delete row"
-                        className="w-6 h-6 shrink-0 rounded text-rose-500 hover:bg-rose-50 inline-flex items-center justify-center"
+                        className="w-6 h-6 shrink-0 rounded text-danger-500 hover:bg-danger-50 inline-flex items-center justify-center"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -473,7 +475,7 @@ function ReportGrid({ headers, rows, editable = false, on = {}, yearMap, prevMap
                     }}
                   />
                 ))}
-                <td className="border border-shadow px-2 py-1.5 text-right font-bold text-blue-700 whitespace-nowrap tabular-nums">
+                <td className="border border-shadow px-2 py-1.5 text-right font-bold text-info-700 whitespace-nowrap tabular-nums">
                   {fmtFull(total, row.money, row.currency)}
                 </td>
               </tr>
@@ -758,10 +760,10 @@ export default function Reports() {
       {view === 'team' && <TeamTaskReport />}
 
       {view === 'usage' && error && (
-        <div className="mb-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="mb-3 flex items-start gap-2 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span className="flex-1">{error}</span>
-          <button onClick={() => setError('')} className="text-rose-500 hover:text-rose-700 text-xs font-semibold">✕</button>
+          <button onClick={() => setError('')} className="text-danger-500 hover:text-danger-700 text-xs font-semibold">✕</button>
         </div>
       )}
 
@@ -770,7 +772,7 @@ export default function Reports() {
         <div className="mb-5 flex flex-wrap items-end gap-3">
           <div>
             <label className="label" htmlFor="report-filter-account">{t('report.account')}</label>
-            <select
+            <Select
               id="report-filter-account"
               className="input !py-2"
               value={fAccount}
@@ -780,11 +782,11 @@ export default function Reports() {
               {ACCOUNTS.map((a) => (
                 <option key={a} value={a}>{t(`report.account.${a}.short`)}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="label" htmlFor="report-filter-year">{t('report.year')}</label>
-            <select
+            <Select
               id="report-filter-year"
               className="input !py-2"
               value={fYear}
@@ -793,11 +795,11 @@ export default function Reports() {
               {filterYears.map((y) => (
                 <option key={y} value={y}>{y}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="label" htmlFor="report-filter-month">{t('report.month')}</label>
-            <select
+            <Select
               id="report-filter-month"
               className="input !py-2"
               value={fMonth}
@@ -807,7 +809,7 @@ export default function Reports() {
               {Array.from({ length: 12 }).map((_, i) => (
                 <option key={i + 1} value={i + 1}>{String(i + 1).padStart(2, '0')}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <p className="pb-2 text-xs text-graphite">
             {t('report.filter.count', { n: visibleReports.length })}
@@ -888,7 +890,7 @@ export default function Reports() {
                     </button>
                     <button
                       onClick={() => onDelete(r)}
-                      className="p-2 rounded-full hover:bg-rose-50 text-rose-500"
+                      className="p-2 rounded-full hover:bg-danger-50 text-danger-500"
                       aria-label={t('common.delete')}
                       title={t('common.delete')}
                     >
@@ -908,7 +910,7 @@ export default function Reports() {
 
       <Modal open={createOpen} onClose={() => { setCreateOpen(false); setError('') }} title={t('report.new')}>
         {error && (
-          <div className="mb-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="mb-3 flex items-start gap-2 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="flex-1">{error}</span>
           </div>
@@ -1122,21 +1124,21 @@ function AreaChartSVG({ points, money, secondaryFmt }) {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={t('report.chart')}>
       <rect x={padL} y={padT} width={plotW} height={plotH} rx="10" className="fill-iron" />
       {gridY.map((gy, k) => (
-        <line key={k} x1={padL} x2={padL + plotW} y1={gy} y2={gy} stroke="#0E0F0C14" strokeWidth="1" />
+        <line key={k} x1={padL} x2={padL + plotW} y1={gy} y2={gy} stroke={chart.grid} strokeWidth="1" />
       ))}
       <defs>
         <linearGradient id="reportAreaFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#9FE870" stopOpacity="0.55" />
-          <stop offset="100%" stopColor="#9FE870" stopOpacity="0.04" />
+          <stop offset="0%" stopColor={chart.area} stopOpacity="0.55" />
+          <stop offset="100%" stopColor={chart.area} stopOpacity="0.04" />
         </linearGradient>
       </defs>
       {area && <path d={area} fill="url(#reportAreaFill)" />}
       {line && (
-        <path d={line} fill="none" stroke="#5A8C40" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={line} fill="none" stroke={chart.line} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       )}
       {linePts.map((p) => (
         <g key={p.i}>
-          <circle cx={p.x} cy={p.y} r="5" fill="#5A8C40" stroke="#FFFFFF" strokeWidth="2" />
+          <circle cx={p.x} cy={p.y} r="5" fill={chart.line} stroke={neutral.white} strokeWidth="2" />
           <text
             x={p.x}
             y={p.y - 14}
@@ -1171,8 +1173,8 @@ function AreaChartSVG({ points, money, secondaryFmt }) {
         const boxY = above ? hovered.y - 14 - boxH - 8 : hovered.y + 16
         return (
           <g pointerEvents="none">
-            <rect x={boxX} y={boxY} width={boxW} height={boxH} rx="8" fill="#0E0F0C" fillOpacity="0.92" />
-            <text x={boxX + boxW / 2} y={boxY + boxH / 2 + 5} textAnchor="middle" fill="#FFFFFF" fontSize="13" fontWeight="700">
+            <rect x={boxX} y={boxY} width={boxW} height={boxH} rx="8" fill={neutral['near-black']} fillOpacity="0.92" />
+            <text x={boxX + boxW / 2} y={boxY + boxH / 2 + 5} textAnchor="middle" fill={neutral.white} fontSize="13" fontWeight="700">
               {label}
             </text>
           </g>
@@ -1237,13 +1239,13 @@ function TeamTaskReport() {
       {/* Member selector */}
       <div className="flex items-center gap-2">
         <label className="text-sm font-semibold">{t('report.team.member')}</label>
-        <select className="input !w-auto min-w-[200px]" value={memberId} onChange={(e) => setPicked(e.target.value)}>
+        <Select className="input !w-auto min-w-[200px]" value={memberId} onChange={(e) => setPicked(e.target.value)}>
           {team.map((m) => (
             <option key={m.id} value={m.id}>
               {memberName(m)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {/* Status filter chips */}
@@ -1311,7 +1313,7 @@ const statusKeyFor = (tk, flagOverdue) =>
 // Overdue borrows the rose treatment the due-date text already uses. Blocked
 // shares that palette but lives in the other column, so they never sit
 // side by side.
-const statusBadgeStyle = (key) => (key === OVERDUE_KEY ? 'bg-rose-100 text-rose-700' : statusStyle(key))
+const statusBadgeStyle = (key) => (key === OVERDUE_KEY ? 'bg-danger-100 text-danger-700' : statusStyle(key))
 
 // The company a task belongs to. Falls back to the owner's own name, then to a
 // placeholder, so a task always has a group to sit in rather than vanishing.
@@ -1345,7 +1347,7 @@ function TaskLine({ tk, flagOverdue = false, onOpen }) {
           </span>
         </span>
         <span
-          className={`shrink-0 text-xs font-bold tabular-nums ${pct >= 100 ? 'text-emerald-700' : 'text-graphite'}`}
+          className={`shrink-0 text-xs font-bold tabular-nums ${pct >= 100 ? 'text-success-700' : 'text-graphite'}`}
         >
           {pct}%
         </span>
@@ -1480,7 +1482,7 @@ function TaskDetail({ tk, flagOverdue }) {
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadgeStyle(statusKey)}`}>
           {statusKey === OVERDUE_KEY ? t('report.team.overdue') : statusKey}
         </span>
-        <span className={`ml-auto text-sm font-bold tabular-nums ${pct >= 100 ? 'text-emerald-700' : 'text-graphite'}`}>
+        <span className={`ml-auto text-sm font-bold tabular-nums ${pct >= 100 ? 'text-success-700' : 'text-graphite'}`}>
           {pct}%
         </span>
       </div>
@@ -1632,16 +1634,16 @@ function DuplicateForm({ report, onSubmit, onCancel }) {
         </div>
         <div>
           <label className="label">{t('report.month')}</label>
-          <select className="input" value={month} onChange={(e) => setMonth(e.target.value)} disabled={busy}>
+          <Select className="input" value={month} onChange={(e) => setMonth(e.target.value)} disabled={busy}>
             {Array.from({ length: 12 }).map((_, i) => (
               <option key={i + 1} value={i + 1}>{i + 1}</option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
       {err && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="flex items-start gap-2 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span className="flex-1">{err}</span>
         </div>
@@ -1731,13 +1733,13 @@ function CreateForm({ onSubmit, onTemplate }) {
     >
       <div>
         <label className="label">{t('report.account')}</label>
-        <select className="input" value={account} onChange={(e) => setAccount(e.target.value)} disabled={busy}>
+        <Select className="input" value={account} onChange={(e) => setAccount(e.target.value)} disabled={busy}>
           {ACCOUNTS.map((a) => (
             <option key={a} value={a}>
               {t(`report.account.${a}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -1746,13 +1748,13 @@ function CreateForm({ onSubmit, onTemplate }) {
         </div>
         <div>
           <label className="label">{t('report.month')}</label>
-          <select className="input" value={month} onChange={(e) => setMonth(e.target.value)}>
+          <Select className="input" value={month} onChange={(e) => setMonth(e.target.value)}>
             {Array.from({ length: 12 }).map((_, i) => (
               <option key={i + 1} value={i + 1}>
                 {i + 1}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -1761,7 +1763,7 @@ function CreateForm({ onSubmit, onTemplate }) {
       )}
 
       {importErr && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="flex items-start gap-2 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span className="flex-1">{importErr}</span>
         </div>
@@ -1891,7 +1893,7 @@ function ReportEditor({ report, reports, onSave, onDelete }) {
 
       {isSms && smsRows.length > 0 && (
         <div className="rounded-2xl border border-shadow overflow-hidden">
-          <div className="grid grid-cols-[1fr_100px_100px_110px] gap-2 items-center bg-sky-100 px-3 py-2 text-xs font-bold text-near-black">
+          <div className="grid grid-cols-[1fr_100px_100px_110px] gap-2 items-center bg-info-100 px-3 py-2 text-xs font-bold text-near-black">
             <span>{t('report.sms.pricing')}</span>
             <span className="text-center" title={t('report.sms.buyIn.hint')}>{t('report.sms.buyIn')}</span>
             <span className="text-center" title={t('report.sms.sellOut.hint')}>{t('report.sms.sellOut')}</span>
@@ -1945,7 +1947,7 @@ function ReportEditor({ report, reports, onSave, onDelete }) {
       </button>
 
       {saveErr && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="flex items-start gap-2 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span className="flex-1">{saveErr}</span>
         </div>
@@ -1959,7 +1961,7 @@ function ReportEditor({ report, reports, onSave, onDelete }) {
           type="button"
           onClick={onDelete}
           disabled={busy}
-          className="rounded-xl px-4 text-rose-600 hover:bg-rose-50 text-sm font-semibold border border-rose-100 inline-flex items-center gap-1.5 disabled:opacity-40"
+          className="rounded-xl px-4 text-danger-600 hover:bg-danger-50 text-sm font-semibold border border-danger-100 inline-flex items-center gap-1.5 disabled:opacity-40"
         >
           <Trash2 className="w-4 h-4" /> {t('common.delete')}
         </button>

@@ -118,7 +118,7 @@ export function CcEditor({ value, onChange }) {
         <span
           key={addr}
           className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs ${
-            isEmail(addr) ? 'bg-iron text-near-black' : 'bg-red-100 text-red-700'
+            isEmail(addr) ? 'bg-iron text-near-black' : 'bg-danger-100 text-danger-700'
           }`}
         >
           {addr}
@@ -126,7 +126,7 @@ export function CcEditor({ value, onChange }) {
             type="button"
             onClick={() => onChange(value.filter((a) => a !== addr))}
             aria-label={`Remove ${addr}`}
-            className="hover:text-red-600"
+            className="hover:text-danger-600"
           >
             <X className="w-3 h-3" />
           </button>
@@ -207,7 +207,7 @@ export function EmailPreview({ to, cc, subject, body, items = [], taxRate, invoi
         ) : (
           attachments.map((att, i) => (
             <div key={`${att.name}-${i}`} className="card !p-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-success-50 text-success-700 flex items-center justify-center shrink-0">
                 <FileSpreadsheet className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
@@ -666,7 +666,7 @@ export function InvoiceForm({
                     type="button"
                     onClick={() => removeItem(it.id)}
                     disabled={items.length <= 1}
-                    className="p-1 text-rose-500 hover:bg-rose-50 rounded disabled:opacity-30 disabled:hover:bg-transparent"
+                    className="p-1 text-danger-500 hover:bg-danger-50 rounded disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -734,7 +734,7 @@ export function InvoiceForm({
         <div className="space-y-2">
           {attachments.map((att, idx) => (
             <div key={`${att.name}-${idx}`} className="card !p-3 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-success-50 text-success-700 flex items-center justify-center shrink-0">
                 <FileSpreadsheet className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
@@ -744,7 +744,7 @@ export function InvoiceForm({
               <button
                 type="button"
                 onClick={() => removeAttachment(idx)}
-                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                className="p-1.5 text-danger-500 hover:bg-danger-50 rounded-lg"
                 aria-label={`Remove ${att.name}`}
               >
                 <Trash2 className="w-4 h-4" />
@@ -768,7 +768,7 @@ export function InvoiceForm({
             <span className="text-[11px] text-graphite">.xlsx, .xls or .csv · up to 10MB each</span>
           </button>
         </div>
-        {attachError && <p className="text-xs text-red-600 mt-1">{attachError}</p>}
+        {attachError && <p className="text-xs text-danger-600 mt-1">{attachError}</p>}
       </div>
 
       <div className="card !p-3 space-y-2">
@@ -793,7 +793,7 @@ export function InvoiceForm({
         </div>
         <div className="flex justify-between text-base pt-2 border-t border-shadow">
           <span className="font-bold">Grand total</span>
-          <span className="font-bold text-emerald-700">${fmtMoney(grandTotal)}</span>
+          <span className="font-bold text-success-700">${fmtMoney(grandTotal)}</span>
         </div>
       </div>
 
@@ -997,7 +997,7 @@ export function MonthlyIncomeList({ items, onTap, productName, query = '', onBul
                 {monthLabel(ym)}
               </h3>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-emerald-700">
+                <span className="text-xs font-bold text-success-700">
                   ${fmtMoney(monthTotal)}
                 </span>
                 <button
@@ -1030,7 +1030,7 @@ export function MonthlyIncomeList({ items, onTap, productName, query = '', onBul
                           className="w-4 h-4 accent-wise-dark shrink-0"
                         />
                       )}
-                      <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-success-50 text-success-600 flex items-center justify-center shrink-0">
                         {isInvoice ? <Receipt className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1041,7 +1041,7 @@ export function MonthlyIncomeList({ items, onTap, productName, query = '', onBul
                           {subtitleParts.filter(Boolean).join(' · ')}
                         </p>
                       </div>
-                      <p className="font-semibold text-sm text-emerald-700">
+                      <p className="font-semibold text-sm text-success-700">
                         +${fmtMoney(x.amount || 0)}
                       </p>
                     </button>
@@ -1337,7 +1337,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         </div>
       ) : zoho.configured ? (
         <div className="card !p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-success-50 text-success-700 flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -1348,8 +1348,8 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
           </div>
         </div>
       ) : (
-        <div className="card !p-3 flex items-center gap-3 border-amber-200 bg-amber-50/60">
-          <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+        <div className="card !p-3 flex items-center gap-3 border-warning-200 bg-warning-50/60">
+          <div className="w-9 h-9 rounded-lg bg-warning-100 text-warning-700 flex items-center justify-center shrink-0">
             <AlertCircle className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -1407,7 +1407,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
             />
             <div className="flex justify-between text-base pt-2 border-t border-shadow">
               <span className="font-bold">Grand total</span>
-              <span className="font-bold text-emerald-700">${fmtMoney(invoice.amount)}</span>
+              <span className="font-bold text-success-700">${fmtMoney(invoice.amount)}</span>
             </div>
           </div>
         </>
@@ -1479,7 +1479,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         <button
           type="button"
           onClick={onDelete}
-          className="px-4 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 text-sm font-semibold w-full border border-rose-100"
+          className="px-4 py-2.5 rounded-xl text-danger-600 hover:bg-danger-50 text-sm font-semibold w-full border border-danger-100"
         >
           Delete entry
         </button>
@@ -1512,7 +1512,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
       <Modal open={sendOpen} onClose={closeSend} title="Send invoice report">
         {sendState === 'success' ? (
           <div className="text-center py-4 space-y-3">
-            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto rounded-full bg-success-50 text-success-700 flex items-center justify-center">
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <p className="text-sm font-semibold">Report sent</p>
@@ -1521,7 +1521,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
           </div>
         ) : sendState === 'notConnected' ? (
           <div className="space-y-3">
-            <p className="text-sm text-red-600 flex items-center gap-1.5">
+            <p className="text-sm text-danger-600 flex items-center gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" /> You haven't connected a Zoho Mail account
             </p>
             <Link
@@ -1541,7 +1541,7 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
               <Row label="Attachments" value={`${(invoice?.email?.attachments || []).length} file(s)`} />
             </div>
             {sendState === 'error' && (
-              <p className="text-xs text-red-600 flex items-center gap-1">
+              <p className="text-xs text-danger-600 flex items-center gap-1">
                 <AlertCircle className="w-3.5 h-3.5" /> {sendError}
               </p>
             )}

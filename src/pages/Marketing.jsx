@@ -6,6 +6,7 @@ import Modal from '../components/Modal.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import Select from '../components/Select.jsx'
 
 const campaignInRange = (c, range) => {
   if (!range) return true
@@ -34,9 +35,9 @@ const CAMPAIGN_STATUS = [
 ]
 
 const statusStyle = (s) =>
-  s === 'Active'    ? 'bg-emerald-100 text-emerald-700'
+  s === 'Active'    ? 'bg-success-100 text-success-700'
   : s === 'Planning'  ? 'bg-iron text-graphite'
-  : s === 'Paused'    ? 'bg-amber-100 text-amber-700'
+  : s === 'Paused'    ? 'bg-warning-100 text-warning-700'
   : s === 'Completed' ? 'bg-brand-100 text-brand-700'
   : 'bg-iron text-graphite'
 
@@ -214,14 +215,14 @@ function NewCampaignModal({ open, onClose, products, onSubmit }) {
         </div>
         <div>
           <label className="label">{t('campaign.field.product')}</label>
-          <select className="input" value={form.productId} onChange={change('productId')}>
+          <Select className="input" value={form.productId} onChange={change('productId')}>
             <option value="">— —</option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} ({p.type})
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -245,11 +246,11 @@ function NewCampaignModal({ open, onClose, products, onSubmit }) {
         </div>
         <div>
           <label className="label">{t('field.status')}</label>
-          <select className="input" value={form.status} onChange={change('status')}>
+          <Select className="input" value={form.status} onChange={change('status')}>
             {CAMPAIGN_STATUS.map((s) => (
               <option key={s.value} value={s.value}>{t(s.tKey)}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <button type="submit" className="btn-primary w-full mt-2">{t('campaign.save')}</button>
       </form>

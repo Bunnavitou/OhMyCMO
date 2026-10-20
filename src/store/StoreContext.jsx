@@ -692,6 +692,20 @@ export function StoreProvider({ children }) {
           replaceIn('products', res.data.product)
         }),
 
+      // Sales changed a customer or business card on the server — a prospect
+      // won, or a won product added to Customer › Products: bring the new or
+      // updated rows into the lists. Either key may be missing.
+      applyConversion: (conversion) => {
+        if (!conversion) return
+        const upsert = (key, item) =>
+          setState((s) => ({
+            ...s,
+            [key]: s[key].some((x) => x.id === item.id) ? s[key].map((x) => (x.id === item.id ? item : x)) : [item, ...s[key]],
+          }))
+        if (conversion.customer) upsert('customers', conversion.customer)
+        if (conversion.partner) upsert('partners', conversion.partner)
+      },
+
       // ── Partners
       addPartner: (data) =>
         run(async () => {

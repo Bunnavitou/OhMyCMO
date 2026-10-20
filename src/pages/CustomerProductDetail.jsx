@@ -419,7 +419,7 @@ function ChatBubble({ entry, customer, onCycleTask, onRemove }) {
         </span>
         <span className="text-[10px] text-graphite">{formatTimestamp(entry.ts)}</span>
       </div>
-      <div className={`relative max-w-[85%] md:max-w-[70%] border ${bubbleColor}`} style={{ borderRadius: '20px' }}>
+      <div className={`relative max-w-[85%] md:max-w-[70%] rounded-toggle border ${bubbleColor}`}>
         {entry.type === 'text' && <TextBody entry={entry} />}
         {entry.type === 'file' && <FileBody entry={entry} />}
         {entry.type === 'task' && (
@@ -427,7 +427,7 @@ function ChatBubble({ entry, customer, onCycleTask, onRemove }) {
         )}
         <button
           onClick={() => onRemove(entry)}
-          className="absolute -top-2 -right-2 p-1 bg-white border border-shadow rounded-full text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute -top-2 -right-2 p-1 bg-white border border-shadow rounded-full text-danger-500 opacity-0 group-hover:opacity-100 transition-opacity"
           aria-label="Remove entry"
         >
           <Trash2 className="w-3 h-3" />

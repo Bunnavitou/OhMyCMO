@@ -1,48 +1,46 @@
+import twColors from 'tailwindcss/colors'
+import { brand, neutral, status } from './src/theme/colors.js'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        // Brand — Wise Green primary (used for CTAs)
-        brand: {
-          50:  '#F4FCEA',
-          100: '#E2F6D5',  // light mint
-          200: '#CDFFAD',  // pastel green
-          300: '#B6F390',
-          400: '#A8EE7E',
-          500: '#9FE870',  // signature Wise Green
-          600: '#7EC25A',
-          700: '#5A8C40',
-          800: '#163300',  // dark green (button text on green)
-          900: '#0A1F00',
-        },
+        // Values come from src/theme/colors.js — change colours there.
+        brand,
 
-        // Canvas + surfaces — flipped to light Wise palette.
-        // Token names are kept for source-compatibility with prior themes.
-        abyss:    '#FFFFFF',  // canvas (page bg)
-        iron:     '#F7F9F5',  // softest surface, hover tint
-        charcoal: '#FFFFFF',  // primary card surface (white with ring)
-        shadow:   '#0E0F0C1F', // 12% near-black border ring
-        graphite: '#454745',  // warm-dark — secondary text
-        ash:      '#868685',  // wise gray — muted text
-        steel:    '#868685',  // muted text alias
-        muted:    '#454745',  // alias for warm-dark
-        'near-black': '#0E0F0C',
-        'warm-dark':  '#454745',
+        // Canvas + surfaces. Token names are kept for source-compatibility
+        // with prior themes, so several are aliases of the same value.
+        abyss:        neutral.white,   // canvas (page bg)
+        iron:         neutral.iron,    // softest surface, hover tint
+        charcoal:     neutral.white,   // primary card surface (white with ring)
+        shadow:       neutral.shadow,  // 12% near-black border ring
+        graphite:     neutral.graphite, // secondary text
+        ash:          neutral.ash,     // muted text
+        steel:        neutral.ash,
+        muted:        neutral.graphite,
+        'near-black': neutral['near-black'],
+        'warm-dark':  neutral.graphite,
 
-        // Wise semantic accents
-        mint:           '#9FE870',  // alias of brand-500 (Wise Green)
-        'mint-edge':    '#163300',  // dark-green stroke on green elements
-        'mint-bg':      '#E2F6D5',  // soft mint surface
-        'pastel-green': '#CDFFAD',  // hover accent
-        'wise-green':   '#9FE870',
-        'wise-dark':    '#163300',
+        // Wise accents — aliases of the brand scale
+        mint:           brand[500],
+        'mint-edge':    brand[800],
+        'mint-bg':      brand[100],
+        'pastel-green': brand[200],
+        'wise-green':   brand[500],
+        'wise-dark':    brand[800],
 
-        // Semantic states
+        // Status scales (bg-danger-100, text-success-700 …), each a Tailwind
+        // palette picked in theme/colors.js. danger / warning keep their
+        // original single-shade DEFAULT for text-danger / bg-warning.
+        danger:  { DEFAULT: '#D03238', ...twColors[status.danger] },
+        success: twColors[status.success],
+        warning: { DEFAULT: '#FFD11A', ...twColors[status.warning] },
+        info:    twColors[status.info],
+        accent:  twColors[status.accent],
+        neutral: twColors[status.neutral],
         positive: '#054D28',
-        danger:   '#D03238',
-        warning:  '#FFD11A',
         'cyan-bg': 'rgba(56,200,255,0.10)',
         'orange-warm': '#FFC091',
 
@@ -50,17 +48,17 @@ export default {
         ultraviolet:   '#5200FF',
         'purple-rule': '#3D00BF',
         pulse:         '#1EAEDB',
-        link:          '#163300',
+        link:          brand[800],
         'link-hover':  '#054D28',
 
         // Saturated tile palette (Home workspace blocks)
         tile: {
-          mint:   '#9FE870',
-          green:  '#CDFFAD',
+          mint:   brand[500],
+          green:  brand[200],
           ivory:  '#F4F1E9',
           peach:  '#FFC091',
           sky:    'rgba(56,200,255,0.18)',
-          dark:   '#163300',
+          dark:   brand[800],
         },
       },
 

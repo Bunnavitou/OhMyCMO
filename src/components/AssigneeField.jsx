@@ -1,4 +1,5 @@
 import { memberName } from '../utils/tasks.js'
+import Select from './Select.jsx'
 
 // Shared "person in charge" picker used by task forms (customers, partners).
 // Lets the user pick a roster member or type a free-text name.
@@ -18,7 +19,7 @@ export default function AssigneeField({ team, assigneeId, assignee, onChange }) 
   return (
     <div>
       <label className="label">Person in charge</label>
-      <select className="input" value={selectValue} onChange={(e) => onSelect(e.target.value)}>
+      <Select className="input" value={selectValue} onChange={(e) => onSelect(e.target.value)}>
         <option value="">Unassigned</option>
         {team.map((m) => (
           <option key={m.id} value={m.id}>
@@ -26,7 +27,7 @@ export default function AssigneeField({ team, assigneeId, assignee, onChange }) 
           </option>
         ))}
         <option value="__custom">Other (type a name)…</option>
-      </select>
+      </Select>
       {selectValue === '__custom' && (
         <input
           className="input mt-2"

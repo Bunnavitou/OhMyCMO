@@ -72,7 +72,7 @@ export default function CustomerDetailFile({ customer }) {
       <p className="text-[11px] text-graphite px-1">
         Files are stored on this device. 1 MB max per file.
       </p>
-      {error && <p className="text-xs text-rose-600 px-1">{error}</p>}
+      {error && <p className="text-xs text-danger-600 px-1">{error}</p>}
 
       {sorted.length === 0 ? (
         <p className="text-center text-sm text-graphite py-6">No files uploaded yet.</p>
@@ -114,7 +114,7 @@ export default function CustomerDetailFile({ customer }) {
                 {canDelete && (
                   <button
                     onClick={() => handleDelete(f.id)}
-                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"
+                    className="p-2 text-danger-500 hover:bg-danger-50 rounded-lg"
                     aria-label="Delete file"
                   >
                     <Trash2 className="w-4 h-4" />

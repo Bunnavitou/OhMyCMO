@@ -12,6 +12,7 @@ import {
   statusStyle, priorityStyle, TASK_PRIORITIES, memberName, doneStamp,
   clampProgress, progressForStatus,
 } from '../utils/tasks.js'
+import Select from '../components/Select.jsx'
 
 const STATUS_OPTIONS = ['Todo', 'In Progress', 'Done', 'Blocked']
 const FILE_LIMIT_BYTES = 1024 * 1024
@@ -113,7 +114,7 @@ export default function CustomerDetailTask({ customer }) {
                             removeCustomerTaskGroup(customer.id, group.id)
                           }
                         }}
-                        className="p-1 rounded hover:bg-rose-50 text-rose-500"
+                        className="p-1 rounded hover:bg-danger-50 text-danger-500"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -340,24 +341,24 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Status</label>
-          <select
+          <Select
             className="input"
             value={form.status}
             onChange={(e) => setStatus(e.target.value)}
           >
             {STATUS_OPTIONS.map((s) => <option key={s}>{s}</option>)}
-          </select>
+          </Select>
         </div>
         <div>
           <label className="label">Priority</label>
-          <select
+          <Select
             className="input"
             value={form.priority || ''}
             onChange={(e) => setForm({ ...form, priority: e.target.value })}
           >
             <option value="">None</option>
             {TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -369,7 +370,7 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Group</label>
-          <select
+          <Select
             className="input"
             value={form.groupId || ''}
             onChange={(e) => setForm({ ...form, groupId: e.target.value || null })}
@@ -378,7 +379,7 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
             {groups.map((g) => (
               <option key={g.id} value={g.id}>{g.name}</option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -428,7 +429,7 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
             <button
               type="button"
               onClick={() => setForm({ ...form, file: null })}
-              className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"
+              className="p-1.5 text-danger-500 hover:bg-danger-50 rounded"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -451,7 +452,7 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
             />
           </>
         )}
-        {fileError && <p className="text-xs text-rose-600 mt-1">{fileError}</p>}
+        {fileError && <p className="text-xs text-danger-600 mt-1">{fileError}</p>}
       </div>
 
       <div className="flex gap-2 pt-2">
@@ -459,7 +460,7 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
           <button
             type="button"
             onClick={onDelete}
-            className="px-4 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 text-sm font-semibold"
+            className="px-4 py-2.5 rounded-xl text-danger-600 hover:bg-danger-50 text-sm font-semibold"
           >
             Delete
           </button>

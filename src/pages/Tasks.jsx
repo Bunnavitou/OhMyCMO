@@ -18,6 +18,7 @@ import {
   POST_STATUS_TO_TASK, TASK_TO_POST_STATUS, MARKETING_POST_TYPES, MARKETING_POST_CHANNELS,
   clampProgress, progressForStatus, progressBarStyle, doneStamp,
 } from '../utils/tasks.js'
+import Select from '../components/Select.jsx'
 
 const DUE_FILTERS = ['all', 'overdue', 'today', 'soon', 'open', 'none']
 const ACTIVITY_PAGE_SIZE = 10
@@ -252,10 +253,10 @@ export default function Tasks() {
 
 
   const statTiles = [
-    { key: 'overdue',    icon: AlertTriangle, value: stats.overdue,    label: t('tasks.stat.overdue'),    bg: '#FFE4E6', fg: '#9F1239' },
-    { key: 'today',      icon: Clock,         value: stats.today,      label: t('tasks.stat.today'),      bg: '#FEF3C7', fg: '#92400E' },
-    { key: 'inProgress', icon: Loader2,       value: stats.inProgress, label: t('tasks.stat.inProgress'), bg: '#E2F6D5', fg: '#166534' },
-    { key: 'blocked',    icon: Ban,           value: stats.blocked,    label: t('tasks.stat.blocked'),    bg: '#F1F5F9', fg: '#334155' },
+    { key: 'overdue',    icon: AlertTriangle, value: stats.overdue,    label: t('tasks.stat.overdue'),    tone: 'bg-danger-100 text-danger-800' },
+    { key: 'today',      icon: Clock,         value: stats.today,      label: t('tasks.stat.today'),      tone: 'bg-warning-100 text-warning-800' },
+    { key: 'inProgress', icon: Loader2,       value: stats.inProgress, label: t('tasks.stat.inProgress'), tone: 'bg-brand-100 text-success-800' },
+    { key: 'blocked',    icon: Ban,           value: stats.blocked,    label: t('tasks.stat.blocked'),    tone: 'bg-neutral-100 text-neutral-700' },
   ]
 
   return (
@@ -270,7 +271,7 @@ export default function Tasks() {
       {/* Stat tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {statTiles.map((s) => (
-          <div key={s.key} className="p-4 rounded-3xl" style={{ backgroundColor: s.bg, color: s.fg }}>
+          <div key={s.key} className={`p-4 rounded-3xl ${s.tone}`}>
             <div className="flex items-center justify-between">
               <s.icon className="w-5 h-5" strokeWidth={2.2} />
               <span className="display text-3xl md:text-4xl">{s.value}</span>
@@ -293,25 +294,25 @@ export default function Tasks() {
           />
         </div>
         {canViewTeam && scope === 'team' && (
-          <select className="input w-auto" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
+          <Select className="input w-auto" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
             <option value="all">{t('tasks.filter.allAssignees')}</option>
             <option value="__none">{t('tasks.filter.unassigned')}</option>
             {assignees.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
+          </Select>
         )}
-        <select className="input w-auto" value={due} onChange={(e) => setDue(e.target.value)}>
+        <Select className="input w-auto" value={due} onChange={(e) => setDue(e.target.value)}>
           {DUE_FILTERS.map((f) => <option key={f} value={f}>{t(`tasks.filter.due.${f}`)}</option>)}
-        </select>
-        <select className="input w-auto" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        </Select>
+        <Select className="input w-auto" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="all">{t('tasks.filter.allStatuses')}</option>
           {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select className="input w-auto" value={source} onChange={(e) => setSource(e.target.value)}>
+        </Select>
+        <Select className="input w-auto" value={source} onChange={(e) => setSource(e.target.value)}>
           <option value="all">{t('tasks.filter.allSources')}</option>
           <option value="customer">{t('tasks.filter.customers')}</option>
           <option value="partner">{t('tasks.filter.partners')}</option>
           <option value="marketing">{t('tasks.filter.marketing')}</option>
-        </select>
+        </Select>
         <div className="flex rounded-xl border border-shadow overflow-hidden">
           <button
             onClick={() => setView('board')}
@@ -629,7 +630,7 @@ function TaskTable({ tasks, canEditTask, onSetStatus, onEdit }) {
                   {task.priority ? <span className={`pill ${priorityStyle(task.priority)}`}>{task.priority}</span> : <span className="text-graphite">—</span>}
                 </td>
                 <td className="p-3">
-                  <select
+                  <Select
                     className="input !py-1 !px-2 w-auto text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     value={task.status}
                     disabled={!canEdit}
@@ -637,7 +638,7 @@ function TaskTable({ tasks, canEditTask, onSetStatus, onEdit }) {
                     onChange={(e) => onSetStatus(task, e.target.value)}
                   >
                     {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  </Select>
                 </td>
               </tr>
             )
@@ -721,7 +722,7 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
         </div>
 
         {!canEdit && (
-          <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{t('tasks.edit.readonly')}</p>
+          <p className="text-xs text-warning-700 bg-warning-50 rounded-lg px-3 py-2">{t('tasks.edit.readonly')}</p>
         )}
 
         <div>
@@ -745,9 +746,9 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">{t('tasks.field.status')}</label>
-            <select className="input" disabled={!canEdit} value={form.status} onChange={(e) => updateStatus(e.target.value)}>
+            <Select className="input" disabled={!canEdit} value={form.status} onChange={(e) => updateStatus(e.target.value)}>
               {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="label">{t('tasks.field.due')}</label>
@@ -765,18 +766,18 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">{t('tasks.field.priority')}</label>
-              <select className="input" disabled={!canEdit} value={form.priority || ''} onChange={(e) => update({ priority: e.target.value })}>
+              <Select className="input" disabled={!canEdit} value={form.priority || ''} onChange={(e) => update({ priority: e.target.value })}>
                 <option value="">{t('tasks.field.priority.none')}</option>
                 {TASK_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+              </Select>
             </div>
             {groups.length > 0 && (
               <div>
                 <label className="label">Group</label>
-                <select className="input" disabled={!canEdit} value={form.groupId || ''} onChange={(e) => update({ groupId: e.target.value || null })}>
+                <Select className="input" disabled={!canEdit} value={form.groupId || ''} onChange={(e) => update({ groupId: e.target.value || null })}>
                   <option value="">Ungrouped</option>
                   {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
+                </Select>
               </div>
             )}
           </div>
@@ -784,16 +785,16 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">{t('tasks.field.channel')}</label>
-              <select className="input" disabled={!canEdit} value={form.channel || ''} onChange={(e) => update({ channel: e.target.value })}>
+              <Select className="input" disabled={!canEdit} value={form.channel || ''} onChange={(e) => update({ channel: e.target.value })}>
                 <option value="">—</option>
                 {MARKETING_POST_CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
               <label className="label">{t('tasks.field.type')}</label>
-              <select className="input" disabled={!canEdit} value={form.type || 'Image'} onChange={(e) => update({ type: e.target.value })}>
+              <Select className="input" disabled={!canEdit} value={form.type || 'Image'} onChange={(e) => update({ type: e.target.value })}>
                 {MARKETING_POST_TYPES.map((ty) => <option key={ty} value={ty}>{ty}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
         ) : (
@@ -825,7 +826,7 @@ function TaskEditModal({ editing, team, canEdit, canDelete, onClose, onSave, onD
               <button
                 type="button"
                 onClick={onDelete}
-                className="rounded-xl px-4 text-rose-600 hover:bg-rose-50 text-sm font-semibold border border-rose-100 inline-flex items-center gap-1.5"
+                className="rounded-xl px-4 text-danger-600 hover:bg-danger-50 text-sm font-semibold border border-danger-100 inline-flex items-center gap-1.5"
               >
                 <Trash2 className="w-4 h-4" /> {t('tasks.edit.delete')}
               </button>
