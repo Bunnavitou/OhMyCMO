@@ -35,6 +35,33 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // Keep permissions current: re-read the user every 15 s and whenever the
+  // tab regains focus, so a permission the owner switches on or off shows
+  // up without a page refresh. The state only changes when the user does.
+  useEffect(() => {
+    if (status !== 'authed') return undefined
+    let live = true
+    const sync = async () => {
+      try {
+        const res = await api.get('/auth/me')
+        if (!live || !res?.data?.user) return
+        setUser((u) => (JSON.stringify(u) === JSON.stringify(res.data.user) ? u : res.data.user))
+      } catch {
+        // A 401 is handled by the api client (it clears the token → 'anon').
+      }
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') sync() }
+    const id = setInterval(sync, 15000)
+    window.addEventListener('focus', sync)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      live = false
+      clearInterval(id)
+      window.removeEventListener('focus', sync)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [status])
+
   // Keep status/user in sync if the token is cleared from elsewhere
   // (e.g. a 401 on a background request triggers setAccessToken(null)).
   useEffect(() => {
