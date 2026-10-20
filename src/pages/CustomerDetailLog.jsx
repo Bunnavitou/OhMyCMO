@@ -1,12 +1,13 @@
 import {
   Activity, ClipboardList, FileEdit, FileX, FilePlus, FolderOpen,
   FolderEdit, FolderX, Upload, ListChecks, RefreshCw, UserPlus, UserMinus,
-  Link2, Link2Off, TrendingUp, TrendingDown, Gauge,
+  Link2, Link2Off, TrendingUp, TrendingDown, Gauge, HeartHandshake,
 } from 'lucide-react'
 
 const LOG_VISUAL = {
   'activity':               { Icon: Activity,      tone: 'bg-brand-500' },
   'customer.create':        { Icon: UserPlus,      tone: 'bg-success-500' },
+  'care.checkin':           { Icon: HeartHandshake, tone: 'bg-accent-500' },
   'customer.update':        { Icon: FileEdit,      tone: 'bg-iron0' },
   'task.create':            { Icon: ClipboardList, tone: 'bg-success-500' },
   'task.update':            { Icon: FileEdit,      tone: 'bg-iron0' },

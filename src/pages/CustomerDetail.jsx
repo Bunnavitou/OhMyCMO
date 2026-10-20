@@ -17,6 +17,7 @@ import CustomerDetailLog from './CustomerDetailLog.jsx'
 import CustomerDetailEmail from './CustomerDetailEmail.jsx'
 import CustomerDetailSales from './CustomerDetailSales.jsx'
 import { HealthCard } from '../components/CustomerHealth.jsx'
+import CustomerCheckin from '../components/CustomerCheckin.jsx'
 import { useCustomerHealth } from '../api/customers.js'
 
 const TABS = [
@@ -53,7 +54,9 @@ export default function CustomerDetail() {
     <>
       <div className="space-y-4">
         <CustomerDetailOrg customer={customer} />
-        <HealthCard health={health.get(customer.id)} thresholds={thresholds} />
+        <HealthCard health={health.get(customer.id)} thresholds={thresholds}>
+          <CustomerCheckin customer={customer} checkIn={health.get(customer.id)?.checkIn} onLogged={refreshHealth} />
+        </HealthCard>
 
         <div className="flex bg-iron border border-shadow">
           {tabs.map((tabDef) => (

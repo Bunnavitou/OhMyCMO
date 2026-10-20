@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { Search, ChevronLeft, ChevronRight, CheckCircle2, Circle, ClipboardList, Plus, PartyPopper } from 'lucide-react'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { Search, ChevronLeft, ChevronRight, CheckCircle2, Circle, HeartHandshake, ClipboardList, Plus, PartyPopper } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
@@ -10,6 +10,8 @@ import SaleForm from '../components/SaleForm.jsx'
 import WinDialog from '../components/WinDialog.jsx'
 import SalesDashboard from './SalesDashboard.jsx'
 import { useSales, useFollowups, useCalendar, saleApi } from '../api/sales.js'
+import { useCheckins } from '../api/customers.js'
+import { checkinWhen } from '../utils/care.js'
 import { memberName } from '../utils/tasks.js'
 import {
   ACTIVITY_TYPES, STATUSES, statusStyle, activityStyle, followupStyle, activityLabel, todayKey, dateOnly, splitAt, addDays,
@@ -257,7 +259,8 @@ export function SalesTable({ onOpen, customerId }) {
 // (in their charge, or on their sales with nobody in charge), the owner on
 // everyone's. ✓ on a card marks it Done without opening the sale.
 function WeekView({ onOpenSale, onAdd, onConverted }) {
-  const { state, applyConversion } = useStore()
+  const { state, applyConversion, logCustomerCheckin } = useStore()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { t, lang } = useT()
   const today = todayKey()
@@ -268,6 +271,10 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
   const [winning, setWinning] = useState(null) // Deal Won ticked on a prospect's sale
   const days = weekDays(monday)
   const { items, loading, refresh } = useCalendar({ from: monday, to: addDays(monday, 6), userId: person })
+  // Regular check-ins due this week; overdue ones sit on today (this week only).
+  const { items: checkins, refresh: refreshCheckins } = useCheckins({ from: monday, to: addDays(monday, 6), userId: person })
+  const checkinDay = (c) => (c.status === 'overdue' ? (days.includes(today) ? today : null) : c.nextDue)
+  const checkinsOn = (d) => checkins.filter((c) => checkinDay(c) === d)
 
   const byDay = (d) => items.filter((a) => dateOnly(a.dueDate) === d)
   const done = items.filter((a) => a.status === 'Done').length
@@ -297,6 +304,22 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
     refresh()
   }
   const card = (a) => <WeekCard key={a.id} a={a} onOpen={() => onOpenSale(a.saleId)} onToggle={canTouch(a) ? () => toggleDone(a) : null} />
+  // Anyone may log a check-in for a customer with no care owner; otherwise its owner or the account owner.
+  const canCheckin = (c) => !user?.ownerId || !c.careOwner || c.careOwner.id === user?.id
+  const logCheckin = async (c) => {
+    setError('')
+    try {
+      await logCustomerCheckin(c.customerId)
+      refreshCheckins()
+    } catch (err) {
+      setError(saleErrorText(err, t))
+    }
+  }
+  const checkinCard = (c) => (
+    <CheckinCard key={`care-${c.customerId}`} c={c}
+      onOpen={() => navigate(`/customers/${c.customerId}`)}
+      onLog={canCheckin(c) ? () => logCheckin(c) : null} />
+  )
 
   return (
     <div className="space-y-3">
@@ -327,6 +350,7 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
               {fmtDay(d, lang, { weekday: 'short' })} {fmtDay(d, lang, { day: 'numeric' })}
             </div>
             <div className="group min-h-[320px] rounded-2xl bg-iron p-1.5 space-y-1.5">
+              {checkinsOn(d).map(checkinCard)}
               {byDay(d).map(card)}
               <button onClick={() => onAdd({ date: d })} className="w-full py-1 text-xs text-graphite opacity-0 group-hover:opacity-100 hover:text-wise-dark">+ {t('sales.new')}</button>
             </div>
@@ -341,18 +365,19 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
             <button key={d} onClick={() => setDay(d)}
               className={`py-2 rounded-xl text-xs font-bold ${d === day ? 'bg-wise-dark text-white' : d === today ? 'bg-brand-50 text-brand-700' : 'bg-iron text-graphite'}`}>
               {fmtDay(d, lang, { weekday: 'narrow' })}<br />{fmtDay(d, lang, { day: 'numeric' })}
-              {byDay(d).length > 0 && <span className="block text-[10px] font-semibold opacity-80">{byDay(d).length}</span>}
+              {byDay(d).length + checkinsOn(d).length > 0 && <span className="block text-[10px] font-semibold opacity-80">{byDay(d).length + checkinsOn(d).length}</span>}
             </button>
           ))}
         </div>
         <div className="space-y-2">
+          {checkinsOn(day).map(checkinCard)}
           {byDay(day).map(card)}
           <button className="w-full rounded-2xl border border-dashed border-shadow py-3 text-sm text-graphite" onClick={() => onAdd({ date: day })}>
             + {t('sales.new')}
           </button>
         </div>
       </div>
-      {!loading && items.length === 0 && <p className="text-sm text-graphite">{t('sales.week.empty')}</p>}
+      {!loading && items.length === 0 && checkins.length === 0 && <p className="text-sm text-graphite">{t('sales.week.empty')}</p>}
       {winning && (
         <WinDialog partner={winning.sale.partner} productId={winning.sale.productId}
           onClose={() => setWinning(null)} onConfirm={win} />
@@ -384,6 +409,34 @@ function WeekCard({ a, onOpen, onToggle }) {
         <div className="flex items-center gap-1 flex-wrap">
           <span className={`pill !text-[10px] !px-1.5 !py-0 ${activityStyle(a.status)}`}>{t(`sales.activityStatus.${a.status}`)}</span>
           <span className="text-[10px] text-graphite truncate">{memberName(who)}</span>
+        </div>
+      </button>
+    </div>
+  )
+}
+
+// A regular check-in on the week calendar: ✓ logs it, the card opens the customer.
+function CheckinCard({ c, onOpen, onLog }) {
+  const { t } = useT()
+  const overdue = c.status === 'overdue'
+  return (
+    <div className={`card !p-2 flex gap-1.5 items-start hover:ring-2 hover:ring-brand-300 ${overdue ? '!border-danger-200' : ''}`}>
+      {onLog ? (
+        <button type="button" onClick={onLog} aria-label={t('care.log')} title={t('care.log')}
+          className="mt-0.5 shrink-0 text-graphite hover:text-wise-dark">
+          <Circle className="w-4 h-4" />
+        </button>
+      ) : <span className="w-4 shrink-0" />}
+      <button type="button" onClick={onOpen} aria-label={t('care.openCustomer')} className="flex-1 min-w-0 text-left space-y-0.5">
+        <p className="text-[12px] font-bold truncate flex items-center gap-1">
+          <HeartHandshake className="w-3.5 h-3.5 shrink-0 text-accent-600" /> {t('care.checkin')}
+        </p>
+        <p className="text-xs font-semibold text-graphite truncate">{c.name}</p>
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className={`pill !text-[10px] !px-1.5 !py-0 ${overdue ? 'bg-danger-100 text-danger-700' : 'bg-accent-100 text-accent-700'}`}>
+            {overdue ? checkinWhen(c, t) : t(`care.cadence.${c.cadence}`)}
+          </span>
+          {c.careOwner && <span className="text-[10px] text-graphite truncate">{memberName(c.careOwner)}</span>}
         </div>
       </button>
     </div>

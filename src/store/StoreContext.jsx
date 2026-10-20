@@ -187,6 +187,16 @@ export function StoreProvider({ children }) {
 
       updateCustomer: (id, patch) => patchCustomer(id, patch),
 
+      // A regular check-in (care feature 4) — a 'care.checkin' log, added to
+      // the customer's history so the Audit Log shows it at once.
+      logCustomerCheckin: (id, note) =>
+        run(async () => {
+          const res = await api.post(`/customers/${id}/checkins`, { note: note || undefined })
+          const c = getCustomer(id)
+          if (c) replaceIn('customers', { ...c, logs: [res.data.log, ...(c.logs || [])] })
+          return res.data.log
+        }),
+
       toggleCustomerPin: (id) => {
         const c = getCustomer(id)
         if (!c) return

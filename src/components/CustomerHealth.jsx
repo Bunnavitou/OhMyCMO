@@ -27,7 +27,7 @@ export function HealthPill({ health }) {
 }
 
 // Card on Customer detail: the overall status, then each signal and why.
-export function HealthCard({ health, thresholds }) {
+export function HealthCard({ health, thresholds, children }) {
   const { t } = useT()
   if (!health) return null
   const { contact, overdue, invoice, products } = health
@@ -81,6 +81,7 @@ export function HealthCard({ health, thresholds }) {
           <p className="text-sm mt-1">{products.count}</p>
         </li>
       </ul>
+      {children}
     </section>
   )
 }
