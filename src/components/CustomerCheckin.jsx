@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CalendarHeart, Check } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { memberName } from '../utils/tasks.js'
-import { fmtDay } from '../utils/sales.js'
+import { fmtDay, todayKey } from '../utils/sales.js'
 import { checkinWhen } from '../utils/care.js'
 import { CARE_CADENCES } from '../api/customers.js'
 import Select from './Select.jsx'
@@ -21,6 +21,14 @@ export default function CustomerCheckin({ customer, checkIn, onLogged }) {
   const { t, lang } = useT()
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  // Brief "✓ Logged" on the button — logging often leaves the dates as they
+  // were (e.g. a second contact on the same day), so say it worked.
+  const [logged, setLogged] = useState(false)
+  useEffect(() => {
+    if (!logged) return
+    const id = setTimeout(() => setLogged(false), 2500)
+    return () => clearTimeout(id)
+  }, [logged])
   const team = (state.team || []).filter((m) => m.active !== false || m.id === customer.careOwnerId)
 
   const log = async () => {
@@ -28,6 +36,7 @@ export default function CustomerCheckin({ customer, checkIn, onLogged }) {
     try {
       await logCustomerCheckin(customer.id, note.trim())
       setNote('')
+      setLogged(true)
       onLogged?.()
     } finally {
       setBusy(false)
@@ -58,6 +67,12 @@ export default function CustomerCheckin({ customer, checkIn, onLogged }) {
         {team.map((m) => <option key={m.id} value={m.id}>{m.id === user?.id ? t('sales.me') : memberName(m)}</option>)}
       </Select>
       {checkIn && (
+        <p className="text-sm text-graphite">
+          {t('care.last')}:{' '}
+          <span className="font-semibold text-near-black">{lastLabel(checkIn.lastAt, t)}</span>
+        </p>
+      )}
+      {checkIn && (
         <p className="text-sm">
           {t('care.next')}:{' '}
           <span className={`font-semibold ${TONE[checkIn.status]}`}>
@@ -74,10 +89,17 @@ export default function CustomerCheckin({ customer, checkIn, onLogged }) {
           onChange={(e) => setNote(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); log() } }}
         />
-        <button type="button" className="btn-primary !py-1.5 text-sm shrink-0" disabled={busy} onClick={log}>
-          <Check className="w-4 h-4" /> {t('care.log')}
+        <button type="button" className="btn-primary !py-1.5 text-sm shrink-0" disabled={busy || logged} onClick={log}>
+          <Check className="w-4 h-4" /> <span aria-live="polite">{logged ? t('care.logged') : t('care.log')}</span>
         </button>
       </div>
     </div>
   )
+}
+
+// "Today" / "5 days ago" / "Never" for the last logged check-in.
+function lastLabel(lastAt, t) {
+  if (!lastAt) return t('care.never')
+  const days = Math.round((Date.parse(todayKey()) - Date.parse(lastAt)) / 864e5)
+  return days <= 0 ? t('health.today') : t('health.daysAgo', { count: days })
 }
