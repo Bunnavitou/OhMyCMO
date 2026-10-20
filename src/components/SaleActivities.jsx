@@ -3,15 +3,16 @@ import { Plus, X, Calendar, UserRound, ListChecks } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { memberName } from '../utils/tasks.js'
-import { ACTIVITY_STATUSES, OTHER, activityStyle, fmtDay, todayKey } from '../utils/sales.js'
+import { ACTIVITY_TYPES, ACTIVITY_STATUSES, OTHER, activityStyle, fmtDay, todayKey } from '../utils/sales.js'
 import Select from './Select.jsx'
 
 const newId = () => `new-${Math.random().toString(36).slice(2, 10)}`
 
 // The activities of a sale — the steps (call, meeting, demo, Deal Won …),
 // each with a status, due date and person in charge. "+ Add activity" adds a
-// row whose name is typed in (saved as an Other activity); older rows may
-// still carry one of the preset types.
+// row whose name is typed in; picking a type (Call, Customer Care …) is
+// optional and is what the weekly KPIs and check-ins count. No type = Other,
+// where the typed name is required.
 export default function SaleActivities({ value, onChange }) {
   const { t } = useT()
   const [focusId, setFocusId] = useState(null) // newly added row to focus
@@ -66,7 +67,16 @@ function ActivityRow({ a, autoFocus, onPatch, onRemove }) {
 
       {/* Type, then details — for Other, the typed name is the activity. */}
       <div className={`order-1 sm:order-2 basis-[calc(100%-2.5rem)] sm:basis-0 flex-1 min-w-0 flex items-center gap-2 px-1 ${done ? 'line-through text-graphite' : ''}`}>
-        {!other && <span className="text-sm font-semibold shrink-0">{t(`activity.type.${a.type}`)}</span>}
+        <Select
+          aria-label={t('sales.activityType')}
+          value={a.type}
+          // Straight on to the name, so typing after a pick doesn't land on the menu.
+          onChange={(e) => { onPatch({ type: e.target.value }); titleRef.current?.focus() }}
+          className={`shrink-0 max-w-[45%] rounded-lg bg-iron px-2 py-1 text-xs font-semibold cursor-pointer ${other ? 'text-graphite' : 'text-near-black'}`}
+        >
+          <option value={OTHER}>{t('sales.activityType.none')}</option>
+          {ACTIVITY_TYPES.map((type) => <option key={type} value={type}>{t(`activity.type.${type}`)}</option>)}
+        </Select>
         <input
           ref={titleRef}
           className="flex-1 min-w-0 bg-transparent outline-none text-sm py-1"
