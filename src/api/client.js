@@ -185,6 +185,37 @@ export async function upload(path, formData, opts = {}) {
   }
 }
 
+// Server-Sent Events over fetch, so the Authorization header can be sent
+// (EventSource can't). Calls onEvent(name, data) for each event; resolves
+// when the server ends the stream, rejects on a network error or a non-2xx
+// answer. Abort with `signal`.
+export async function streamEvents(path, onEvent, signal) {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { Accept: 'text/event-stream', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+    signal,
+  })
+  if (!res.ok || !res.body) throw new Error(`Event stream failed: ${res.status}`)
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buf = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) return
+    buf += value
+    let end
+    while ((end = buf.indexOf('\n\n')) >= 0) {
+      const block = buf.slice(0, end)
+      buf = buf.slice(end + 2)
+      let name = null
+      let data = ''
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) name = line.slice(6).trim()
+        else if (line.startsWith('data:')) data += line.slice(5).trim()
+      }
+      if (name) onEvent(name, data) // ': ping' comments carry no event
+    }
+  }
+}
+
 export const api = {
   get: (path, opts) => request(path, { ...opts, method: 'GET' }),
   post: (path, body, opts) => request(path, { ...opts, method: 'POST', body }),

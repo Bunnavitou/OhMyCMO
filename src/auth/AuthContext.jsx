@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
-import { api, getAccessToken, setAccessToken, onAuthChange, ApiError } from '../api/client.js'
+import { api, getAccessToken, setAccessToken, onAuthChange, streamEvents, ApiError } from '../api/client.js'
 
 const AuthContext = createContext(null)
 
@@ -35,12 +35,14 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // Keep permissions current: re-read the user every 15 s and whenever the
-  // tab regains focus, so a permission the owner switches on or off shows
-  // up without a page refresh. The state only changes when the user does.
+  // Keep permissions current without a page refresh. The server pushes a
+  // 'user' event the moment the owner changes this account (a live stream,
+  // reconnected if it drops); a 60 s check and a check on tab focus are the
+  // safety net. The state only changes when the user actually does.
   useEffect(() => {
     if (status !== 'authed') return undefined
     let live = true
+    const ctrl = new AbortController()
     const sync = async () => {
       try {
         const res = await api.get('/auth/me')
@@ -50,12 +52,27 @@ export function AuthProvider({ children }) {
         // A 401 is handled by the api client (it clears the token → 'anon').
       }
     }
+    ;(async () => {
+      let wait = 1000
+      while (live) {
+        try {
+          await streamEvents('/auth/events', (name) => { if (name === 'user') sync() }, ctrl.signal)
+          wait = 1000 // ended cleanly (e.g. server restart): reconnect soon
+        } catch {
+          if (!live) return
+        }
+        await new Promise((r) => setTimeout(r, wait))
+        wait = Math.min(wait * 2, 30000)
+        sync() // catch up on anything missed while disconnected
+      }
+    })()
     const onVisible = () => { if (document.visibilityState === 'visible') sync() }
-    const id = setInterval(sync, 15000)
+    const id = setInterval(sync, 60000)
     window.addEventListener('focus', sync)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       live = false
+      ctrl.abort()
       clearInterval(id)
       window.removeEventListener('focus', sync)
       document.removeEventListener('visibilitychange', onVisible)
