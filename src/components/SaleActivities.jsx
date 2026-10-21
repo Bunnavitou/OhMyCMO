@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Plus, X, Calendar, UserRound, ListChecks } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
-import { memberName } from '../utils/tasks.js'
+import { memberName, memberLabel } from '../utils/tasks.js'
 import { ACTIVITY_TYPES, ACTIVITY_STATUSES, OTHER, activityStyle, fmtDay, todayKey } from '../utils/sales.js'
 import Select from './Select.jsx'
 
@@ -125,7 +125,7 @@ function ActivityRow({ a, autoFocus, onPatch, onRemove }) {
         >
           <option value="">{t('sales.nobody')}</option>
           {(state.team || []).filter((m) => m.active !== false || m.id === a.assigneeId)
-            .map((m) => <option key={m.id} value={m.id}>{memberName(m)}</option>)}
+            .map((m) => <option key={m.id} value={m.id}>{memberLabel(m, t('role.admin'))}</option>)}
         </Select>
       </div>
 

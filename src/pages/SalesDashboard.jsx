@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { useDashboard } from '../api/sales.js'
 import { chart, neutral } from '../theme/colors.js'
-import { memberName } from '../utils/tasks.js'
+import { memberLabel } from '../utils/tasks.js'
 import { todayKey } from '../utils/sales.js'
 import Select from '../components/Select.jsx'
 
@@ -48,7 +48,7 @@ export default function SalesDashboard({ children }) {
         <Filter label={t('sales.field.officer')}>
           <Select className="input" value={f.userId} onChange={set('userId')}>
             <option value="">{t('sales.filter.allOfficers')}</option>
-            {team.map((m) => <option key={m.id} value={m.id}>{m.id === user?.id ? t('sales.me') : memberName(m)}</option>)}
+            {team.map((m) => <option key={m.id} value={m.id}>{m.id === user?.id ? t('sales.me') : memberLabel(m, t('role.admin'))}</option>)}
           </Select>
         </Filter>
         <Filter label={t('sales.field.customer')}>

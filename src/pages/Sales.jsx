@@ -12,7 +12,7 @@ import SalesDashboard from './SalesDashboard.jsx'
 import { useSales, useFollowups, useCalendar, saleApi } from '../api/sales.js'
 import { useCheckins } from '../api/customers.js'
 import { checkinWhen } from '../utils/care.js'
-import { memberName } from '../utils/tasks.js'
+import { memberName, memberLabel } from '../utils/tasks.js'
 import {
   ACTIVITY_TYPES, STATUSES, statusStyle, activityStyle, followupStyle, activityLabel, todayKey, dateOnly, splitAt, addDays,
   weekStart, weekDays, fmtDay, fmtDate, saleErrorText, isProspect, partyName, partyPhone, partyLink,
@@ -172,7 +172,7 @@ export function SalesTable({ onOpen, customerId }) {
         <Filter label={t('sales.field.officer')}>
           <Select className="input" value={f.userId} onChange={set('userId')}>
             <option value="">{t('sales.filter.allOfficers')}</option>
-            {team.map((m) => <option key={m.id} value={m.id}>{memberName(m)}</option>)}
+            {team.map((m) => <option key={m.id} value={m.id}>{memberLabel(m, t('role.admin'))}</option>)}
           </Select>
         </Filter>
         {!customerId && (
@@ -343,7 +343,7 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
         <Select className="input w-auto" value={person} onChange={(e) => setPerson(e.target.value)} aria-label={t('sales.inCharge')}>
           <option value="">{t('sales.everyone')}</option>
           {(state.team || []).filter((m) => m.active !== false).map((m) => (
-            <option key={m.id} value={m.id}>{m.id === user?.id ? t('sales.me') : memberName(m)}</option>
+            <option key={m.id} value={m.id}>{m.id === user?.id ? t('sales.me') : memberLabel(m, t('role.admin'))}</option>
           ))}
         </Select>
         <span className="text-sm text-graphite md:ml-auto">{t('sales.completion', { done, planned })}</span>

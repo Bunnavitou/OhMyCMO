@@ -3,7 +3,7 @@ import { CalendarHeart, Check } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
-import { memberName } from '../utils/tasks.js'
+import { memberLabel } from '../utils/tasks.js'
 import { fmtDay, todayKey } from '../utils/sales.js'
 import { checkinWhen } from '../utils/care.js'
 import { CARE_CADENCES } from '../api/customers.js'
@@ -64,7 +64,7 @@ export default function CustomerCheckin({ customer, checkIn, onLogged }) {
         onChange={(e) => updateCustomer(customer.id, { careOwnerId: e.target.value || null })}
       >
         <option value="">{t('care.ownerNone')}</option>
-        {team.map((m) => <option key={m.id} value={m.id}>{m.id === user?.id ? t('sales.me') : memberName(m)}</option>)}
+        {team.map((m) => <option key={m.id} value={m.id}>{m.id === user?.id ? t('sales.me') : memberLabel(m, t('role.admin'))}</option>)}
       </Select>
       {checkIn && (
         <p className="text-sm text-graphite">

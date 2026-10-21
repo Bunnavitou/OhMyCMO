@@ -8,7 +8,7 @@ import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
 import { useT } from '../i18n/LanguageContext.jsx'
-import { memberName } from '../utils/tasks.js'
+import { memberLabel } from '../utils/tasks.js'
 import { saleApi } from '../api/sales.js'
 import {
   STATUSES, CHANNELS, OTHER, statusFromActivities, nextActivityDue, statusStyle, fmtDay, todayKey, dateOnly, splitAt,
@@ -167,7 +167,7 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
       <form onSubmit={submit} className="space-y-4">
         {!canEdit && (
           <p className="text-sm rounded-xl bg-warning-50 text-warning-800 px-3 py-2">
-            {t('sales.readOnly', { name: memberName(officer) || t('sales.anotherOfficer') })}
+            {t('sales.readOnly', { name: memberLabel(officer, t('role.admin')) || t('sales.anotherOfficer') })}
           </p>
         )}
         <fieldset disabled={!canEdit} className={`min-w-0 ${canEdit ? '' : 'opacity-75 [&_*]:cursor-default'}`}>
@@ -228,10 +228,10 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
             {canAssign ? (
               <Select className="input" value={form.userId} onChange={set('userId')}>
                 {(state.team || []).filter((m) => m.active !== false || m.id === form.userId)
-                  .map((m) => <option key={m.id} value={m.id}>{memberName(m)}</option>)}
+                  .map((m) => <option key={m.id} value={m.id}>{memberLabel(m, t('role.admin'))}</option>)}
               </Select>
             ) : (
-              <span className="pill bg-iron text-near-black !py-1.5 !px-3">{memberName(officer || user)}</span>
+              <span className="pill bg-iron text-near-black !py-1.5 !px-3">{memberLabel(officer || user, t('role.admin'))}</span>
             )}
           </Row>
           <Row label={t('sales.field.channel')}>
