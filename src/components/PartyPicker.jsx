@@ -18,7 +18,7 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0) // highlighted row for the keyboard
-  const [card, setCard] = useState(null) // null | { name, company, phone } while adding a card
+  const [card, setCard] = useState(null) // null | { name, company, phone, notes } while adding a card
 
   const customer = state.customers.find((c) => c.id === customerId)
   const partner = state.partners.find((p) => p.id === partnerId)
@@ -48,7 +48,7 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
   const close = () => { setOpen(false); setQ(''); setCard(null) }
   const choose = (row) => {
     if (row.kind === 'new') {
-      setCard({ name: q.trim(), company: '', phone: '' })
+      setCard({ name: q.trim(), company: '', phone: '', notes: '' })
       return
     }
     if (row.kind === 'customer') onChange({ customerId: row.item.id, partnerId: null })
@@ -58,7 +58,7 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
     close()
   }
   const createCard = async () => {
-    const p = await addPartner({ name: card.name.trim(), company: card.company.trim() || null, phone: card.phone.trim() || null })
+    const p = await addPartner({ name: card.name.trim(), company: card.company.trim() || null, phone: card.phone.trim() || null, notes: card.notes.trim() || null })
     if (p) choose({ kind: 'partner', item: p })
   }
   const startSearch = () => {
@@ -126,6 +126,7 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
               <input className="input" autoFocus placeholder={t('sales.cardName')} value={card.name} onChange={(e) => setCard({ ...card, name: e.target.value })} />
               <input className="input" placeholder={t('sales.cardCompany')} value={card.company} onChange={(e) => setCard({ ...card, company: e.target.value })} />
               <input className="input" placeholder={t('sales.prospectPhone')} value={card.phone} onChange={(e) => setCard({ ...card, phone: e.target.value })} />
+              <textarea className="input min-h-[72px]" placeholder={t('sales.cardNotes')} aria-label={t('partner.field.notes')} value={card.notes} onChange={(e) => setCard({ ...card, notes: e.target.value })} />
               <div className="flex justify-end gap-2">
                 <button type="button" className="btn-ghost !py-1.5 text-sm" onClick={() => setCard(null)}>{t('common.cancel')}</button>
                 <button type="button" className="btn-primary !py-1.5 text-sm" disabled={!card.name.trim()} onClick={createCard}>{t('common.save')}</button>

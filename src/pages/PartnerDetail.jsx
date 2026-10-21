@@ -4,6 +4,7 @@ import {
   Mail, Phone, Plus, Trash2, Calendar, User, UserPlus,
   Paperclip, Download, DollarSign, Briefcase, Building2,
   Image as ImageIcon, Maximize2, Pencil, Send, Camera, Copy, Check, UserCheck,
+  StickyNote,
 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
@@ -161,6 +162,12 @@ export default function PartnerDetail() {
               <p className="flex items-center gap-2">
                 <Send className="w-4 h-4 text-graphite shrink-0" />
                 <span className="truncate">{partner.telegram}</span>
+              </p>
+            )}
+            {partner.notes && (
+              <p className="flex items-start gap-2">
+                <StickyNote className="w-4 h-4 text-graphite shrink-0 mt-0.5" />
+                <span className="whitespace-pre-wrap text-graphite">{partner.notes}</span>
               </p>
             )}
             {/* Business card → customer (Sales, PHASE-1-ACTIVITIES.md §2.1) */}
@@ -408,6 +415,7 @@ function EditPartnerForm({ partner, onSubmit }) {
     email: partner.email || '',
     phone: partner.phone || '',
     telegram: partner.telegram || '',
+    notes: partner.notes || '',
     cardImage: partner.cardImage || null,
     telegramQr: partner.telegramQr || null,
   })
@@ -447,6 +455,7 @@ function EditPartnerForm({ partner, onSubmit }) {
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         telegram: form.telegram.trim() || null,
+        notes: form.notes.trim() || null,
         cardImage: form.cardImage,
         telegramQr: form.telegramQr,
       })
@@ -513,6 +522,16 @@ function EditPartnerForm({ partner, onSubmit }) {
           value={form.telegram}
           onChange={(e) => setForm({ ...form, telegram: e.target.value })}
           placeholder="@username"
+        />
+      </div>
+
+      <div>
+        <label className="label">{t('partner.field.notes')}</label>
+        <textarea
+          className="input min-h-[88px]"
+          value={form.notes}
+          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          placeholder={t('sales.cardNotes')}
         />
       </div>
 
