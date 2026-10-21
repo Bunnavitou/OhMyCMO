@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, Phone, User, X, Plus, StickyNote } from 'lucide-react'
+import { Search, Phone, User, X, Plus, StickyNote, Pencil } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { hasPermission } from '../auth/permissions.js'
 
 const MAX_PER_GROUP = 6
 
@@ -99,13 +101,7 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
               <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{prospect ? partner.phone : customer.phone}</span>
             )}
           </p>
-          {/* The business card's note — who they are, what they need. */}
-          {partner?.notes && (
-            <p className="flex items-start gap-1 text-xs text-near-black px-1" title={partner.notes}>
-              <StickyNote className="w-3 h-3 mt-0.5 shrink-0 text-graphite" />
-              <span className="whitespace-pre-wrap line-clamp-3">{partner.notes}</span>
-            </p>
-          )}
+          <RecordNote customer={customer} partner={partner} />
           {prospect && <p className="text-xs text-graphite px-1">{t('sales.prospectHint')}</p>}
         </div>
       ) : (
@@ -186,6 +182,65 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
             </ul>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+// The selected customer's or business card's note — who they are, what they
+// need — with Add / Edit in place. It is saved on that record, so it shows
+// wherever the record does. A customer without a note of its own shows the
+// note of the card it came from.
+function RecordNote({ customer, partner }) {
+  const { updateCustomer, updatePartner } = useStore()
+  const { user } = useAuth()
+  const { t } = useT()
+  const [draft, setDraft] = useState(null) // null = not editing
+  const [saving, setSaving] = useState(false)
+  const record = customer || partner
+  const note = customer ? (customer.notes || partner?.notes || '') : (partner?.notes || '')
+  const canEdit = hasPermission(user, customer ? 'customers' : 'partners')
+  if (!record) return null
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const notes = draft.trim() || null
+      if (customer) await updateCustomer(customer.id, { notes })
+      else await updatePartner(partner.id, { notes })
+      setDraft(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (draft !== null) {
+    return (
+      <div className="space-y-1.5 px-1">
+        <textarea className="input min-h-[72px] text-sm" autoFocus value={draft}
+          placeholder={t('sales.cardNotes')} aria-label={t('partner.field.notes')}
+          onChange={(e) => setDraft(e.target.value)} />
+        <div className="flex gap-2">
+          <button type="button" className="btn-ghost !py-1 text-xs" onClick={() => setDraft(null)}>{t('common.cancel')}</button>
+          <button type="button" className="btn-primary !py-1 text-xs disabled:opacity-60" disabled={saving} onClick={save}>{t('common.save')}</button>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-start gap-1 text-xs px-1">
+      {note && (
+        <p className="flex items-start gap-1 text-near-black min-w-0" title={note}>
+          <StickyNote className="w-3 h-3 mt-0.5 shrink-0 text-graphite" />
+          <span className="whitespace-pre-wrap line-clamp-3">{note}</span>
+        </p>
+      )}
+      {canEdit && (
+        <button type="button" onClick={() => setDraft(note)}
+          className="shrink-0 inline-flex items-center gap-1 font-semibold text-wise-dark hover:underline">
+          {note ? <Pencil className="w-3 h-3" /> : <><Plus className="w-3 h-3" /> {t('sales.addNote')}</>}
+          {note && <span className="sr-only">{t('sales.editNote')}</span>}
+        </button>
       )}
     </div>
   )

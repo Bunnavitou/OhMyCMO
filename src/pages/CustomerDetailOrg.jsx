@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
-import { Mail, Phone, MapPin, Hash, Building2, Pencil, Trash2, Users, ChevronRight } from 'lucide-react'
+import { Mail, Phone, MapPin, Hash, Building2, Pencil, Trash2, Users, ChevronRight, StickyNote } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
@@ -119,6 +119,12 @@ export default function CustomerDetailOrg({ customer }) {
               <Hash className="w-4 h-4 shrink-0" /> Add VAT TIN
             </p>
           )}
+          {customer.notes && (
+            <p className="flex items-start gap-2">
+              <StickyNote className="w-4 h-4 text-graphite shrink-0 mt-0.5" />
+              <span className="whitespace-pre-wrap text-graphite">{customer.notes}</span>
+            </p>
+          )}
         </div>
 
         <RouterLink
@@ -167,6 +173,7 @@ function CustomerForm({ initial, groups, onSubmit, t }) {
     phone: initial?.phone || '',
     address: initial?.address || '',
     vatTin: initial?.vatTin || '',
+    notes: initial?.notes || '',
     stage: initial?.stage || 'Prospect',
     groupId: initial?.groupId || '',
     profileImage: initial?.profileImage || null,
@@ -244,6 +251,15 @@ function CustomerForm({ initial, groups, onSubmit, t }) {
           value={form.vatTin}
           onChange={change('vatTin')}
           placeholder="K001-..."
+        />
+      </div>
+      <div>
+        <label className="label">{t('partner.field.notes')}</label>
+        <textarea
+          className="input min-h-[88px]"
+          value={form.notes}
+          onChange={change('notes')}
+          placeholder={t('sales.cardNotes')}
         />
       </div>
       <button className="btn-primary w-full mt-2">Save changes</button>

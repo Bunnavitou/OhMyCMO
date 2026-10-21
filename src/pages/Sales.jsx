@@ -106,7 +106,7 @@ function PartyCell({ s }) {
       <span className="min-w-0">
         <Link to={partyLink(s)} onClick={(e) => e.stopPropagation()} className="hover:underline">{partyName(s)}</Link>
         {isProspect(s) && <ProspectTag />}
-        {s.partner?.notes && <NoteTip note={s.partner.notes} label={t('partner.field.notes')} />}
+        {(s.customer?.notes || s.partner?.notes) && <NoteTip note={s.customer?.notes || s.partner.notes} label={t('partner.field.notes')} />}
         {isProspect(s) && s.partner?.company && <span className="block text-xs font-normal text-graphite">{s.partner.name}</span>}
       </span>
     </span>
@@ -513,7 +513,7 @@ function FollowupsView({ onOpen }) {
                         <span className={followupStyle(s.followupStatus)}>{fmtDay(dateOnly(s.dueDate), lang, { day: 'numeric', month: 'short' })}</span>
                         {' · '}<span className="font-semibold">{partyName(s)}</span>
                         {isProspect(s) && <ProspectTag />}
-                        {s.partner?.notes && <NoteTip note={s.partner.notes} label={t('partner.field.notes')} />}
+                        {(s.customer?.notes || s.partner?.notes) && <NoteTip note={s.customer?.notes || s.partner.notes} label={t('partner.field.notes')} />}
                         {partyPhone(s) && <span className="text-graphite"> · {partyPhone(s)}</span>}
                       </p>
                       {next && <p className="text-sm">{t('sales.next')}: <span className="font-semibold">{activityLabel(next, t)}</span></p>}
