@@ -7,10 +7,11 @@ import EmptyState from '../components/EmptyState.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { exportFullExcel, parseReportFile, downloadMonthlyTemplate } from '../utils/reportExcel.js'
 import {
-  collectTasks, memberName, statusStyle, sourceStyle, dueBucket, clampProgress, progressBarStyle,
+  collectTasks, memberLabel, statusStyle, sourceStyle, dueBucket, clampProgress, progressBarStyle,
 } from '../utils/tasks.js'
 import Select from '../components/Select.jsx'
 import { chart, neutral } from '../theme/colors.js'
+import { usePersonLabel } from '../utils/usePersonLabel.js'
 
 // A report is a customizable table: fixed prev-year / current-year columns plus
 // a DYNAMIC set of weekly/period columns (add/remove) that feed the auto-summed
@@ -1242,7 +1243,7 @@ function TeamTaskReport() {
         <Select className="input !w-auto min-w-[200px]" value={memberId} onChange={(e) => setPicked(e.target.value)}>
           {team.map((m) => (
             <option key={m.id} value={m.id}>
-              {memberName(m)}
+              {memberLabel(m, t('role.admin'))}
             </option>
           ))}
         </Select>
@@ -1460,18 +1461,19 @@ function TaskOutline({ tasks }) {
 // the report rather than sending them to the task's own page.
 function TaskDetail({ tk, flagOverdue }) {
   const { t } = useT()
+  const personLabel = usePersonLabel()
   const pct = clampProgress(tk.progress)
   const statusKey = statusKeyFor(tk, flagOverdue)
   const done = tk.doneAt ? new Date(tk.doneAt) : null
   const rows = [
     [t('report.team.company'), companyOf(tk)],
-    [t('tasks.col.assignee'), tk.assignee],
+    [t('tasks.col.assignee'), personLabel(tk.assigneeId, tk.assignee)],
     [t('tasks.field.due'), tk.due],
     [t('tasks.field.priority'), tk.priority],
     // Customer tasks call this a group, marketing posts a channel; the field is
     // the same slot in both, so one label would be wrong for one of them.
     [tk.source === 'marketing' ? t('tasks.field.channel') : t('customer.field.group'), tk.groupName],
-    [t('tasks.col.createdBy'), tk.createdByName],
+    [t('tasks.col.createdBy'), personLabel(tk.createdById, tk.createdByName)],
     [t('report.team.completedAt'), done && !Number.isNaN(done.getTime()) ? formatLogTime(tk.doneAt) : ''],
   ].filter(([, v]) => v)
 

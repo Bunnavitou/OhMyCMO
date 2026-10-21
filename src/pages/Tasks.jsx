@@ -14,11 +14,12 @@ import AssigneeField from '../components/AssigneeField.jsx'
 import ProgressField from '../components/ProgressField.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
 import {
-  TASK_STATUSES, TASK_PRIORITIES, statusStyle, priorityStyle, sourceStyle, dueBucket, dueTextStyle, collectTasks, memberName,
+  TASK_STATUSES, TASK_PRIORITIES, statusStyle, priorityStyle, sourceStyle, dueBucket, dueTextStyle, collectTasks,
   POST_STATUS_TO_TASK, TASK_TO_POST_STATUS, MARKETING_POST_TYPES, MARKETING_POST_CHANNELS,
   clampProgress, progressForStatus, progressBarStyle, doneStamp,
 } from '../utils/tasks.js'
 import Select from '../components/Select.jsx'
+import { usePersonLabel } from '../utils/usePersonLabel.js'
 
 const DUE_FILTERS = ['all', 'overdue', 'today', 'soon', 'open', 'none']
 const ACTIVITY_PAGE_SIZE = 10
@@ -33,6 +34,7 @@ const formatLogTime = (ts) => {
 }
 
 export default function Tasks() {
+  const personLabel = usePersonLabel()
   const {
     state, updateCustomerTask, updatePartnerTask,
     removeCustomerTask, removePartnerTask,
@@ -155,8 +157,7 @@ export default function Tasks() {
     // Who performed the action: newer logs carry meta.byName directly; older
     // ones (or server-side auto-logs) only carry meta.by (a user id) that we
     // resolve against the team roster.
-    const actorName = (l) =>
-      l.meta?.byName || memberName((state.team || []).find((m) => m.id === l.meta?.by)) || null
+    const actorName = (l) => personLabel(l.meta?.by, l.meta?.byName) || null
 
     const logs = []
     for (const c of state.customers || []) {
@@ -169,7 +170,7 @@ export default function Tasks() {
       for (const l of cam.logs || []) logs.push({ ...l, ownerName: cam.name, link: `/marketing/${cam.id}`, actorName: actorName(l) })
     }
     return logs.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''))
-  }, [state.customers, state.partners, state.campaigns, state.team])
+  }, [state.customers, state.partners, state.campaigns, personLabel])
 
   const filteredActivity = useMemo(() => {
     const needle = activityQuery.trim().toLowerCase()
@@ -297,7 +298,7 @@ export default function Tasks() {
           <Select className="input w-auto" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
             <option value="all">{t('tasks.filter.allAssignees')}</option>
             <option value="__none">{t('tasks.filter.unassigned')}</option>
-            {assignees.map((a) => <option key={a} value={a}>{a}</option>)}
+            {assignees.map((a) => <option key={a} value={a}>{personLabel(null, a)}</option>)}
           </Select>
         )}
         <Select className="input w-auto" value={due} onChange={(e) => setDue(e.target.value)}>
@@ -506,6 +507,7 @@ export default function Tasks() {
 }
 
 function TaskCard({ task, canEdit, onEdit, onDragStart, onDragEnd }) {
+  const personLabel = usePersonLabel()
   const bucket = dueBucket(task.due, task.status)
   return (
     <div
@@ -545,11 +547,11 @@ function TaskCard({ task, canEdit, onEdit, onDragStart, onDragEnd }) {
           </span>
         )}
         <span className="flex items-center gap-1 text-graphite">
-          <User className="w-3 h-3" /> In charge: {task.assignee || 'N/A'}
+          <User className="w-3 h-3" /> In charge: {personLabel(task.assigneeId, task.assignee) || 'N/A'}
         </span>
         {task.createdByName && (
           <span className="flex items-center gap-1 text-ash">
-            <UserPlus className="w-3 h-3" /> Created by {task.createdByName}
+            <UserPlus className="w-3 h-3" /> Created by {personLabel(task.createdById, task.createdByName)}
           </span>
         )}
       </div>
@@ -575,6 +577,7 @@ function ProgressBar({ pct = 0 }) {
 
 function TaskTable({ tasks, canEditTask, onSetStatus, onEdit }) {
   const { t } = useT()
+  const personLabel = usePersonLabel()
   const sorted = useMemo(
     () => [...tasks].sort((a, b) => {
       const ao = a.status === 'Done' ? 1 : 0
@@ -623,8 +626,8 @@ function TaskTable({ tasks, canEditTask, onSetStatus, onEdit }) {
                     </Link>
                   </div>
                 </td>
-                <td className="p-3 text-graphite">{task.assignee || '—'}</td>
-                <td className="p-3 text-graphite">{task.createdByName || '—'}</td>
+                <td className="p-3 text-graphite">{personLabel(task.assigneeId, task.assignee) || '—'}</td>
+                <td className="p-3 text-graphite">{personLabel(task.createdById, task.createdByName) || '—'}</td>
                 <td className={`p-3 ${dueTextStyle(bucket)}`}>{task.due || '—'}</td>
                 <td className="p-3">
                   {task.priority ? <span className={`pill ${priorityStyle(task.priority)}`}>{task.priority}</span> : <span className="text-graphite">—</span>}

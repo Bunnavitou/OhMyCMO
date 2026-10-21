@@ -20,6 +20,7 @@ import { uploadImageRef, hasImage } from '../utils/imageRef.js'
 import { TASK_STATUSES, statusStyle, memberName, clampProgress, progressForStatus, doneStamp } from '../utils/tasks.js'
 import { fmtMoney } from '../utils/email.js'
 import Select from '../components/Select.jsx'
+import { usePersonLabel } from '../utils/usePersonLabel.js'
 
 const CARD_LIMIT_BYTES = 2 * 1024 * 1024
 
@@ -46,6 +47,7 @@ export default function PartnerDetail() {
   const { t } = useT()
   const partner = state.partners.find((p) => p.id === id)
   const team = state.team || []
+  const personLabel = usePersonLabel()
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [cardPreviewOpen, setCardPreviewOpen] = useState(false)
@@ -283,11 +285,11 @@ export default function PartnerDetail() {
                             </span>
                           )}
                           <span className="flex items-center gap-1">
-                            <User className="w-3 h-3" /> In charge: {task.assignee || 'N/A'}
+                            <User className="w-3 h-3" /> In charge: {personLabel(task.assigneeId, task.assignee) || 'N/A'}
                           </span>
                           {task.createdByName && (
                             <span className="flex items-center gap-1 text-ash">
-                              <UserPlus className="w-3 h-3" /> Created by {task.createdByName}
+                              <UserPlus className="w-3 h-3" /> Created by {personLabel(task.createdById, task.createdByName)}
                             </span>
                           )}
                           {Number(task.expense) > 0 && (

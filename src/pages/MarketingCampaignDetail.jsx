@@ -19,6 +19,7 @@ import { POST_STATUS_TO_TASK, clampProgress, progressForStatus, doneStamp } from
 import { persistImageRef, fileContentPath } from '../utils/imageRef.js'
 import { getBlob } from '../api/client.js'
 import Select from '../components/Select.jsx'
+import { usePersonLabel } from '../utils/usePersonLabel.js'
 
 const POST_TYPES = ['Image', 'Video', 'Carousel', 'Reel', 'Story', 'Article', 'Other']
 const POST_CHANNELS = [
@@ -109,6 +110,7 @@ const postTypePill = (type) =>
   : 'bg-emerald-100 text-emerald-700'
 
 export default function MarketingCampaignDetail() {
+  const personLabel = usePersonLabel()
   const { id } = useParams()
   const {
     state,
@@ -383,7 +385,7 @@ export default function MarketingCampaignDetail() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-xs text-graphite whitespace-nowrap">
-                          {t.assignee || '—'}
+                          {personLabel(t.assigneeId, t.assignee) || '—'}
                         </td>
                         <td className="px-3 py-2.5 text-xs text-graphite">
                           {t.caption ? (

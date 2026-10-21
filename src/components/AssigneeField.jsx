@@ -1,9 +1,11 @@
-import { memberName } from '../utils/tasks.js'
+import { memberName, memberLabel } from '../utils/tasks.js'
+import { useT } from '../i18n/LanguageContext.jsx'
 import Select from './Select.jsx'
 
 // Shared "person in charge" picker used by task forms (customers, partners).
 // Lets the user pick a roster member or type a free-text name.
 export default function AssigneeField({ team, assigneeId, assignee, onChange }) {
+  const { t } = useT()
   const isCustom = !assigneeId && !!assignee
   const selectValue = assigneeId || (isCustom ? '__custom' : '')
 
@@ -23,7 +25,7 @@ export default function AssigneeField({ team, assigneeId, assignee, onChange }) 
         <option value="">Unassigned</option>
         {team.map((m) => (
           <option key={m.id} value={m.id}>
-            {memberName(m)}{m.role === 'ADMIN' ? ' (Admin)' : ''}
+            {memberLabel(m, t('role.admin'))}
           </option>
         ))}
         <option value="__custom">Other (type a name)…</option>

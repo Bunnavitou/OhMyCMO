@@ -13,6 +13,7 @@ import {
   clampProgress, progressForStatus,
 } from '../utils/tasks.js'
 import Select from '../components/Select.jsx'
+import { usePersonLabel } from '../utils/usePersonLabel.js'
 
 const STATUS_OPTIONS = ['Todo', 'In Progress', 'Done', 'Blocked']
 const FILE_LIMIT_BYTES = 1024 * 1024
@@ -34,6 +35,7 @@ export default function CustomerDetailTask({ customer }) {
   const canEditTask = (t) => isOwner || !t.assigneeId || t.assigneeId === user?.id
   const canDeleteTask = (t) => canEditTask(t) && hasPermission(user, 'tasks.delete')
   const team = state.team || []
+  const personLabel = usePersonLabel()
   const [openModal, setOpenModal] = useState(null) // 'task' | 'group'
   const [editingTask, setEditingTask] = useState(null)
   const [editingGroup, setEditingGroup] = useState(null)
@@ -160,11 +162,11 @@ export default function CustomerDetailTask({ customer }) {
                                   </span>
                                 )}
                                 <span className="flex items-center gap-1">
-                                  <User className="w-3 h-3" /> In charge: {t.assignee || 'N/A'}
+                                  <User className="w-3 h-3" /> In charge: {personLabel(t.assigneeId, t.assignee) || 'N/A'}
                                 </span>
                                 {t.createdByName && (
                                   <span className="flex items-center gap-1 text-ash">
-                                    <UserPlus className="w-3 h-3" /> Created by {t.createdByName}
+                                    <UserPlus className="w-3 h-3" /> Created by {personLabel(t.createdById, t.createdByName)}
                                   </span>
                                 )}
                                 {t.file && (
