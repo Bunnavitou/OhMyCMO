@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, Phone, User, X, Plus } from 'lucide-react'
+import { Search, Phone, User, X, Plus, StickyNote } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 
@@ -98,6 +98,13 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
               <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{prospect ? partner.phone : customer.phone}</span>
             )}
           </p>
+          {/* The business card's note — who they are, what they need. */}
+          {partner?.notes && (
+            <p className="flex items-start gap-1 text-xs text-near-black px-1" title={partner.notes}>
+              <StickyNote className="w-3 h-3 mt-0.5 shrink-0 text-graphite" />
+              <span className="whitespace-pre-wrap line-clamp-3">{partner.notes}</span>
+            </p>
+          )}
           {prospect && <p className="text-xs text-graphite px-1">{t('sales.prospectHint')}</p>}
         </div>
       ) : (
