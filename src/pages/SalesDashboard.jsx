@@ -310,16 +310,28 @@ function WinsCard({ wins, total, loading }) {
       {wins.length === 0 ? (
         <p className="px-4 py-6 text-sm text-graphite">{t('sales.dash.noWins')}</p>
       ) : (
-        <ul className="divide-y divide-shadow">
-          {wins.map((w) => (
-            <li key={w.id} className="px-4 py-2.5 flex items-center gap-3 text-sm">
-              <Link to={partyLink(w)} className="font-semibold text-wise-dark hover:underline truncate min-w-0 flex-1">{partyName(w)}</Link>
-              <span className="text-graphite truncate hidden sm:block w-32">{w.product?.name || '—'}</span>
-              <span className="text-graphite truncate w-24">{memberLabel(w.user, t('role.admin'))}</span>
-              <span className="tabular-nums text-graphite w-20 text-right">{fmtDay(splitAt(w.wonAt).date, lang, { day: 'numeric', month: 'short' })}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-graphite border-b border-shadow">
+                <th className="px-4 py-2">{t('sales.dash.col.customer')}</th>
+                <th className="px-4 py-2">{t('sales.dash.col.product')}</th>
+                <th className="px-4 py-2">{t('sales.dash.col.officer')}</th>
+                <th className="px-4 py-2 text-right">{t('sales.dash.col.wonOn')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-shadow">
+              {wins.map((w) => (
+                <tr key={w.id}>
+                  <td className="px-4 py-2.5"><Link to={partyLink(w)} className="font-semibold text-wise-dark hover:underline">{partyName(w)}</Link></td>
+                  <td className="px-4 py-2.5 text-graphite">{w.product?.name || '—'}</td>
+                  <td className="px-4 py-2.5 text-graphite">{memberLabel(w.user, t('role.admin'))}</td>
+                  <td className="px-4 py-2.5 text-graphite tabular-nums text-right whitespace-nowrap">{fmtDay(splitAt(w.wonAt).date, lang, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   )
