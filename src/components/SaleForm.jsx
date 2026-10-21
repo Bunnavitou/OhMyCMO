@@ -34,6 +34,9 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
   const isOwner = !user?.ownerId
   // Choosing the sales officer: the owner, or a sub-user given 'sales.assign'.
   const canAssign = hasPermission(user, 'sales.assign')
+  // Reps see the whole team's sales but change only their own (A2), as the
+  // API enforces; someone else's sale opens read-only.
+  const canEdit = !sale || isOwner || sale.userId === user?.id
   const canDelete = sale && (isOwner || sale.userId === user?.id) && hasPermission(user, 'sales.delete')
 
   const [form, setForm] = useState(() => {
@@ -160,8 +163,14 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
   const officer = (state.team || []).find((m) => m.id === form.userId)
 
   return (
-    <Modal open onClose={onClose} title={sale ? t('sales.edit') : t('sales.new')} size="xl">
+    <Modal open onClose={onClose} title={!sale ? t('sales.new') : canEdit ? t('sales.edit') : t('sales.view')} size="xl">
       <form onSubmit={submit} className="space-y-4">
+        {!canEdit && (
+          <p className="text-sm rounded-xl bg-warning-50 text-warning-800 px-3 py-2">
+            {t('sales.readOnly', { name: memberName(officer) || t('sales.anotherOfficer') })}
+          </p>
+        )}
+        <fieldset disabled={!canEdit} className={`min-w-0 ${canEdit ? '' : 'opacity-75 [&_*]:cursor-default'}`}>
         <div className="rounded-3xl border border-shadow divide-y divide-shadow">
           <Row label={t('sales.field.product')}>
             <Select className="input" value={form.productId} onChange={set('productId')}>
@@ -237,16 +246,19 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
 
           <SaleActivities value={form.activities} onChange={(activities) => setForm((f) => ({ ...f, activities }))} />
         </div>
+        </fieldset>
 
         {error && <p className="text-sm text-danger-700">{error}</p>}
         <div className="flex items-center gap-2">
           {canDelete && (
             <button type="button" onClick={remove} className="btn-ghost text-danger-700"><Trash2 className="w-4 h-4" /> {t('common.delete')}</button>
           )}
-          <button type="button" onClick={onClose} className="btn-ghost ml-auto">{t('common.cancel')}</button>
-          <button type="submit" disabled={saving} className="btn-primary disabled:opacity-60">
-            {sale ? t('common.save') : t('sales.save')}
-          </button>
+          <button type="button" onClick={onClose} className="btn-ghost ml-auto">{canEdit ? t('common.cancel') : t('common.close')}</button>
+          {canEdit && (
+            <button type="submit" disabled={saving} className="btn-primary disabled:opacity-60">
+              {sale ? t('common.save') : t('sales.save')}
+            </button>
+          )}
         </div>
       </form>
       {winOpen && partner && (
