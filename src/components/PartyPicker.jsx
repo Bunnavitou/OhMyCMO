@@ -35,7 +35,7 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
   const needle = q.trim().toLowerCase()
   const hit = (...fields) => !needle || fields.some((f) => f && f.toLowerCase().includes(needle))
   const customerName = (id) => state.customers.find((c) => c.id === id)?.name
-  const customerRows = state.customers.filter((c) => hit(c.name, c.phone, c.contact))
+  const customerRows = state.customers.filter((c) => hit(c.name, c.phone, c.contact, c.industry))
   const partnerRows = state.partners.filter((p) => hit(p.name, p.company, p.phone))
   // One flat list so ↑ ↓ Enter move across both groups and the "new card" row.
   const rows = [
@@ -155,7 +155,10 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
                       className={`w-full text-left px-3 py-2 flex items-center gap-2 ${hl}`}>
                       {row.kind === 'customer' && (
                         <>
-                          <span className="font-semibold flex-1 truncate">{row.item.name}</span>
+                          <span className="flex-1 truncate">
+                            <span className="font-semibold">{row.item.name}</span>
+                            {row.item.industry && <span className="text-graphite"> · {row.item.industry}</span>}
+                          </span>
                           {row.item.phone && <span className="text-xs text-graphite tabular-nums">{row.item.phone}</span>}
                         </>
                       )}
