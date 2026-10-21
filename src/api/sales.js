@@ -43,7 +43,7 @@ export const useFollowups = ({ userId } = {}) => {
 // Dashboard cards (sales by status) and deals won by 'YYYY-MM'.
 export const useDashboard = ({ userId, customerId, from, to }) => {
   const r = useLoader(`/sales/dashboard${qs({ userId, customerId, from, to })}`)
-  return { ...r, totals: r.data?.totals || null, wonByMonth: r.data?.wonByMonth || {} }
+  return { ...r, totals: r.data?.totals || null, wonByMonth: r.data?.wonByMonth || {}, wins: r.data?.wins || [], winsTotal: r.data?.winsTotal || 0 }
 }
 
 // Activities due in a date range, each with its sale — the week calendar.

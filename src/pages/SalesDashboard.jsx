@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, Trophy, ArrowRight } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import { useDashboard } from '../api/sales.js'
 import { chart, neutral } from '../theme/colors.js'
 import { memberLabel } from '../utils/tasks.js'
-import { todayKey } from '../utils/sales.js'
+import { todayKey, fmtDay, partyName, partyLink, splitAt } from '../utils/sales.js'
 import Select from '../components/Select.jsx'
 
 // Sales › Dashboard: overview cards, products in use by customers, and deals
@@ -32,13 +33,14 @@ export default function SalesDashboard({ children }) {
   // A rep starts on their own numbers, the owner on everyone's.
   const [f, setF] = useState({ userId: user?.ownerId ? user.id : '', customerId: '', from: '', to: '' })
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }))
-  const { totals, wonByMonth, loading } = useDashboard(f)
+  const { totals, wonByMonth, wins, winsTotal, loading } = useDashboard(f)
   const team = (state.team || []).filter((m) => m.active !== false)
 
   const cards = [
     { key: 'total', value: totals?.total, accent: chart.kpi.total },
     { key: 'progress', value: totals && totals.new + totals.followUp, sub: totals && t('sales.dash.progressSub', { n: totals.new, f: totals.followUp }), accent: chart.kpi.progress },
-    { key: 'completed', value: totals?.completed, accent: chart.kpi.completed },
+    // Completed only means the work is finished; say how many were won or lost.
+    { key: 'completed', value: totals?.completed, sub: totals && t('sales.dash.completedSub', { won: totals.won, lost: totals.lost }), accent: chart.kpi.completed },
     { key: 'rejected', value: totals?.rejected, accent: chart.kpi.rejected },
   ]
 
@@ -77,6 +79,8 @@ export default function SalesDashboard({ children }) {
         <ProductsCard customerId={f.customerId} />
         <WonChart wonByMonth={wonByMonth} loading={loading} />
       </div>
+
+      <WinsCard wins={wins} total={winsTotal} loading={loading} />
 
       {children}
     </div>
@@ -282,6 +286,41 @@ function WonChart({ wonByMonth, loading }) {
           <tbody>{bars.map((b) => <tr key={b.key}><th>{b.full}</th><td>{b.n}</td></tr>)}</tbody>
         </table>
       </div>
+    </section>
+  )
+}
+
+// Which customers bought: the latest deals won (Done "Deal Won" activities)
+// for the filters above, newest first.
+function WinsCard({ wins, total, loading }) {
+  const { t, lang } = useT()
+  return (
+    <section className={`card !rounded-2xl !p-0 overflow-hidden ${loading ? 'opacity-60' : ''}`}>
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-shadow">
+        <p className="font-semibold flex items-center gap-1.5">
+          <Trophy className="w-4 h-4 text-warning-600" /> {t('sales.dash.wins')}
+          <span className="text-graphite font-normal">· {t('sales.dash.winsTotal', { n: total })}</span>
+        </p>
+        {total > 0 && (
+          <Link to="/sales?tab=sales&outcome=won" className="text-sm font-semibold text-wise-dark hover:underline flex items-center gap-1">
+            {t('sales.dash.viewAll')} <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        )}
+      </div>
+      {wins.length === 0 ? (
+        <p className="px-4 py-6 text-sm text-graphite">{t('sales.dash.noWins')}</p>
+      ) : (
+        <ul className="divide-y divide-shadow">
+          {wins.map((w) => (
+            <li key={w.id} className="px-4 py-2.5 flex items-center gap-3 text-sm">
+              <Link to={partyLink(w)} className="font-semibold text-wise-dark hover:underline truncate min-w-0 flex-1">{partyName(w)}</Link>
+              <span className="text-graphite truncate hidden sm:block w-32">{w.product?.name || '—'}</span>
+              <span className="text-graphite truncate w-24">{memberLabel(w.user, t('role.admin'))}</span>
+              <span className="tabular-nums text-graphite w-20 text-right">{fmtDay(splitAt(w.wonAt).date, lang, { day: 'numeric', month: 'short' })}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }

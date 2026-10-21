@@ -162,7 +162,10 @@ const Filter = ({ label, children }) => (
 export function SalesTable({ onOpen, customerId }) {
   const { state } = useStore()
   const { t } = useT()
-  const [f, setF] = useState({ q: '', userId: '', customerId: customerId || '', activityType: '', status: '', outcome: '', from: '', to: '' })
+  // ?outcome=won (the dashboard's "View all" on deals won) presets the Result filter.
+  const [params] = useSearchParams()
+  const startOutcome = ['won', 'lost', 'open'].includes(params.get('outcome')) ? params.get('outcome') : ''
+  const [f, setF] = useState({ q: '', userId: '', customerId: customerId || '', activityType: '', status: '', outcome: customerId ? '' : startOutcome, from: '', to: '' })
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const set = (k) => (e) => { setF((x) => ({ ...x, [k]: e.target.value })); setPage(1) }
