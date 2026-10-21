@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, ChevronLeft, ChevronRight, CheckCircle2, Circle, HeartHandshake, ClipboardList, Plus, PartyPopper } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, CheckCircle2, Circle, HeartHandshake, ClipboardList, Plus, PartyPopper, Trophy } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
@@ -17,6 +17,7 @@ import { memberLabel } from '../utils/tasks.js'
 import {
   ACTIVITY_TYPES, STATUSES, statusStyle, activityStyle, followupStyle, activityLabel, todayKey, dateOnly, splitAt, addDays,
   weekStart, weekDays, fmtDay, fmtDate, saleErrorText, isProspect, partyName, partyPhone, partyLink,
+  saleOutcome,
 } from '../utils/sales.js'
 
 // Dashboard first and the default (no ?tab in the URL).
@@ -96,6 +97,16 @@ const ProspectTag = ({ small }) => {
   return <span className={`pill bg-accent-100 text-accent-700 align-middle ${small ? '!text-[9px] !px-1 !py-0 ml-1' : '!text-[10px] ml-1.5'}`}>{t('sales.prospect')}</span>
 }
 
+// "🏆 Won" / "Lost" beside the status once the deal has a result.
+function OutcomeTag({ s }) {
+  const { t } = useT()
+  const outcome = saleOutcome(s)
+  if (!outcome) return null
+  return outcome === 'won'
+    ? <span className="pill inline-flex items-center gap-1 bg-warning-100 text-warning-800"><Trophy className="w-3 h-3" />{t('sales.outcome.won')}</span>
+    : <span className="pill bg-iron text-graphite">{t('sales.outcome.lost')}</span>
+}
+
 // Customer or prospect name, linking to its page, with a Prospect tag and
 // the business card's note behind an icon.
 function PartyCell({ s }) {
@@ -151,7 +162,7 @@ const Filter = ({ label, children }) => (
 export function SalesTable({ onOpen, customerId }) {
   const { state } = useStore()
   const { t } = useT()
-  const [f, setF] = useState({ q: '', userId: '', customerId: customerId || '', activityType: '', status: '', from: '', to: '' })
+  const [f, setF] = useState({ q: '', userId: '', customerId: customerId || '', activityType: '', status: '', outcome: '', from: '', to: '' })
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const set = (k) => (e) => { setF((x) => ({ ...x, [k]: e.target.value })); setPage(1) }
@@ -199,6 +210,12 @@ export function SalesTable({ onOpen, customerId }) {
             {STATUSES.map((s) => <option key={s} value={s}>{t(`sales.status.${s}`)}</option>)}
           </Select>
         </Filter>
+        <Filter label={t('sales.outcome')}>
+          <Select className="input" value={f.outcome} onChange={set('outcome')}>
+            <option value="">{t('sales.outcome.all')}</option>
+            {['won', 'lost', 'open'].map((o) => <option key={o} value={o}>{t(`sales.outcome.${o}`)}</option>)}
+          </Select>
+        </Filter>
         <Filter label={t('sales.filter.from')}><input type="date" className="input" value={f.from} onChange={set('from')} /></Filter>
         <Filter label={t('sales.filter.to')}><input type="date" className="input" value={f.to} onChange={set('to')} /></Filter>
       </div>
@@ -231,7 +248,12 @@ export function SalesTable({ onOpen, customerId }) {
                     <span className="flex items-center gap-2"><Avatar name={memberLabel(s.user, t('role.admin'))} />{memberLabel(s.user, t('role.admin')) || '—'}</span>
                   </td>
                   <td className="px-3 py-3 tabular-nums whitespace-nowrap">{fmtDate(when.date)} <span className="text-graphite">{when.time}</span></td>
-                  <td className="px-3 py-3"><span className={`pill ${statusStyle(s.status)}`}>{t(`sales.status.${s.status}`)}</span></td>
+                  <td className="px-3 py-3">
+                    <span className="flex flex-wrap items-center gap-1">
+                      <span className={`pill ${statusStyle(s.status)}`}>{t(`sales.status.${s.status}`)}</span>
+                      <OutcomeTag s={s} />
+                    </span>
+                  </td>
                   <td className="px-3 py-3"><ActivitiesCell s={s} /></td>
                   <td className="px-3 py-3 text-graphite">{s.channel ? t(`sales.channel.${s.channel}`) : '—'}</td>
                   <td className={`px-3 py-3 tabular-nums whitespace-nowrap ${followupStyle(s.followupStatus)}`}>{fmtDate(dateOnly(s.dueDate)) || '—'}</td>

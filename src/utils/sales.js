@@ -98,6 +98,13 @@ export const saleErrorText = (err, t) => {
 // Who a sale is with: the customer, or — before a Deal Won — a prospect
 // (a Partner business card), shown by company with the person as fallback.
 export const isProspect = (s) => !s.customerId && !!s.partnerId
+
+// The deal's result: 'won' / 'lost' once a Deal Won / Deal Lost activity is
+// Done, else null (still open). Same rule as the API's `outcome` filter.
+export const saleOutcome = (s) => {
+  const done = (type) => (s.activities || []).some((a) => a.type === type && a.status === 'Done')
+  return done('Deal Won') ? 'won' : done('Deal Lost') ? 'lost' : null
+}
 export const partyName = (s) =>
   s.customer?.name || (s.partner ? s.partner.company || s.partner.name : '')
 export const partyPhone = (s) => s.customer?.phone || s.partner?.phone || ''
