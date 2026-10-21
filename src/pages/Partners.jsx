@@ -19,6 +19,7 @@ const EMPTY_PARTNER = {
   email: '',
   phone: '',
   telegram: '',
+  notes: '',
   cardImage: null,
   telegramQr: null,
 }
@@ -387,7 +388,7 @@ export default function Partners() {
             persistImageRef(d.cardImage, { entityType: 'partner' }),
             persistImageRef(d.telegramQr, { entityType: 'partner' }),
           ])
-          addPartner({ ...d, cardImage, telegramQr })
+          addPartner({ ...d, notes: d.notes?.trim() || null, cardImage, telegramQr })
         }}
       />
 
@@ -598,6 +599,15 @@ function NewPartnerModal({ open, onClose, initial, fromScan, onSubmit }) {
           value={form.telegramQr}
           onChange={(qr) => setForm({ ...form, telegramQr: qr })}
         />
+        <div>
+          <label className="label">{t('partner.field.notes')}</label>
+          <textarea
+            className="input min-h-[88px]"
+            value={form.notes || ''}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            placeholder={t('sales.cardNotes')}
+          />
+        </div>
         <button className="btn-primary w-full mt-2">{t('partner.save')}</button>
       </form>
     </Modal>
