@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Plus, X, Calendar, UserRound, ListChecks } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
-import { memberName, memberLabel } from '../utils/tasks.js'
+import { memberLabel } from '../utils/tasks.js'
 import { ACTIVITY_TYPES, ACTIVITY_STATUSES, OTHER, activityStyle, fmtDay, todayKey } from '../utils/sales.js'
 import Select from './Select.jsx'
 
@@ -110,11 +110,11 @@ function ActivityRow({ a, autoFocus, onPatch, onRemove }) {
       </div>
 
       {/* Person in charge — avatar until set; a transparent select on top */}
-      <div className="order-5 sm:order-4 relative shrink-0" title={person ? memberName(person) : t('sales.inCharge')}>
+      <div className="order-5 sm:order-4 relative shrink-0" title={person ? memberLabel(person, t('role.admin')) : t('sales.inCharge')}>
         <span className={`h-8 min-w-8 rounded-lg border border-shadow px-2 flex items-center gap-1 text-xs ${person ? 'text-near-black' : 'text-graphite'}`}>
           {person
-            ? <><span className="w-5 h-5 rounded-full bg-near-black text-white text-[10px] font-bold flex items-center justify-center">{memberName(person).charAt(0).toUpperCase()}</span>
-                <span className="hidden sm:inline max-w-[80px] truncate">{memberName(person)}</span></>
+            ? <><span className="w-5 h-5 rounded-full bg-near-black text-white text-[10px] font-bold flex items-center justify-center">{memberLabel(person, t('role.admin')).charAt(0).toUpperCase()}</span>
+                <span className="hidden sm:inline max-w-[80px] truncate">{memberLabel(person, t('role.admin'))}</span></>
             : <UserRound className="w-3.5 h-3.5" />}
         </span>
         <Select

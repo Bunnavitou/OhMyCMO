@@ -12,7 +12,7 @@ import SalesDashboard from './SalesDashboard.jsx'
 import { useSales, useFollowups, useCalendar, saleApi } from '../api/sales.js'
 import { useCheckins } from '../api/customers.js'
 import { checkinWhen } from '../utils/care.js'
-import { memberName, memberLabel } from '../utils/tasks.js'
+import { memberLabel } from '../utils/tasks.js'
 import {
   ACTIVITY_TYPES, STATUSES, statusStyle, activityStyle, followupStyle, activityLabel, todayKey, dateOnly, splitAt, addDays,
   weekStart, weekDays, fmtDay, fmtDate, saleErrorText, isProspect, partyName, partyPhone, partyLink,
@@ -224,7 +224,7 @@ export function SalesTable({ onOpen, customerId }) {
                   {!customerId && <td className="px-3 py-3 tabular-nums text-graphite whitespace-nowrap">{partyPhone(s) || '—'}</td>}
                   <td className="px-3 py-3">{s.product?.name || <span className="text-graphite">—</span>}</td>
                   <td className="px-3 py-3">
-                    <span className="flex items-center gap-2"><Avatar name={memberName(s.user)} />{memberName(s.user) || '—'}</span>
+                    <span className="flex items-center gap-2"><Avatar name={memberLabel(s.user, t('role.admin'))} />{memberLabel(s.user, t('role.admin')) || '—'}</span>
                   </td>
                   <td className="px-3 py-3 tabular-nums whitespace-nowrap">{fmtDate(when.date)} <span className="text-graphite">{when.time}</span></td>
                   <td className="px-3 py-3"><span className={`pill ${statusStyle(s.status)}`}>{t(`sales.status.${s.status}`)}</span></td>
@@ -418,7 +418,7 @@ function WeekCard({ a, onOpen, onToggle }) {
         </p>
         <div className="flex items-center gap-1 flex-wrap">
           <span className={`pill !text-[10px] !px-1.5 !py-0 ${activityStyle(a.status)}`}>{t(`sales.activityStatus.${a.status}`)}</span>
-          <span className="text-[10px] text-graphite truncate">{memberName(who)}</span>
+          <span className="text-[10px] text-graphite truncate">{memberLabel(who, t('role.admin'))}</span>
         </div>
       </button>
     </div>
@@ -446,7 +446,7 @@ function CheckinCard({ c, onOpen, onLog }) {
           <span className={`pill !text-[10px] !px-1.5 !py-0 ${overdue ? 'bg-danger-100 text-danger-700' : 'bg-accent-100 text-accent-700'}`}>
             {overdue ? checkinWhen(c, t) : t(`care.cadence.${c.cadence}`)}
           </span>
-          {c.careOwner && <span className="text-[10px] text-graphite truncate">{memberName(c.careOwner)}</span>}
+          {c.careOwner && <span className="text-[10px] text-graphite truncate">{memberLabel(c.careOwner, t('role.admin'))}</span>}
         </div>
       </button>
     </div>
@@ -468,7 +468,7 @@ function DoneCheckinCard({ c, by, onOpen }) {
         {c.note && <span className="block text-[11px] text-graphite truncate" title={c.note}>{c.note}</span>}
         <span className="flex items-center gap-1 flex-wrap">
           <span className="pill !text-[10px] !px-1.5 !py-0 bg-success-100 text-success-700">{t('care.logged')}</span>
-          {by && <span className="text-[10px] text-graphite truncate">{memberName(by)}</span>}
+          {by && <span className="text-[10px] text-graphite truncate">{memberLabel(by, t('role.admin'))}</span>}
         </span>
       </span>
     </button>
@@ -513,7 +513,7 @@ function FollowupsView({ onOpen }) {
                       </p>
                       {next && <p className="text-sm">{t('sales.next')}: <span className="font-semibold">{activityLabel(next, t)}</span></p>}
                       {s.notes && <p className="text-sm text-graphite line-clamp-2">{s.notes}</p>}
-                      <p className="text-xs text-graphite">{memberName(s.user) || '—'}</p>
+                      <p className="text-xs text-graphite">{memberLabel(s.user, t('role.admin')) || '—'}</p>
                     </button>
                     {canEdit(s) && (
                       <button className="btn-ghost !px-3 text-sm shrink-0" onClick={() => complete(s)}>
