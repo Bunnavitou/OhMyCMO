@@ -8,6 +8,7 @@ import EmptyState from '../components/EmptyState.jsx'
 import Select from '../components/Select.jsx'
 import SaleForm from '../components/SaleForm.jsx'
 import WinDialog from '../components/WinDialog.jsx'
+import NoteTip from '../components/NoteTip.jsx'
 import SalesDashboard from './SalesDashboard.jsx'
 import { useSales, useFollowups, useCalendar, saleApi } from '../api/sales.js'
 import { useCheckins } from '../api/customers.js'
@@ -95,14 +96,17 @@ const ProspectTag = ({ small }) => {
   return <span className={`pill bg-accent-100 text-accent-700 align-middle ${small ? '!text-[9px] !px-1 !py-0 ml-1' : '!text-[10px] ml-1.5'}`}>{t('sales.prospect')}</span>
 }
 
-// Customer or prospect name, linking to its page, with a Prospect tag.
+// Customer or prospect name, linking to its page, with a Prospect tag and
+// the business card's note behind an icon.
 function PartyCell({ s }) {
+  const { t } = useT()
   return (
     <span className="flex items-center gap-2 font-semibold text-wise-dark">
       <Avatar name={partyName(s)} />
       <span className="min-w-0">
         <Link to={partyLink(s)} onClick={(e) => e.stopPropagation()} className="hover:underline">{partyName(s)}</Link>
         {isProspect(s) && <ProspectTag />}
+        {s.partner?.notes && <NoteTip note={s.partner.notes} label={t('partner.field.notes')} />}
         {isProspect(s) && s.partner?.company && <span className="block text-xs font-normal text-graphite">{s.partner.name}</span>}
       </span>
     </span>
@@ -509,6 +513,7 @@ function FollowupsView({ onOpen }) {
                         <span className={followupStyle(s.followupStatus)}>{fmtDay(dateOnly(s.dueDate), lang, { day: 'numeric', month: 'short' })}</span>
                         {' · '}<span className="font-semibold">{partyName(s)}</span>
                         {isProspect(s) && <ProspectTag />}
+                        {s.partner?.notes && <NoteTip note={s.partner.notes} label={t('partner.field.notes')} />}
                         {partyPhone(s) && <span className="text-graphite"> · {partyPhone(s)}</span>}
                       </p>
                       {next && <p className="text-sm">{t('sales.next')}: <span className="font-semibold">{activityLabel(next, t)}</span></p>}
