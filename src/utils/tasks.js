@@ -100,10 +100,11 @@ export const dueTextStyle = (bucket) =>
 export const memberName = (m) =>
   m ? (m.name || m.username || m.email || `User ${String(m.id).slice(0, 4)}`) : ''
 
-// "Kim · Admin" — the main account (role ADMIN) has full access, so pickers
-// and "belongs to" notes say so. `adminWord` = t('role.admin').
+// The main account (role ADMIN, one per workspace) has full access, so
+// pickers and "belongs to" notes call it just "Admin". `adminWord` =
+// t('role.admin').
 export const memberLabel = (m, adminWord) =>
-  m?.role === 'ADMIN' ? `${memberName(m)} · ${adminWord}` : memberName(m)
+  m?.role === 'ADMIN' ? adminWord : memberName(m)
 
 // The organisation a task belongs to, for reports that show the account
 // alongside the work. It is NOT the same as `ownerName` for every source:
