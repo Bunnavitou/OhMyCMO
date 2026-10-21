@@ -34,9 +34,12 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
 
   const needle = q.trim().toLowerCase()
   const hit = (...fields) => !needle || fields.some((f) => f && f.toLowerCase().includes(needle))
-  const customerName = (id) => state.customers.find((c) => c.id === id)?.name
-  const customerRows = state.customers.filter((c) => hit(c.name, c.phone, c.contact, c.industry))
-  const partnerRows = state.partners.filter((p) => hit(p.name, p.company, p.phone))
+  // A business card that won a deal is now a customer: list it once, as that
+  // customer, which its person's name and phone still find.
+  const cardsOf = (id) => state.partners.filter((p) => p.customerId === id)
+  const customerRows = state.customers.filter((c) =>
+    hit(c.name, c.phone, c.contact, c.industry, ...cardsOf(c.id).flatMap((p) => [p.name, p.phone])))
+  const partnerRows = state.partners.filter((p) => !p.customerId && hit(p.name, p.company, p.phone))
   // One flat list so ↑ ↓ Enter move across both groups and the "new card" row.
   const rows = [
     ...customerRows.slice(0, MAX_PER_GROUP).map((c) => ({ kind: 'customer', item: c })),
@@ -52,9 +55,7 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
       return
     }
     if (row.kind === 'customer') onChange({ customerId: row.item.id, partnerId: null })
-    else onChange(row.item.customerId
-      ? { customerId: row.item.customerId, partnerId: row.item.id }
-      : { customerId: null, partnerId: row.item.id })
+    else onChange({ customerId: null, partnerId: row.item.id })
     close()
   }
   const createCard = async () => {
@@ -168,9 +169,7 @@ export default function PartyPicker({ customerId, partnerId, onChange }) {
                             <span className="font-semibold">{row.item.name}</span>
                             {row.item.company && <span className="text-graphite"> · {row.item.company}</span>}
                           </span>
-                          {row.item.customerId
-                            ? <span className="pill bg-success-100 text-success-700 !text-[10px]">{t('sales.nowCustomer', { name: customerName(row.item.customerId) || '' })}</span>
-                            : <span className="pill bg-accent-100 text-accent-700 !text-[10px]">{t('sales.prospect')}</span>}
+                          <span className="pill bg-accent-100 text-accent-700 !text-[10px]">{t('sales.prospect')}</span>
                         </>
                       )}
                       {row.kind === 'new' && (
