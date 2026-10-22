@@ -7,6 +7,7 @@ import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
+import { renewalState } from '../utils/payments.js'
 
 const FILE_LIMIT_BYTES = 1024 * 1024 // 1 MB (documents are stored inline)
 
@@ -27,7 +28,7 @@ const fileIconFor = (mime = '') => {
 }
 
 export default function CustomerDetailAgreement({ customer }) {
-  const { addCustomerAgreement, removeCustomerAgreement } = useStore()
+  const { addCustomerAgreement, removeCustomerAgreement, updateCustomerAgreement } = useStore()
   const { user } = useAuth()
   const canManage = hasPermission(user, 'customers.agreements')
   const [error, setError] = useState('')
@@ -104,7 +105,8 @@ export default function CustomerDetailAgreement({ customer }) {
                 })
               : ''
             return (
-              <li key={a.id} className="card flex items-center gap-3">
+              <li key={a.id} className="card space-y-2">
+                <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => a.dataUrl && setPreview(a)}
@@ -154,6 +156,21 @@ export default function CustomerDetailAgreement({ customer }) {
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
+                </div>
+                {/* Contract dates — the end date drives renewal reminders and health. */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:pl-[52px] text-xs text-graphite">
+                  <label className="flex items-center gap-1.5">
+                    Starts
+                    <input type="date" className="input !py-1 !px-2 !text-xs w-auto" value={a.startDate || ''}
+                      onChange={(e) => updateCustomerAgreement(customer.id, a.id, { startDate: e.target.value || null })} />
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    Renews / ends
+                    <input type="date" className="input !py-1 !px-2 !text-xs w-auto" value={a.endDate || ''}
+                      onChange={(e) => updateCustomerAgreement(customer.id, a.id, { endDate: e.target.value || null })} />
+                  </label>
+                  <RenewalTag endDate={a.endDate} />
+                </div>
               </li>
             )
           })}
@@ -191,5 +208,18 @@ export default function CustomerDetailAgreement({ customer }) {
         )}
       </Modal>
     </div>
+  )
+}
+
+// "Renews in 45 days" (amber within the warning window) / "Ended 3 days ago".
+function RenewalTag({ endDate }) {
+  const r = renewalState(endDate)
+  if (!r) return null
+  if (r.state === 'ended') return <span className="pill bg-danger-100 text-danger-700">Ended {r.days} day{r.days === 1 ? '' : 's'} ago</span>
+  if (r.days === 0) return <span className="pill bg-warning-100 text-warning-800">Renews today</span>
+  return (
+    <span className={`pill ${r.state === 'soon' ? 'bg-warning-100 text-warning-800' : 'bg-iron text-graphite'}`}>
+      Renews in {r.days} day{r.days === 1 ? '' : 's'}
+    </span>
   )
 }

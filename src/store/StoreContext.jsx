@@ -319,6 +319,17 @@ export function StoreProvider({ children }) {
           { type: 'agreement.create', message: `Added agreement "${a.name || ''}"`, meta: { agreementId: a.id, size: a.size, type: a.type } },
         )
       },
+      // Start / end (renewal) dates of an agreement (care feature 3).
+      updateCustomerAgreement: (id, agreementId, patch) => {
+        const c = getCustomer(id)
+        if (!c) return
+        const a = (c.agreements || []).find((x) => x.id === agreementId)
+        return patchCustomer(
+          id,
+          { agreements: (c.agreements || []).map((x) => (x.id === agreementId ? { ...x, ...patch } : x)) },
+          { type: 'agreement.update', message: `Updated agreement "${a?.name || ''}"`, meta: { agreementId, ...patch } },
+        )
+      },
       removeCustomerAgreement: (id, agreementId) => {
         const c = getCustomer(id)
         if (!c) return

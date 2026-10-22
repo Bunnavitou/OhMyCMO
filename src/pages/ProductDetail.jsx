@@ -16,6 +16,7 @@ import { fmtMoney, validRecipients } from '../utils/email.js'
 import { memberName } from '../utils/tasks.js'
 import { useT } from '../i18n/LanguageContext.jsx'
 import Select from '../components/Select.jsx'
+import { defaultDueDate } from '../utils/payments.js'
 
 const LOGO_LIMIT_BYTES = 2 * 1024 * 1024
 
@@ -89,7 +90,9 @@ export default function ProductDetail() {
   // Build a fresh copy of an invoice for duplication: new date, blank invoice
   // number, fresh line-item ids, and no carried-over send history.
   const duplicateInvoiceData = (src) => {
-    const copy = { ...src, date: new Date().toISOString().slice(0, 10), invoiceNo: '' }
+    const date = new Date().toISOString().slice(0, 10)
+    // A copy is a new invoice: unpaid, due on the usual terms from today.
+    const copy = { ...src, date, invoiceNo: '', payment: 'unpaid', paidAt: null, dueDate: defaultDueDate(date) }
     delete copy.id
     delete copy.sends
     copy.items = Array.isArray(src.items)

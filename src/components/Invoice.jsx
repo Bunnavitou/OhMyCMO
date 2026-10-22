@@ -6,6 +6,8 @@ import { useZohoStatus, sendInvoiceReport } from '../utils/zoho.js'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { hasPermission } from '../auth/permissions.js'
+import { defaultDueDate, paymentState } from '../utils/payments.js'
+import { todayKey } from '../utils/sales.js'
 
 // Format an ISO timestamp as a short, human date-time (or '—' when absent).
 const fmtWhen = (iso) => {
@@ -391,6 +393,11 @@ export function InvoiceForm({
   onSubmit,
 }) {
   const [date, setDate] = useState(initial?.date || new Date().toISOString().slice(0, 10))
+  // Payment tracking: new invoices start unpaid, due PAYMENT_TERMS_DAYS after
+  // their date; older invoices (no `payment`) stay untracked when edited.
+  const tracksPayment = !initial || !!initial.payment
+  const [dueDate, setDueDate] = useState(initial?.dueDate || defaultDueDate(initial?.date))
+  const [dueTouched, setDueTouched] = useState(!!initial?.dueDate)
   const [invoiceNo, setInvoiceNo] = useState(initial?.invoiceNo || '')
   const [customerId, setCustomerId] = useState(
     initial?.customerId ?? defaultCustomer.customerId ?? '',
@@ -557,6 +564,9 @@ export function InvoiceForm({
       tax,
       grandTotal,
       amount: grandTotal,
+      ...(tracksPayment
+        ? { payment: initial?.payment || 'unpaid', paidAt: initial?.paidAt || null, dueDate: dueDate || null }
+        : {}),
       note: note.trim(),
       email: {
         to: parseRecipients(emailTo),
@@ -583,7 +593,10 @@ export function InvoiceForm({
             className="input"
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => {
+              setDate(e.target.value)
+              if (!dueTouched && e.target.value) setDueDate(defaultDueDate(e.target.value))
+            }}
           />
         </div>
         <div>
@@ -595,6 +608,17 @@ export function InvoiceForm({
             placeholder="INV-2026-001"
           />
         </div>
+        {tracksPayment && (
+          <div>
+            <label className="label">Payment due</label>
+            <input
+              className="input"
+              type="date"
+              value={dueDate}
+              onChange={(e) => { setDueDate(e.target.value); setDueTouched(true) }}
+            />
+          </div>
+        )}
       </div>
 
       {hasCustomerList ? (
@@ -1041,9 +1065,10 @@ export function MonthlyIncomeList({ items, onTap, productName, query = '', onBul
                           {subtitleParts.filter(Boolean).join(' · ')}
                         </p>
                       </div>
-                      <p className="font-semibold text-sm text-success-700">
-                        +${fmtMoney(x.amount || 0)}
-                      </p>
+                      <span className="text-right shrink-0">
+                        <span className="block font-semibold text-sm text-success-700">+${fmtMoney(x.amount || 0)}</span>
+                        <PaymentTag entry={x} />
+                      </span>
                     </button>
                   </li>
                 )
@@ -1451,6 +1476,8 @@ export function InvoiceDetail({ invoice, onDelete, onUpdate, onDuplicate, custom
         </p>
       )}
 
+      <PaymentPanel invoice={invoice} onUpdate={onUpdate} />
+
       {/* Existing actions */}
       {(onUpdate || (onDuplicate && canDuplicate)) && (
         <div className={`grid ${onUpdate && onDuplicate && canDuplicate ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
@@ -1592,6 +1619,71 @@ function Row({ label, value, bold }) {
     <div className="flex justify-between gap-2">
       <span className="text-graphite">{label}</span>
       <span className={`text-right ${bold ? 'font-semibold' : ''}`}>{value}</span>
+    </div>
+  )
+}
+
+const PAYMENT_PILL = {
+  paid: 'bg-success-100 text-success-700',
+  unpaid: 'bg-warning-100 text-warning-800',
+  overdue: 'bg-danger-100 text-danger-700',
+}
+
+const fmtDate = (key) =>
+  key ? new Date(`${key}T00:00:00`).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+
+// "Unpaid" / "Overdue 5d" / "Paid" under an invoice's amount in Billing lists.
+function PaymentTag({ entry }) {
+  const p = paymentState(entry)
+  if (!p) return null
+  return (
+    <span className={`pill !text-[10px] !px-1.5 !py-0 mt-0.5 inline-block ${PAYMENT_PILL[p.state]}`}>
+      {p.state === 'overdue' ? `Overdue ${p.days}d` : p.state === 'paid' ? 'Paid' : 'Unpaid'}
+    </span>
+  )
+}
+
+// Payment status in the invoice view, with Mark as paid / unpaid. Invoices
+// from before payment tracking can opt in with "Track payment".
+function PaymentPanel({ invoice, onUpdate }) {
+  const p = paymentState(invoice)
+  if (!p && !onUpdate) return null
+  return (
+    <div className="rounded-xl border border-shadow px-3 py-2.5 flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-[11px] font-bold uppercase tracking-wider text-graphite">Payment</span>
+      {p ? (
+        <>
+          <span className={`pill ${PAYMENT_PILL[p.state]}`}>
+            {p.state === 'overdue' ? `Overdue · ${p.days} days` : p.state === 'paid' ? 'Paid' : 'Unpaid'}
+          </span>
+          <span className="text-graphite">
+            {p.state === 'paid'
+              ? p.paidAt && `on ${fmtDate(p.paidAt)}`
+              : p.dueDate && `due ${fmtDate(p.dueDate)}`}
+          </span>
+          {onUpdate && (
+            p.state === 'paid' ? (
+              <button type="button" className="btn-ghost !py-1 text-xs ml-auto"
+                onClick={() => onUpdate({ payment: 'unpaid', paidAt: null })}>
+                Mark as unpaid
+              </button>
+            ) : (
+              <button type="button" className="btn-primary !py-1 text-xs ml-auto"
+                onClick={() => onUpdate({ payment: 'paid', paidAt: todayKey() })}>
+                <CheckCircle2 className="w-3.5 h-3.5" /> Mark as paid
+              </button>
+            )
+          )}
+        </>
+      ) : (
+        <>
+          <span className="text-graphite">Not tracked (created before payment tracking)</span>
+          <button type="button" className="btn-ghost !py-1 text-xs ml-auto"
+            onClick={() => onUpdate({ payment: 'unpaid', paidAt: null, dueDate: invoice.dueDate || defaultDueDate(invoice.date) })}>
+            Track payment
+          </button>
+        </>
+      )}
     </div>
   )
 }

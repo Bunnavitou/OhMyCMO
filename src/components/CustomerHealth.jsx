@@ -1,5 +1,6 @@
 import { HeartPulse, CircleAlert } from 'lucide-react'
 import { useT } from '../i18n/LanguageContext.jsx'
+import { fmtMoney } from '../utils/email.js'
 
 // Customer health (care proposal, feature 1). The API decides each status;
 // these only show it.
@@ -30,7 +31,7 @@ export function HealthPill({ health }) {
 export function HealthCard({ health, thresholds, children }) {
   const { t } = useT()
   if (!health) return null
-  const { contact, overdue, invoice, products } = health
+  const { contact, overdue, invoice, products, payments, renewal } = health
   const ago = (days) => (days === 0 ? t('health.today') : t('health.daysAgo', { count: days }))
 
   const rows = [
@@ -54,7 +55,29 @@ export function HealthCard({ health, thresholds, children }) {
       label: t('health.invoice'),
       value: invoice.lastDate ? ago(invoice.days) : t('health.invoice.none'),
     },
-  ]
+    payments && {
+      key: 'payments',
+      status: payments.status,
+      label: t('health.payments'),
+      value: payments.overdueCount
+        ? t('health.payments.overdue', { count: payments.overdueCount, amount: fmtMoney(payments.overdueAmount), d: payments.oldestDays })
+        : payments.unpaidCount
+          ? t('health.payments.unpaid', { count: payments.unpaidCount })
+          : t('health.payments.none'),
+    },
+    renewal && {
+      key: 'renewal',
+      status: renewal.status,
+      label: t('health.renewal'),
+      value: !renewal.endDate
+        ? t('health.renewal.none')
+        : renewal.days < 0
+          ? t('health.renewal.ended', { count: -renewal.days })
+          : renewal.days === 0
+            ? t('health.renewal.today')
+            : t('health.renewal.in', { count: renewal.days }),
+    },
+  ].filter(Boolean)
 
   return (
     <section className="card space-y-3">
@@ -67,7 +90,7 @@ export function HealthCard({ health, thresholds, children }) {
         </div>
         <HealthPill health={health} />
       </div>
-      <ul className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <ul className="grid grid-cols-2 md:grid-cols-3 gap-2">
         {rows.map((r) => (
           <li key={r.key} className="rounded-xl bg-iron px-3 py-2">
             <p className="text-[11px] font-bold uppercase tracking-wider text-graphite flex items-center gap-1.5">
@@ -94,10 +117,14 @@ function HealthRules({ thresholds: th }) {
       t('health.rules.noContact', { n: th.contactAmberDays }),
       t('health.rules.overdue'),
       t('health.rules.noInvoice', { n: th.invoiceAmberDays }),
+      t('health.rules.paymentLate'),
+      t('health.rules.renewalSoon', { n: th.renewalWarnDays }),
     ] },
     { status: 'red', lines: [
       t('health.rules.noContact', { n: th.contactRedDays }),
       t('health.rules.late', { n: th.overdueRedDays }),
+      t('health.rules.paymentVeryLate', { n: th.paymentRedDays }),
+      t('health.rules.agreementsEnded'),
       t('health.rules.twoSignals'),
     ] },
   ]
