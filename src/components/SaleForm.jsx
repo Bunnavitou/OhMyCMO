@@ -12,8 +12,7 @@ import { memberLabel } from '../utils/tasks.js'
 import { saleApi } from '../api/sales.js'
 import {
   STATUSES, CHANNELS, OTHER, statusFromActivities, nextActivityDue, statusStyle, fmtDay, todayKey, dateOnly, splitAt,
-  joinAt, saleErrorText,
-} from '../utils/sales.js'
+  joinAt, saleErrorText, activityLabel } from '../utils/sales.js'
 import Select from './Select.jsx'
 
 // One "label | field" row, like the sample form.
@@ -220,8 +219,13 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
                 </button>
               )}
             </div>
-            {status === 'Follow-up' && !form.dueDate && activityDue && (
-              <p className="text-xs text-graphite mt-1">{t('sales.dueFromActivity', { date: fmtDay(activityDue, lang, { day: 'numeric', month: 'short' }) })}</p>
+            {/* The next open activity sets the follow-up date; this field is
+                only the fallback for sales without dated activities. */}
+            {status === 'Follow-up' && activityDue && (
+              <p className="text-xs text-graphite mt-1">{t('sales.dueFromActivity', {
+                date: fmtDay(activityDue, lang, { day: 'numeric', month: 'short' }),
+                step: activityLabel(acts.find((a) => a.status !== 'Done' && a.dueDate === activityDue), t),
+              })}</p>
             )}
           </Row>
           <Row label={t('sales.field.officer')}>

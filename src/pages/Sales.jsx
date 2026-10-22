@@ -259,7 +259,7 @@ export function SalesTable({ onOpen, customerId }) {
                   </td>
                   <td className="px-3 py-3"><ActivitiesCell s={s} /></td>
                   <td className="px-3 py-3 text-graphite">{s.channel ? t(`sales.channel.${s.channel}`) : '—'}</td>
-                  <td className={`px-3 py-3 tabular-nums whitespace-nowrap ${followupStyle(s.followupStatus)}`}>{fmtDate(dateOnly(s.dueDate)) || '—'}</td>
+                  <td className={`px-3 py-3 tabular-nums whitespace-nowrap ${followupStyle(s.followupStatus)}`}>{fmtDate(s.followupDue || dateOnly(s.dueDate)) || '—'}</td>
                   <td className="px-3 py-3 text-graphite max-w-[240px]"><span className="line-clamp-2">{s.notes}</span></td>
                 </tr>
               )
@@ -535,7 +535,7 @@ function FollowupsView({ onOpen }) {
                   <li key={s.id} className="p-3 md:p-4 flex gap-3 items-center">
                     <button className="flex-1 min-w-0 text-left space-y-0.5" onClick={() => onOpen(s)}>
                       <p className="text-sm">
-                        <span className={followupStyle(s.followupStatus)}>{fmtDay(dateOnly(s.dueDate), lang, { day: 'numeric', month: 'short' })}</span>
+                        <span className={followupStyle(s.followupStatus)}>{fmtDay(s.followupDue || dateOnly(s.dueDate), lang, { day: 'numeric', month: 'short' })}</span>
                         {' · '}<span className="font-semibold">{partyName(s)}</span>
                         {isProspect(s) && <ProspectTag />}
                         {(s.customer?.notes || s.partner?.notes) && <NoteTip note={s.customer?.notes || s.partner.notes} label={t('partner.field.notes')} />}
