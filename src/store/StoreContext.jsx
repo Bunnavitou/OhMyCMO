@@ -17,7 +17,7 @@ import {
 import { api } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
-import { memberName, editLogEntry } from '../utils/tasks.js'
+import { memberName, editLogEntry, withResponseStamp } from '../utils/tasks.js'
 import { fmtMoney } from '../utils/email.js'
 
 const StoreContext = createContext(null)
@@ -587,9 +587,10 @@ export function StoreProvider({ children }) {
           progress: 0,
           ...task,
         }
+        const stamped = withResponseStamp(newTask)
         return patchCustomer(
           id,
-          { tasks: [newTask, ...(c.tasks || [])] },
+          { tasks: [stamped, ...(c.tasks || [])] },
           {
             type: 'task.create',
             message: `Created task "${newTask.name}"`,
@@ -605,14 +606,15 @@ export function StoreProvider({ children }) {
         if (!c) return
         const before = (c.tasks || []).find((t) => t.id === taskId)
         if (!before) return
-        const after = { ...before, ...patch }
+        // A request's first move out of Todo is its first response.
+        const after = withResponseStamp({ ...before, ...patch })
         const changed = Object.keys(patch).filter(
           (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
         )
         if (changed.length === 0) return
-        // `doneAt` is an internal completion timestamp stamped alongside a
-        // Done transition — it shouldn't surface as a user-facing change.
-        const meaningful = changed.filter((k) => k !== 'doneAt')
+        // `doneAt` / `respondedAt` are internal timestamps stamped alongside a
+        // status change — they shouldn't surface as user-facing changes.
+        const meaningful = changed.filter((k) => k !== 'doneAt' && k !== 'respondedAt')
         const { type, message } = editLogEntry(before, after, meaningful, {
           noun: 'Task', name: after.name,
         })

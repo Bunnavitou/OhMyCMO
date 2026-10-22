@@ -49,6 +49,18 @@ export const progressForStatus = (status, progress) =>
 // task leaves Done. The team report uses this to tell work finished during the
 // current week from work finished earlier, so EVERY screen that can complete a
 // task has to set it — a missing stamp reads as "finished some time ago".
+// Customer requests (care feature 2): a customer task with kind 'request'.
+// `respondedAt` is stamped the first time one leaves Todo (first response).
+export const isRequest = (task) => task?.kind === 'request'
+export const withResponseStamp = (task) =>
+  isRequest(task) && task.status && task.status !== 'Todo' && !task.respondedAt
+    ? { ...task, respondedAt: new Date().toISOString() }
+    : task
+
+// Whole days a request has been open (from its register date).
+export const requestAgeDays = (task) =>
+  task?.registerDate ? Math.max(0, Math.round((Date.now() - Date.parse(`${task.registerDate}T00:00:00`)) / 864e5)) : 0
+
 export const doneStamp = (status, previous) =>
   status === 'Done' ? (previous || new Date().toISOString()) : null
 
@@ -168,6 +180,8 @@ export function collectTasks(state) {
         assigneeId: t.assigneeId || '',
         createdByName: t.createdByName || '',
         createdById: t.createdById || '',
+        kind: t.kind || '',
+        registerDate: t.registerDate || '',
         priority: t.priority || '',
         groupName: groups.find((g) => g.id === t.groupId)?.name || '',
         doneAt: t.doneAt || '',

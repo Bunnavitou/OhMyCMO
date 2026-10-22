@@ -10,10 +10,10 @@ import AssigneeField from '../components/AssigneeField.jsx'
 import ProgressField from '../components/ProgressField.jsx'
 import {
   statusStyle, priorityStyle, TASK_PRIORITIES, memberName, doneStamp,
-  clampProgress, progressForStatus,
-} from '../utils/tasks.js'
+  clampProgress, progressForStatus, isRequest } from '../utils/tasks.js'
 import Select from '../components/Select.jsx'
 import { usePersonLabel } from '../utils/usePersonLabel.js'
+import RequestTag from '../components/RequestTag.jsx'
 
 const STATUS_OPTIONS = ['Todo', 'In Progress', 'Done', 'Blocked']
 const FILE_LIMIT_BYTES = 1024 * 1024
@@ -143,6 +143,7 @@ export default function CustomerDetailTask({ customer }) {
                                 >
                                   {t.name}
                                 </p>
+                                {isRequest(t) && <RequestTag task={t} />}
                                 {t.priority && (
                                   <span className={`pill shrink-0 ${priorityStyle(t.priority)}`}>
                                     {t.priority}
@@ -319,8 +320,19 @@ function TaskForm({ initial, groups, team = [], currentUser, onSubmit, onDelete 
       }}
       className="space-y-3"
     >
+      {/* A customer request is something the customer asked for or a problem
+          they have; it is timed from its register date to first response and
+          resolution (care feature 2). */}
+      <div className="flex rounded-xl border border-shadow overflow-hidden w-fit text-sm font-semibold">
+        {[['', 'Task'], ['request', 'Customer request']].map(([k, label]) => (
+          <button key={k} type="button" onClick={() => setForm({ ...form, kind: k })}
+            className={`px-3 py-1.5 ${(form.kind || '') === k ? 'bg-wise-dark text-white' : 'text-graphite hover:bg-iron'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
       <div>
-        <label className="label">Task name *</label>
+        <label className="label">{form.kind === 'request' ? 'What did the customer ask for? *' : 'Task name *'}</label>
         <input
           className="input"
           autoFocus

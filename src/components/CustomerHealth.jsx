@@ -31,7 +31,7 @@ export function HealthPill({ health }) {
 export function HealthCard({ health, thresholds, children }) {
   const { t } = useT()
   if (!health) return null
-  const { contact, overdue, invoice, products, payments, renewal } = health
+  const { contact, overdue, invoice, products, payments, renewal, requests } = health
   const ago = (days) => (days === 0 ? t('health.today') : t('health.daysAgo', { count: days }))
 
   const rows = [
@@ -77,6 +77,21 @@ export function HealthCard({ health, thresholds, children }) {
             ? t('health.renewal.today')
             : t('health.renewal.in', { count: renewal.days }),
     },
+    requests && {
+      key: 'requests',
+      status: requests.status,
+      label: t('health.requests'),
+      value: requests.openCount
+        ? t('health.requests.open', { count: requests.openCount, d: requests.oldestDays })
+        : t('health.requests.none'),
+      // How fast the team handles them (last 90 days).
+      sub: requests.avgResponseDays != null || requests.avgResolveDays != null
+        ? t('health.requests.speed', {
+          r: requests.avgResponseDays != null ? `${requests.avgResponseDays}d` : '—',
+          s: requests.avgResolveDays != null ? `${requests.avgResolveDays}d` : '—',
+        })
+        : null,
+    },
   ].filter(Boolean)
 
   return (
@@ -97,6 +112,7 @@ export function HealthCard({ health, thresholds, children }) {
               <HealthDot status={r.status} /> {r.label}
             </p>
             <p className="text-sm mt-1">{r.value}</p>
+            {r.sub && <p className="text-[11px] text-graphite mt-0.5">{r.sub}</p>}
           </li>
         ))}
         <li className="rounded-xl bg-iron px-3 py-2">
@@ -119,12 +135,14 @@ function HealthRules({ thresholds: th }) {
       t('health.rules.noInvoice', { n: th.invoiceAmberDays }),
       t('health.rules.paymentLate'),
       t('health.rules.renewalSoon', { n: th.renewalWarnDays }),
+      t('health.rules.requestOpen', { n: th.requestAmberDays }),
     ] },
     { status: 'red', lines: [
       t('health.rules.noContact', { n: th.contactRedDays }),
       t('health.rules.late', { n: th.overdueRedDays }),
       t('health.rules.paymentVeryLate', { n: th.paymentRedDays }),
       t('health.rules.agreementsEnded'),
+      t('health.rules.requestOpen', { n: th.requestRedDays }),
       t('health.rules.twoSignals'),
     ] },
   ]

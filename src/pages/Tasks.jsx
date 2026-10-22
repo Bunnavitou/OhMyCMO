@@ -16,10 +16,10 @@ import DateFilterButton from '../components/DateFilterButton.jsx'
 import {
   TASK_STATUSES, TASK_PRIORITIES, statusStyle, priorityStyle, sourceStyle, dueBucket, dueTextStyle, collectTasks,
   POST_STATUS_TO_TASK, TASK_TO_POST_STATUS, MARKETING_POST_TYPES, MARKETING_POST_CHANNELS,
-  clampProgress, progressForStatus, progressBarStyle, doneStamp,
-} from '../utils/tasks.js'
+  clampProgress, progressForStatus, progressBarStyle, doneStamp, isRequest } from '../utils/tasks.js'
 import Select from '../components/Select.jsx'
 import { usePersonLabel } from '../utils/usePersonLabel.js'
+import RequestTag from '../components/RequestTag.jsx'
 
 const DUE_FILTERS = ['all', 'overdue', 'today', 'soon', 'open', 'none']
 const ACTIVITY_PAGE_SIZE = 10
@@ -120,7 +120,7 @@ export default function Tasks() {
     const needle = q.trim().toLowerCase()
     return scopedTasks.filter((task) => {
       if (statusFilter !== 'all' && task.status !== statusFilter) return false
-      if (source !== 'all' && task.source !== source) return false
+      if (source === 'request' ? !isRequest(task) : source !== 'all' && task.source !== source) return false
       if (assignee === '__none' ? task.assignee : assignee !== 'all' && task.assignee !== assignee) return false
       if (needle) {
         const hay = `${task.name} ${task.description} ${task.ownerName} ${task.assignee}`.toLowerCase()
@@ -313,6 +313,7 @@ export default function Tasks() {
           <option value="customer">{t('tasks.filter.customers')}</option>
           <option value="partner">{t('tasks.filter.partners')}</option>
           <option value="marketing">{t('tasks.filter.marketing')}</option>
+          <option value="request">{t('tasks.filter.requests')}</option>
         </Select>
         <div className="flex rounded-xl border border-shadow overflow-hidden">
           <button
@@ -534,6 +535,7 @@ function TaskCard({ task, canEdit, onEdit, onDragStart, onDragEnd }) {
           <Pencil className="w-3.5 h-3.5" />
         </button>
       </div>
+      {isRequest(task) && <div><RequestTag task={task} /></div>}
       <div className="flex items-center gap-1.5">
         <span className={`pill shrink-0 text-[10px] ${sourceStyle(task.source)}`}>{task.ownerLabel}</span>
         <Link to={task.link} className="text-[11px] text-graphite hover:text-wise-dark inline-flex items-center gap-1 min-w-0 truncate">
@@ -616,6 +618,7 @@ function TaskTable({ tasks, canEditTask, onSetStatus, onEdit }) {
                     {task.name}
                     <Pencil className="w-3 h-3 text-graphite shrink-0" />
                   </button>
+                  {isRequest(task) && <RequestTag task={task} />}
                   {task.groupName && <p className="text-[11px] text-graphite">{task.groupName}</p>}
                 </td>
                 <td className="p-3">
