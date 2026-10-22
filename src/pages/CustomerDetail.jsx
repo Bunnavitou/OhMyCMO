@@ -11,8 +11,7 @@ import { hasPermission } from '../auth/permissions.js'
 
 import CustomerDetailOrg from './CustomerDetailOrg.jsx'
 import CustomerDetailTask from './CustomerDetailTask.jsx'
-import CustomerDetailFile from './CustomerDetailFile.jsx'
-import CustomerDetailAgreement from './CustomerDetailAgreement.jsx'
+import CustomerDetailDocuments from './CustomerDetailDocuments.jsx'
 import CustomerDetailLog from './CustomerDetailLog.jsx'
 import CustomerDetailEmail from './CustomerDetailEmail.jsx'
 import CustomerDetailSales from './CustomerDetailSales.jsx'
@@ -21,11 +20,11 @@ import CustomerCheckin from '../components/CustomerCheckin.jsx'
 import { useCustomerHealth } from '../api/customers.js'
 
 const TABS = [
+  // Care first: what they buy, what they use, their contracts.
   { value: 'Sales',      tKey: 'customer.tab.sales',      perm: 'sales' },
-  { value: 'Tasks',      tKey: 'customer.tab.tasks' },
   { value: 'Products',   tKey: 'customer.tab.products' },
-  { value: 'Files',      tKey: 'customer.tab.files' },
-  { value: 'Agreements', tKey: 'customer.tab.agreements' },
+  { value: 'Documents',  tKey: 'customer.tab.documents' },
+  { value: 'Tasks',      tKey: 'customer.tab.tasks' },
   { value: 'Email',      tKey: 'customer.tab.email' },
   { value: 'Audit Log',  tKey: 'customer.tab.audit' },
 ]
@@ -86,8 +85,7 @@ export default function CustomerDetail() {
             }}
           />
         )}
-        {tab === 'Files' && <CustomerDetailFile customer={customer} />}
-        {tab === 'Agreements' && <CustomerDetailAgreement customer={customer} />}
+        {tab === 'Documents' && <CustomerDetailDocuments customer={customer} />}
         {tab === 'Email' && <CustomerDetailEmail customer={customer} />}
         {tab === 'Audit Log' && <CustomerDetailLog logs={customer.logs || []} />}
       </div>

@@ -319,6 +319,22 @@ export function StoreProvider({ children }) {
           { type: 'agreement.create', message: `Added agreement "${a.name || ''}"`, meta: { agreementId: a.id, size: a.size, type: a.type } },
         )
       },
+      // Move a document between Other files and Agreements (the Documents
+      // tab). Both lists change in ONE save, so a document is never in both
+      // or in neither; it keeps its dates if it moves back.
+      moveCustomerDocument: (id, docId, to) => {
+        const c = getCustomer(id)
+        if (!c) return
+        const from = to === 'agreements' ? 'files' : 'agreements'
+        const doc = (c[from] || []).find((x) => x.id === docId)
+        if (!doc) return
+        return patchCustomer(
+          id,
+          { [from]: (c[from] || []).filter((x) => x.id !== docId), [to]: [doc, ...(c[to] || []).filter((x) => x.id !== docId)] },
+          { type: 'document.move', message: `Moved "${doc.name || ''}" to ${to === 'agreements' ? 'agreements' : 'files'}`, meta: { docId, from, to } },
+        )
+      },
+
       // Start / end (renewal) dates of an agreement (care feature 3).
       updateCustomerAgreement: (id, agreementId, patch) => {
         const c = getCustomer(id)

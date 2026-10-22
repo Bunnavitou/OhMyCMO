@@ -17,6 +17,7 @@ const LOG_VISUAL = {
   'group.create':           { Icon: FolderOpen,    tone: 'bg-success-500' },
   'group.rename':           { Icon: FolderEdit,    tone: 'bg-iron0' },
   'group.delete':           { Icon: FolderX,       tone: 'bg-danger-500' },
+  'document.move':          { Icon: FolderEdit,    tone: 'bg-brand-500' },
   'agreement.create':       { Icon: FilePlus,      tone: 'bg-success-500' },
   'agreement.delete':       { Icon: FileX,         tone: 'bg-danger-500' },
   'file.upload':            { Icon: Upload,        tone: 'bg-success-500' },
