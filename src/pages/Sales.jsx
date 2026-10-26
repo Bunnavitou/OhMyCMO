@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, ChevronLeft, ChevronRight, CheckCircle2, Circle, HeartHandshake, ClipboardList, Plus, PartyPopper, Trophy } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, CheckCircle2, Circle, HeartHandshake, ClipboardList, Plus, PartyPopper, Trophy, Columns3, Check } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
@@ -9,6 +9,7 @@ import Select from '../components/Select.jsx'
 import SaleForm from '../components/SaleForm.jsx'
 import WinDialog from '../components/WinDialog.jsx'
 import NoteTip from '../components/NoteTip.jsx'
+import HoverTip from '../components/HoverTip.jsx'
 import SalesDashboard from './SalesDashboard.jsx'
 import { useSales, useFollowups, useCalendar, saleApi } from '../api/sales.js'
 import { useCheckins } from '../api/customers.js'
@@ -97,14 +98,25 @@ const ProspectTag = ({ small }) => {
   return <span className={`pill bg-accent-100 text-accent-700 align-middle ${small ? '!text-[9px] !px-1 !py-0 ml-1' : '!text-[10px] ml-1.5'}`}>{t('sales.prospect')}</span>
 }
 
-// "🏆 Won" / "Lost" beside the status once the deal has a result.
+// The Phnom Penh day an activity was done (doneAt is an instant), else its due day.
+const doneDay = (a) => (a.doneAt ? splitAt(a.doneAt).date : dateOnly(a.dueDate))
+
+// "🏆 Won" / "Lost" beside the status once the deal has a result; hover shows
+// the Deal Won / Deal Lost activity and its day.
 function OutcomeTag({ s }) {
-  const { t } = useT()
+  const { t, lang } = useT()
   const outcome = saleOutcome(s)
   if (!outcome) return null
-  return outcome === 'won'
-    ? <span className="pill inline-flex items-center gap-1 bg-warning-100 text-warning-800"><Trophy className="w-3 h-3" />{t('sales.outcome.won')}</span>
-    : <span className="pill bg-iron text-graphite">{t('sales.outcome.lost')}</span>
+  const deal = (s.activities || []).find((a) => a.type === (outcome === 'won' ? 'Deal Won' : 'Deal Lost') && a.status === 'Done')
+  const day = deal && doneDay(deal)
+  const tip = deal && `${activityLabel(deal, t)}${day ? ` · ${fmtDay(day, lang, { day: 'numeric', month: 'short' })}` : ''}`
+  return (
+    <HoverTip tip={tip}>
+      {outcome === 'won'
+        ? <span className="pill inline-flex items-center gap-1 bg-warning-100 text-warning-800"><Trophy className="w-3 h-3" />{t('sales.outcome.won')}</span>
+        : <span className="pill bg-iron text-graphite">{t('sales.outcome.lost')}</span>}
+    </HoverTip>
+  )
 }
 
 // Customer or prospect name, linking to its page, with a Prospect tag and
@@ -125,20 +137,28 @@ function PartyCell({ s }) {
 }
 
 // The sale's activities at a glance: the next open ones, and how many are done.
+// With nothing left open (e.g. a Completed sale), the sale's last activity in
+// form order instead.
 function ActivitiesCell({ s }) {
   const { t, lang } = useT()
   const acts = s.activities || []
   if (!acts.length) return <span className="text-graphite">—</span>
   const open = acts.filter((a) => a.status !== 'Done')
   const done = acts.length - open.length
+  const shown = open.length ? open : acts.slice(-1)
   return (
     <div className="space-y-0.5">
-      {open.slice(0, 2).map((a) => (
-        <p key={a.id} className="whitespace-nowrap">
-          <span className="font-semibold">{activityLabel(a, t)}</span>
-          {a.dueDate && <span className="text-graphite"> · {fmtDay(dateOnly(a.dueDate), lang, { day: 'numeric', month: 'short' })}</span>}
-        </p>
-      ))}
+      {shown.slice(0, 2).map((a) => {
+        const isDone = a.status === 'Done'
+        const day = isDone ? doneDay(a) : dateOnly(a.dueDate)
+        return (
+          <p key={a.id} className="whitespace-nowrap flex items-center gap-1">
+            <span className={`font-semibold ${isDone ? 'text-graphite' : ''}`}>{activityLabel(a, t)}</span>
+            {day && <span className="text-graphite">· {fmtDay(day, lang, { day: 'numeric', month: 'short' })}</span>}
+            {isDone && <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-success-600" />}
+          </p>
+        )
+      })}
       <p className="text-[11px] text-graphite">{t('sales.activityCount', { done, n: acts.length })}</p>
     </div>
   )
@@ -157,6 +177,63 @@ const Filter = ({ label, children }) => (
   </div>
 )
 
+// Columns the viewer can hide (Customer always shows). Remembered per browser.
+const HIDEABLE = ['phone', 'product', 'officer', 'date', 'status', 'activities', 'channel', 'due', 'notes']
+const HIDDEN_KEY = 'sales.hiddenColumns'
+const readHidden = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(HIDDEN_KEY))
+    return Array.isArray(v) ? v.filter((k) => HIDEABLE.includes(k)) : []
+  } catch { return [] }
+}
+
+// Columns icon button with a checklist of the table's columns.
+function ColumnPicker({ columns, hidden, onChange }) {
+  const { t } = useT()
+  const ref = useRef(null)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    const onKey = (e) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey) }
+  }, [open])
+  const toggle = (k) => onChange(hidden.includes(k) ? hidden.filter((x) => x !== k) : [...hidden, k])
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" className="p-2 rounded-full text-graphite hover:text-near-black hover:bg-iron" aria-expanded={open}
+        aria-label={t('sales.columns')} title={t('sales.columns')} onClick={() => setOpen((o) => !o)}>
+        <Columns3 className="w-5 h-5" />
+      </button>
+      {open && (
+        <div className="absolute z-20 right-0 mt-1 w-56 rounded-2xl border border-shadow bg-white shadow-xl py-1 text-sm">
+          {columns.map((c) => {
+            const shown = !hidden.includes(c.key)
+            return (
+              <button key={c.key} type="button" role="menuitemcheckbox" aria-checked={shown} onClick={() => toggle(c.key)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-iron">
+                <span className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center ${shown ? 'bg-near-black border-near-black text-white' : 'border-shadow'}`}>
+                  {shown && <Check className="w-3 h-3" />}
+                </span>
+                {c.label}
+              </button>
+            )
+          })}
+          <div className="border-t border-shadow mt-1 pt-1">
+            <button type="button" className="w-full px-3 py-2 text-left font-semibold text-wise-dark hover:bg-iron disabled:opacity-50"
+              disabled={hidden.length === 0} onClick={() => onChange([])}>
+              {t('sales.columns.showAll')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Sales table (the main view). Also used on Customer detail with
 // `customerId` fixed.
 export function SalesTable({ onOpen, customerId }) {
@@ -170,6 +247,25 @@ export function SalesTable({ onOpen, customerId }) {
   const [limit, setLimit] = useState(10)
   const set = (k) => (e) => { setF((x) => ({ ...x, [k]: e.target.value })); setPage(1) }
   const { items, total, loading } = useSales({ ...f, page, limit })
+  const [hidden, setHidden] = useState(readHidden)
+  const saveHidden = (next) => {
+    setHidden(next)
+    try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(next)) } catch { /* private mode: this visit only */ }
+  }
+  // On Customer detail the customer is fixed, so its phone isn't offered.
+  const pickable = [
+    ...(customerId ? [] : [{ key: 'phone', label: t('sales.col.phone') }]),
+    { key: 'product', label: t('sales.field.product') },
+    { key: 'officer', label: t('sales.field.officer') },
+    { key: 'date', label: t('sales.field.saleDate') },
+    { key: 'status', label: t('sales.field.status') },
+    { key: 'activities', label: t('sales.activities') },
+    { key: 'channel', label: t('sales.field.channel') },
+    { key: 'due', label: t('sales.field.dueDate') },
+    { key: 'notes', label: t('sales.field.notes') },
+  ]
+  const show = (k) => !hidden.includes(k) && (k !== 'phone' || !customerId)
+  const shownCount = pickable.filter((c) => show(c.key)).length + (customerId ? 0 : 1)
 
   const team = (state.team || []).filter((m) => m.active !== false)
   const first = total === 0 ? 0 : (page - 1) * limit + 1
@@ -221,22 +317,18 @@ export function SalesTable({ onOpen, customerId }) {
         </Filter>
         <Filter label={t('sales.filter.from')}><input type="date" className="input" value={f.from} onChange={set('from')} /></Filter>
         <Filter label={t('sales.filter.to')}><input type="date" className="input" value={f.to} onChange={set('to')} /></Filter>
+        <div className="col-span-2 md:ml-auto">
+          <ColumnPicker columns={pickable} hidden={hidden.filter((k) => pickable.some((c) => c.key === k))} onChange={saveHidden} />
+        </div>
       </div>
 
       <div className={`card !p-0 overflow-x-auto ${loading ? 'opacity-60' : ''}`}>
-        <table className="w-full text-sm min-w-[1100px]">
+        {/* Narrower when columns are hidden, so the rest don't spread out. */}
+        <table className="w-full text-sm" style={{ minWidth: Math.max(480, shownCount * 110) }}>
           <thead>
             <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-graphite border-b border-shadow">
               {!customerId && <th className="px-4 py-3">{t('sales.field.customer')}</th>}
-              {!customerId && <th className="px-3 py-3">{t('sales.col.phone')}</th>}
-              <th className="px-3 py-3">{t('sales.field.product')}</th>
-              <th className="px-3 py-3">{t('sales.field.officer')}</th>
-              <th className="px-3 py-3">{t('sales.field.saleDate')}</th>
-              <th className="px-3 py-3">{t('sales.field.status')}</th>
-              <th className="px-3 py-3">{t('sales.activities')}</th>
-              <th className="px-3 py-3">{t('sales.field.channel')}</th>
-              <th className="px-3 py-3">{t('sales.field.dueDate')}</th>
-              <th className="px-3 py-3">{t('sales.field.notes')}</th>
+              {pickable.filter((c) => show(c.key)).map((c) => <th key={c.key} className="px-3 py-3">{c.label}</th>)}
             </tr>
           </thead>
           <tbody className="divide-y divide-shadow">
@@ -245,22 +337,26 @@ export function SalesTable({ onOpen, customerId }) {
               return (
                 <tr key={s.id} onClick={() => onOpen(s)} className="hover:bg-iron cursor-pointer align-middle">
                   {!customerId && <td className="px-4 py-3"><PartyCell s={s} /></td>}
-                  {!customerId && <td className="px-3 py-3 tabular-nums text-graphite whitespace-nowrap">{partyPhone(s) || '—'}</td>}
-                  <td className="px-3 py-3">{s.product?.name || <span className="text-graphite">—</span>}</td>
-                  <td className="px-3 py-3">
-                    <span className="flex items-center gap-2"><Avatar name={memberLabel(s.user, t('role.admin'))} />{memberLabel(s.user, t('role.admin')) || '—'}</span>
-                  </td>
-                  <td className="px-3 py-3 tabular-nums whitespace-nowrap">{fmtDate(when.date)} <span className="text-graphite">{when.time}</span></td>
-                  <td className="px-3 py-3">
-                    <span className="flex flex-wrap items-center gap-1">
-                      <span className={`pill ${statusStyle(s.status)}`}>{t(`sales.status.${s.status}`)}</span>
-                      <OutcomeTag s={s} />
-                    </span>
-                  </td>
-                  <td className="px-3 py-3"><ActivitiesCell s={s} /></td>
-                  <td className="px-3 py-3 text-graphite">{s.channel ? t(`sales.channel.${s.channel}`) : '—'}</td>
-                  <td className={`px-3 py-3 tabular-nums whitespace-nowrap ${followupStyle(s.followupStatus)}`}>{fmtDate(s.followupDue || dateOnly(s.dueDate)) || '—'}</td>
-                  <td className="px-3 py-3 text-graphite max-w-[240px]"><span className="line-clamp-2">{s.notes}</span></td>
+                  {show('phone') && <td className="px-3 py-3 tabular-nums text-graphite whitespace-nowrap">{partyPhone(s) || '—'}</td>}
+                  {show('product') && <td className="px-3 py-3">{s.product?.name || <span className="text-graphite">—</span>}</td>}
+                  {show('officer') && (
+                    <td className="px-3 py-3">
+                      <span className="flex items-center gap-2"><Avatar name={memberLabel(s.user, t('role.admin'))} />{memberLabel(s.user, t('role.admin')) || '—'}</span>
+                    </td>
+                  )}
+                  {show('date') && <td className="px-3 py-3 tabular-nums whitespace-nowrap">{fmtDate(when.date)} <span className="text-graphite">{when.time}</span></td>}
+                  {show('status') && (
+                    <td className="px-3 py-3">
+                      <span className="flex flex-wrap items-center gap-1">
+                        <span className={`pill ${statusStyle(s.status)}`}>{t(`sales.status.${s.status}`)}</span>
+                        <OutcomeTag s={s} />
+                      </span>
+                    </td>
+                  )}
+                  {show('activities') && <td className="px-3 py-3"><ActivitiesCell s={s} /></td>}
+                  {show('channel') && <td className="px-3 py-3 text-graphite">{s.channel ? t(`sales.channel.${s.channel}`) : '—'}</td>}
+                  {show('due') && <td className={`px-3 py-3 tabular-nums whitespace-nowrap ${followupStyle(s.followupStatus)}`}>{fmtDate(s.followupDue || dateOnly(s.dueDate)) || '—'}</td>}
+                  {show('notes') && <td className="px-3 py-3 text-graphite max-w-[240px]"><span className="line-clamp-2">{s.notes}</span></td>}
                 </tr>
               )
             })}
