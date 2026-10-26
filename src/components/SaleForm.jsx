@@ -162,7 +162,7 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
   const officer = (state.team || []).find((m) => m.id === form.userId)
 
   return (
-    <Modal open onClose={onClose} title={!sale ? t('sales.new') : canEdit ? t('sales.edit') : t('sales.view')} size="xl">
+    <Modal open onClose={onClose} title={!sale ? t('sales.new') : canEdit ? t('sales.edit') : t('sales.view')} size="3xl">
       <form onSubmit={submit} className="space-y-4">
         {!canEdit && (
           <p className="text-sm rounded-xl bg-warning-50 text-warning-800 px-3 py-2">

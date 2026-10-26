@@ -66,20 +66,20 @@ function ActivityRow({ a, autoFocus, onPatch, onRemove }) {
       </Select>
 
       {/* Type, then details — for Other, the typed name is the activity. */}
-      <div className={`order-1 sm:order-2 basis-[calc(100%-2.5rem)] sm:basis-0 flex-1 min-w-0 flex items-center gap-2 px-1 ${done ? 'line-through text-graphite' : ''}`}>
+      <div className={`order-1 sm:order-2 basis-[calc(100%-2.5rem)] sm:basis-0 flex-1 min-w-0 flex flex-wrap items-center gap-x-2 px-1 ${done ? 'line-through text-graphite' : ''}`}>
         <Select
           aria-label={t('sales.activityType')}
           value={a.type}
           // Straight on to the name, so typing after a pick doesn't land on the menu.
           onChange={(e) => { onPatch({ type: e.target.value }); titleRef.current?.focus() }}
-          className={`shrink-0 max-w-[45%] rounded-lg bg-iron px-2 py-1 text-xs font-semibold cursor-pointer ${other ? 'text-graphite' : 'text-near-black'}`}
+          className={`shrink-0 whitespace-nowrap rounded-lg bg-iron px-2 py-1 text-xs font-semibold cursor-pointer ${other ? 'text-graphite' : 'text-near-black'}`}
         >
           <option value={OTHER}>{t('sales.activityType.none')}</option>
           {ACTIVITY_TYPES.map((type) => <option key={type} value={type}>{t(`activity.type.${type}`)}</option>)}
         </Select>
         <input
           ref={titleRef}
-          className="flex-1 min-w-0 bg-transparent outline-none text-sm py-1"
+          className="flex-1 min-w-[8rem] bg-transparent outline-none text-sm py-1"
           placeholder={other ? t('sales.otherName') : done ? '' : t('sales.activityDetails')}
           aria-label={other ? t('sales.otherName') : t('sales.activityDetails')}
           value={a.title || ''}
