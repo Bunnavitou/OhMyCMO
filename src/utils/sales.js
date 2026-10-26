@@ -39,6 +39,9 @@ export const nextActivityDue = (activities) =>
 export const activityLabel = (a, t) =>
   a.type === OTHER ? a.title || t('activity.type.Other') : t(`activity.type.${a.type}`)
 
+// What the user typed for the activity, else its type ("Demo").
+export const activityName = (a, t) => a.title?.trim() || activityLabel(a, t)
+
 export const followupStyle = (s) =>
   s === 'Overdue' ? 'text-danger-700 font-semibold'
   : s === 'Today' ? 'text-warning-700 font-semibold'

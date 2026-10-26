@@ -16,7 +16,7 @@ import { useCheckins } from '../api/customers.js'
 import { checkinWhen } from '../utils/care.js'
 import { memberLabel } from '../utils/tasks.js'
 import {
-  ACTIVITY_TYPES, STATUSES, statusStyle, activityStyle, followupStyle, activityLabel, todayKey, dateOnly, splitAt, addDays,
+  ACTIVITY_TYPES, STATUSES, statusStyle, activityStyle, followupStyle, activityLabel, activityName, todayKey, dateOnly, splitAt, addDays,
   weekStart, weekDays, fmtDay, fmtDate, saleErrorText, isProspect, partyName, partyPhone, partyLink,
   saleOutcome,
 } from '../utils/sales.js'
@@ -153,7 +153,7 @@ function ActivitiesCell({ s }) {
         const day = isDone ? doneDay(a) : dateOnly(a.dueDate)
         return (
           <p key={a.id} className="whitespace-nowrap flex items-center gap-1">
-            <span className={`font-semibold ${isDone ? 'text-graphite' : ''}`}>{activityLabel(a, t)}</span>
+            <span className={`font-semibold truncate max-w-[260px] ${isDone ? 'text-graphite' : ''}`} title={activityName(a, t)}>{activityName(a, t)}</span>
             {day && <span className="text-graphite">· {fmtDay(day, lang, { day: 'numeric', month: 'short' })}</span>}
             {isDone && <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-success-600" />}
           </p>
