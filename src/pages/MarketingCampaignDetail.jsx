@@ -10,6 +10,7 @@ import { useStore } from '../store/StoreContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import Modal from '../components/Modal.jsx'
+import useScrollLock from '../hooks/useScrollLock.js'
 import { CAMPAIGN_STATUS, statusStyle, formatDateRange } from './Marketing.jsx'
 import { parsePostsFile, downloadTemplate, exportPostsExcel } from '../utils/campaignExcel.js'
 import AuthImage from '../components/AuthImage.jsx'
@@ -807,6 +808,7 @@ function TodoForm({ initial, team = [], onSubmit, onDelete }) {
 }
 
 function ArtworkPreview({ item, index, total, onClose, onPrev, onNext }) {
+  useScrollLock()
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') onClose()

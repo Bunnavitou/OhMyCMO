@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useT } from '../i18n/LanguageContext.jsx'
+import useScrollLock from '../hooks/useScrollLock.js'
 
 const SIZE_CLASS = {
   md: 'max-w-md',
@@ -14,6 +15,7 @@ const SIZE_CLASS = {
 
 export default function Modal({ open, onClose, title, size = 'md', children }) {
   const { t } = useT()
+  useScrollLock(open)
   useEffect(() => {
     if (!open) return
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -31,7 +33,7 @@ export default function Modal({ open, onClose, title, size = 'md', children }) {
         onClick={onClose}
       />
       <div
-        className={`relative w-full ${sizeClass} bg-white text-near-black border border-shadow mx-auto p-5 max-h-[92vh] overflow-y-auto rounded-feature shadow-ring animate-[slideUp_0.18s_ease-out]`}
+        className={`relative w-full ${sizeClass} bg-white text-near-black border border-shadow mx-auto p-5 max-h-[92vh] overflow-y-auto overscroll-contain rounded-feature shadow-ring animate-[slideUp_0.18s_ease-out]`}
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="display text-xl md:text-2xl text-near-black">

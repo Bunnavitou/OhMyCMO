@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Search, Handshake, Mail, Phone, Camera, Pencil, Loader2, Sparkles, Trash2, ArrowDownAZ, ArrowDownZA, ArrowUpDown, Check, Building2 } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import Modal from '../components/Modal.jsx'
+import useScrollLock from '../hooks/useScrollLock.js'
 import EmptyState from '../components/EmptyState.jsx'
 import DateFilterButton from '../components/DateFilterButton.jsx'
 import { scanCard } from '../utils/cardScanner.js'
@@ -493,6 +494,7 @@ export function TelegramQrPicker({ value, onChange }) {
 }
 
 function ScanningOverlay() {
+  useScrollLock()
   const { t } = useT()
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
