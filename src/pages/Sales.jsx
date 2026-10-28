@@ -458,9 +458,13 @@ function WeekView({ onOpenSale, onAdd, onConverted }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <button className="btn-ghost !px-2" onClick={() => moveWeek(-1)} aria-label={t('sales.prevWeek')}><ChevronLeft className="w-5 h-5" /></button>
-        <p className="font-semibold tabular-nums">
+        {/* Pick any date to jump to its week */}
+        <label className="relative btn-ghost !px-2 font-semibold tabular-nums cursor-pointer">
           {fmtDay(monday, lang, { day: 'numeric', month: 'short' })} – {fmtDay(addDays(monday, 6), lang, { day: 'numeric', month: 'short', year: 'numeric' })}
-        </p>
+          <input type="date" className="absolute inset-0 opacity-0 cursor-pointer" value={day}
+            onClick={(e) => e.currentTarget.showPicker?.()}
+            onChange={(e) => { if (e.target.value) { setMonday(weekStart(e.target.value)); setDay(e.target.value) } }} />
+        </label>
         <button className="btn-ghost !px-2" onClick={() => moveWeek(1)} aria-label={t('sales.nextWeek')}><ChevronRight className="w-5 h-5" /></button>
         {monday !== weekStart(today) && (
           <button className="btn-ghost text-sm" onClick={() => { setMonday(weekStart(today)); setDay(today) }}>{t('sales.thisWeek')}</button>
