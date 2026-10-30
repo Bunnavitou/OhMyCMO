@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, ChevronLeft, ChevronRight, CheckCircle2, Circle, HeartHandshake, ClipboardList, Plus, PartyPopper, Trophy, Columns3, Check } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, CheckCircle2, Circle, HeartHandshake, ClipboardList, Plus, PartyPopper, Trophy, XCircle, Columns3, Check } from 'lucide-react'
 import { useStore } from '../store/StoreContext.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useT } from '../i18n/LanguageContext.jsx'
@@ -101,7 +101,7 @@ const ProspectTag = ({ small }) => {
 // The Phnom Penh day an activity was done (doneAt is an instant), else its due day.
 const doneDay = (a) => (a.doneAt ? splitAt(a.doneAt).date : dateOnly(a.dueDate))
 
-// "🏆 Won" / "Lost" beside the status once the deal has a result; hover shows
+// "🏆 Success" / "ⓧ Rejected" beside the status once the deal has a result; hover shows
 // the Deal Won / Deal Lost activity and its day.
 function OutcomeTag({ s }) {
   const { t, lang } = useT()
@@ -113,8 +113,8 @@ function OutcomeTag({ s }) {
   return (
     <HoverTip tip={tip}>
       {outcome === 'won'
-        ? <span className="pill inline-flex items-center gap-1 bg-warning-100 text-warning-800"><Trophy className="w-3 h-3" />{t('sales.outcome.won')}</span>
-        : <span className="pill bg-iron text-graphite">{t('sales.outcome.lost')}</span>}
+        ? <span className="pill inline-flex items-center gap-1 bg-success-100 text-success-700"><Trophy className="w-3 h-3" />{t('sales.outcome.won')}</span>
+        : <span className="pill inline-flex items-center gap-1 bg-danger-100 text-danger-700"><XCircle className="w-3 h-3" />{t('sales.outcome.lost')}</span>}
     </HoverTip>
   )
 }
@@ -319,11 +319,14 @@ export function SalesTable({ onOpen, customerId }) {
         </div>
       </div>
 
-      <div className={`card !p-0 overflow-x-auto ${loading ? 'opacity-60' : ''}`}>
+      <div className={`card !p-0 overflow-hidden ${loading ? 'opacity-60' : ''}`}>
+        {/* The rows scroll inside the card under a sticky header; the pager
+            below stays in view. */}
+        <div className="overflow-auto max-h-[70vh]">
         {/* Narrower when columns are hidden, so the rest don't spread out. */}
         <table className="w-full text-sm" style={{ minWidth: Math.max(480, shownCount * 110) }}>
-          <thead>
-            <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-graphite border-b border-shadow">
+          <thead className="sticky top-0 z-10 bg-white shadow-[inset_0_-1px_0_theme(colors.shadow)]">
+            <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-graphite">
               {!customerId && <th className="px-4 py-3">{t('sales.field.customer')}</th>}
               {pickable.filter((c) => show(c.key)).map((c) => <th key={c.key} className="px-3 py-3">{c.label}</th>)}
             </tr>
@@ -362,6 +365,7 @@ export function SalesTable({ onOpen, customerId }) {
         {!loading && items.length === 0 && (
           <div className="p-6"><EmptyState icon={ClipboardList} title={t('sales.empty.title')} description={t('sales.empty.body')} /></div>
         )}
+        </div>
         <div className="flex flex-wrap items-center justify-end gap-3 px-4 py-3 border-t border-shadow text-sm">
           <span className="text-graphite">{t('sales.rowsPerPage')}</span>
           <Select className="input w-auto !py-1" value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1) }}>
