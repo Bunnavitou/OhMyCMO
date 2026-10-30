@@ -11,7 +11,7 @@ import { useT } from '../i18n/LanguageContext.jsx'
 import { memberLabel } from '../utils/tasks.js'
 import { saleApi } from '../api/sales.js'
 import {
-  STATUSES, CHANNELS, OTHER, statusFromActivities, nextActivityDue, statusStyle, fmtDay, todayKey, dateOnly, splitAt,
+  STATUSES, CHANNELS, OTHER, nextActivityDue, statusStyle, fmtDay, todayKey, dateOnly, splitAt,
   joinAt, saleErrorText, activityLabel } from '../utils/sales.js'
 import Select from './Select.jsx'
 
@@ -62,23 +62,10 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
   const savedId = useRef(sale?.id) // a new sale saved before winning — reused if winning is retried
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v?.target ? v.target.value : v }))
 
-  // With activities, the status follows them (same rule as the API): all New
-  // → New, all Done → Completed, else Follow-up. Cancelled stays a manual choice.
+  // The status is chosen by hand, separately from the activities.
   const acts = form.activities
-  const auto = acts.length > 0 && form.status !== 'Cancelled'
-  const status = auto ? statusFromActivities(acts) : form.status
+  const status = form.status
   const activityDue = nextActivityDue(acts)
-
-  const pickStatus = (s) => {
-    // Completed by hand marks every activity Done, so the two never disagree.
-    if (s === 'Completed' && acts.length) {
-      setForm((f) => ({ ...f, status: s, activities: f.activities.map((a) => ({ ...a, status: 'Done' })) }))
-    } else {
-      setForm((f) => ({ ...f, status: s }))
-    }
-  }
-  // New / Follow-up come from the activities; they can only be picked to undo Cancelled.
-  const locked = (s) => auto && (s === 'New' || s === 'Follow-up') && s !== status
 
   // A prospect (business card) becomes a customer only through Mark as won,
   // which confirms the customer's details first (WinDialog).
@@ -188,21 +175,19 @@ export default function SaleForm({ sale, defaults, onClose, onSaved }) {
             )}
           </Row>
           <Row label={t('sales.field.status')}>
-            {/* Coloured like the status pill; New / Follow-up are greyed out
-                while the activities decide them. */}
+            {/* Coloured like the status pill. */}
             <Select
               aria-label={t('sales.field.status')}
               value={status}
-              onChange={(e) => pickStatus(e.target.value)}
+              onChange={set('status')}
               className={`input w-auto font-semibold cursor-pointer ${statusStyle(status)}`}
             >
               {STATUSES.map((s) => (
-                <option key={s} value={s} disabled={locked(s)} className="bg-white text-near-black">
+                <option key={s} value={s} className="bg-white text-near-black">
                   {t(`sales.status.${s}`)}
                 </option>
               ))}
             </Select>
-            {auto && <p className="text-xs text-graphite mt-1.5">{t('sales.statusFromActivities')}</p>}
           </Row>
           <Row label={t('sales.field.saleDate')} required>
             <div className="flex gap-2">

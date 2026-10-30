@@ -136,19 +136,16 @@ function PartyCell({ s }) {
   )
 }
 
-// The sale's activities at a glance: the next open ones, and how many are done.
-// With nothing left open (e.g. a Completed sale), the sale's last activity in
-// form order instead.
+// The sale's activities at a glance: its last two in form order, done or
+// not, and how many are done.
 function ActivitiesCell({ s }) {
   const { t, lang } = useT()
   const acts = s.activities || []
   if (!acts.length) return <span className="text-graphite">—</span>
-  const open = acts.filter((a) => a.status !== 'Done')
-  const done = acts.length - open.length
-  const shown = open.length ? open : acts.slice(-1)
+  const done = acts.filter((a) => a.status === 'Done').length
   return (
     <div className="space-y-0.5">
-      {shown.slice(0, 2).map((a) => {
+      {acts.slice(-2).map((a) => {
         const isDone = a.status === 'Done'
         const day = isDone ? doneDay(a) : dateOnly(a.dueDate)
         return (

@@ -13,10 +13,13 @@ import Select from '../components/Select.jsx'
 // Sales › Dashboard: overview cards, products in use by customers, and deals
 // won by month or year. Colors follow the dataviz method: categorical slots
 // in fixed order (validated, light mode — the app has no dark theme), "Other"
-// in neutral gray, a single brand hue for the one-series bar chart.
+// in neutral gray; the won / lost bars reuse the Success / Rejected card colors.
 const SLOTS = chart.series
 const OTHER = chart.other
-const BAR = chart.bar   // one series, named by the title
+const RESULTS = [
+  { key: 'won', color: chart.kpi.completed },
+  { key: 'lost', color: chart.kpi.rejected },
+]
 const MAX_SLICES = SLOTS.length
 
 const Filter = ({ label, children }) => (
@@ -33,15 +36,16 @@ export default function SalesDashboard({ children }) {
   // A rep starts on their own numbers, the owner on everyone's.
   const [f, setF] = useState({ userId: user?.ownerId ? user.id : '', customerId: '', from: '', to: '' })
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }))
-  const { totals, wonByMonth, wins, winsTotal, loading } = useDashboard(f)
+  const { totals, wonByMonth, lostByMonth, wins, winsTotal, loading } = useDashboard(f)
   const team = (state.team || []).filter((m) => m.active !== false)
 
   const cards = [
     { key: 'total', value: totals?.total, accent: chart.kpi.total },
     { key: 'progress', value: totals && totals.new + totals.followUp, sub: totals && t('sales.dash.progressSub', { n: totals.new, f: totals.followUp }), accent: chart.kpi.progress },
-    // Completed only means the work is finished; say how many were won or lost.
-    { key: 'completed', value: totals?.completed, sub: totals && t('sales.dash.completedSub', { won: totals.won, lost: totals.lost }), accent: chart.kpi.completed },
-    { key: 'rejected', value: totals?.rejected, accent: chart.kpi.rejected },
+    // Completed = sales won (Deal Won done), Rejected = sales lost (Deal Lost
+    // done) — the results, not the sale status chosen by hand.
+    { key: 'completed', value: totals?.won, accent: chart.kpi.completed },
+    { key: 'rejected', value: totals?.lost, accent: chart.kpi.rejected },
   ]
 
   return (
@@ -77,7 +81,7 @@ export default function SalesDashboard({ children }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3">
         <ProductsCard customerId={f.customerId} />
-        <WonChart wonByMonth={wonByMonth} loading={loading} />
+        <WonChart wonByMonth={wonByMonth} lostByMonth={lostByMonth} loading={loading} />
       </div>
 
       <WinsCard wins={wins} total={winsTotal} loading={loading} />
@@ -208,16 +212,21 @@ function Donut({ slices, total, hover, onHover }) {
   )
 }
 
-// ── Deals won: Done "Deal Won" activities, by month of a year or by year.
+// ── Deals won and lost: Done "Deal Won" / "Deal Lost" activities, by month of
+// a year or by year, side by side.
 
-function WonChart({ wonByMonth, loading }) {
+function WonChart({ wonByMonth, lostByMonth, loading }) {
   const { t, lang } = useT()
   const thisYear = Number(todayKey().slice(0, 4))
   const [mode, setMode] = useState('month') // 'month' | 'year'
   const [year, setYear] = useState(thisYear)
   const [hover, setHover] = useState(null)
 
-  const keys = Object.keys(wonByMonth)
+  const data = { won: wonByMonth, lost: lostByMonth }
+  const keys = [...Object.keys(wonByMonth), ...Object.keys(lostByMonth)]
+  // Counts per result for one month ('YYYY-MM') or year ('YYYY').
+  const countsFor = (prefix) => Object.fromEntries(RESULTS.map(({ key }) => [key,
+    Object.entries(data[key]).filter(([k]) => k.startsWith(prefix)).reduce((s, [, n]) => s + n, 0)]))
   const firstYear = Math.min(thisYear, ...keys.map((k) => Number(k.slice(0, 4))))
   const bars = mode === 'month'
     ? Array.from({ length: 12 }, (_, i) => {
@@ -228,22 +237,31 @@ function WonChart({ wonByMonth, loading }) {
           // 3 letters so all 12 fit on a phone ("Sep", not "Sept").
           label: lang === 'ko' ? `${i + 1}월` : d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }).slice(0, 3),
           full: d.toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
-          n: wonByMonth[k] || 0,
+          ...countsFor(k),
         }
       })
     : Array.from({ length: thisYear - firstYear + 1 }, (_, i) => {
         const y = String(firstYear + i)
-        return { key: y, label: y, full: y, n: keys.filter((k) => k.startsWith(y)).reduce((s, k) => s + wonByMonth[k], 0) }
+        return { key: y, label: y, full: y, ...countsFor(y) }
       })
-  const max = Math.max(1, ...bars.map((b) => b.n))
-  const sum = bars.reduce((s, b) => s + b.n, 0)
+  const max = Math.max(1, ...bars.flatMap((b) => [b.won, b.lost]))
+  const sum = (key) => bars.reduce((s, b) => s + b[key], 0)
 
   return (
     <section className="card !rounded-2xl !p-0 min-w-0">
       <div className="px-4 py-3 border-b border-shadow flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-bold flex-1">
-          {t('sales.dash.won')}{mode === 'month' ? ` · ${year}` : ''} <span className="font-normal text-graphite">· {t('sales.dash.wonTotal', { n: sum })}</span>
+          {t('sales.dash.won')}{mode === 'month' ? ` · ${year}` : ''}
         </h2>
+        {/* Legend with totals for the shown period */}
+        <div className="flex items-center gap-3 text-xs text-graphite">
+          {RESULTS.map(({ key, color }) => (
+            <span key={key} className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />
+              {t(`sales.dash.legend.${key}`, { n: sum(key) })}
+            </span>
+          ))}
+        </div>
         {mode === 'month' && (
           <div className="flex items-center">
             <button className="p-1 rounded hover:bg-iron disabled:opacity-30" disabled={year <= firstYear} onClick={() => setYear(year - 1)} aria-label={t('sales.dash.prevYear')}><ChevronLeft className="w-4 h-4" /></button>
@@ -260,14 +278,20 @@ function WonChart({ wonByMonth, loading }) {
       </div>
 
       <div className={`relative p-4 ${loading ? 'opacity-60' : ''}`} onMouseLeave={() => setHover(null)}>
-        {/* Bars hang from a shared baseline; value labels only on non-zero bars. */}
+        {/* A won and a lost bar per period, hanging from a shared baseline;
+            value labels only on non-zero bars. */}
         <div className="flex items-end gap-1.5 h-56 border-b border-shadow">
           {bars.map((b) => (
-            <div key={b.key} className="relative flex-1 h-full flex flex-col justify-end items-center cursor-default"
+            <div key={b.key} className="relative flex-1 h-full flex justify-center items-end gap-0.5 cursor-default transition-opacity"
+              style={{ opacity: hover && hover.key !== b.key ? 0.5 : 1 }}
               onMouseEnter={() => setHover(b)}>
-              {b.n > 0 && <span className="text-[11px] font-bold text-near-black tabular-nums mb-1">{b.n}</span>}
-              <div className="w-full max-w-[36px] rounded-t-[4px] transition-opacity"
-                style={{ height: b.n ? `${(b.n / max) * 85}%` : '2px', background: b.n ? BAR : chart.empty, opacity: hover && hover.key !== b.key ? 0.5 : 1 }} />
+              {RESULTS.map(({ key, color }) => (
+                <div key={key} className="flex-1 max-w-[18px] h-full flex flex-col justify-end items-center">
+                  {b[key] > 0 && <span className="text-[10px] font-bold text-near-black tabular-nums mb-1">{b[key]}</span>}
+                  <div className="w-full rounded-t-[3px]"
+                    style={{ height: b[key] ? `${(b[key] / max) * 85}%` : '2px', background: b[key] ? color : chart.empty }} />
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -277,13 +301,14 @@ function WonChart({ wonByMonth, loading }) {
         {hover && (
           <div className="absolute top-3 right-4 rounded-xl bg-near-black text-white text-xs px-3 py-2 shadow-lg pointer-events-none">
             <p className="font-semibold">{hover.full}</p>
-            <p className="tabular-nums">{t('sales.dash.wonTip', { n: hover.n })}</p>
+            <p className="tabular-nums">{t('sales.dash.wonTip', { won: hover.won, lost: hover.lost })}</p>
           </div>
         )}
         {/* Table view for screen readers */}
         <table className="sr-only">
           <caption>{t('sales.dash.won')}</caption>
-          <tbody>{bars.map((b) => <tr key={b.key}><th>{b.full}</th><td>{b.n}</td></tr>)}</tbody>
+          <thead><tr><th /><th>{t('sales.outcome.won')}</th><th>{t('sales.outcome.lost')}</th></tr></thead>
+          <tbody>{bars.map((b) => <tr key={b.key}><th>{b.full}</th><td>{b.won}</td><td>{b.lost}</td></tr>)}</tbody>
         </table>
       </div>
     </section>

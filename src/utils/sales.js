@@ -23,13 +23,6 @@ export const activityStyle = (s) =>
   : s === 'In progress' ? 'bg-info-100 text-info-700'
   : 'bg-iron text-near-black'
 
-// With activities, the sale's status follows them — same rule as the API:
-// all New → New, all Done → Completed, anything in between → Follow-up.
-export const statusFromActivities = (activities) => {
-  if (activities.every((a) => a.status === 'Done')) return 'Completed'
-  if (activities.every((a) => a.status === 'New')) return 'New'
-  return 'Follow-up'
-}
 // Earliest due date among unfinished activities — the sale's due date when
 // it is Follow-up without one of its own.
 export const nextActivityDue = (activities) =>
